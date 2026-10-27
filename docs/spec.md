@@ -25,13 +25,13 @@ Vehicles maintained at level *n* is the larger of the base pool × (1 + 0.1*n*),
 
 ## Cost
 
-Each tree has its own price ladder. Level *n* costs 1/15 (0.0667) × the building's build price × 1.35^(*n*−1):
+Each tree has its own price ladder. Level *n* costs 0.10 × the building's build price × 1.35^(*n*−1):
 
 | Level | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15 |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| × build price | 0.067 | 0.09 | 0.12 | 0.16 | 0.22 | 0.30 | 0.40 | 0.54 | 0.74 | 0.99 | 1.34 | 1.81 | 2.44 | 3.30 | 4.45 |
+| × build price | 0.10 | 0.14 | 0.18 | 0.25 | 0.33 | 0.45 | 0.61 | 0.82 | 1.10 | 1.49 | 2.01 | 2.71 | 3.66 | 4.95 | 6.68 |
 
-The first ten levels of a tree cost about 3.6 × the build price, a full tree about 17 ×, and all three trees about 51 ×. Levels are paid in money only. The cost basis may later differ by tree, depending on how much each tree is worth to the player.
+The first ten levels of a tree cost about 5.5 × the build price, a full tree about 25 ×, and all three trees about 76 ×. Levels are paid in money only. The cost basis may later differ by tree, depending on how much each tree is worth to the player.
 
 ## Upkeep
 
