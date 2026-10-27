@@ -25,13 +25,13 @@ Vehicles maintained at level *n* is the larger of the base pool × (1 + 0.1*n*),
 
 ## Cost
 
-Each tree has its own price ladder. Level *n* costs 1/15 (0.0667) × the building's build price × 1.5^(*n*−1):
+Each tree has its own price ladder. Level *n* costs 1/15 (0.0667) × the building's build price × 1.35^(*n*−1):
 
 | Level | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15 |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| × build price | 0.067 | 0.10 | 0.15 | 0.23 | 0.34 | 0.51 | 0.76 | 1.14 | 1.71 | 2.56 | 3.84 | 5.77 | 8.65 | 13.0 | 19.5 |
+| × build price | 0.067 | 0.09 | 0.12 | 0.16 | 0.22 | 0.30 | 0.40 | 0.54 | 0.74 | 0.99 | 1.34 | 1.81 | 2.44 | 3.30 | 4.45 |
 
-The first ten levels of a tree cost about 7.6 × the build price, a full tree about 58 ×, and all three trees about 175 ×. Levels are paid in money only. The cost basis may later differ by tree, depending on how much each tree is worth to the player.
+The first ten levels of a tree cost about 3.6 × the build price, a full tree about 17 ×, and all three trees about 51 ×. Levels are paid in money only. The cost basis may later differ by tree, depending on how much each tree is worth to the player.
 
 ## Upkeep
 
@@ -43,7 +43,7 @@ A tree's maximum level equals the company rank.
 
 ## Open points
 
-- Whether each tree gets its own cost basis, and whether the 1.5 × step between levels stays: the step sets the shape, and level 15 alone is a third of a tree's total.
+- Whether each tree gets its own cost basis.
 - Whether the rank gate is an in-game setting. The proposal is a setting that is on by default.
 - Which rank counts: the proposal is the rank the company window shows.
 - How to read the build price actually paid. The depot scripts give a base cost, and the game raises it with the year.
