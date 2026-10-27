@@ -15,13 +15,26 @@ There is no build step and no unit tests. The code is Teal (`.tl`) that the game
 ```bash
 # Type check (needs gitignored tlconfig.lua copied from tlconfig.example.lua, with <tf3_install_folder> filled in)
 export PATH="$HOME/.luarocks/bin:$PATH"; eval "$(luarocks path --local)"
-tl check depot_retrofits_1/content/<file>.tl
+tl check depot_retrofits_1/content/mod.script.tl
+tl check depot_retrofits_1/content/construction.script.tl
+tl check depot_retrofits_1/content/probe.script.tl
 
 # Check that _content.json lists every file under content/ (the game cannot load a file the list leaves out)
 python3 tools/check_content_list.py
 ```
 
 Run `tl check` on each script you touch.
+
+## Architecture (probe stage)
+
+`depot_retrofits_1/` is the mod. For now it carries only the rebuild probe; the level system gets built once the probe shows that a rebuilt depot keeps its vehicles.
+
+- **[mod.json](depot_retrofits_1/mod.json)** sets `runScript` to `mod.script@runFn`.
+- **[mod.script.tl](depot_retrofits_1/content/mod.script.tl)**: `runFn` registers a `loadConstruction` modifier. For every non-industry construction that uses the base depot HUD icons or sits under a `depots/` folder, it replaces `updateScript` with the wrapper, keeps the original capture params at the top level, stores the original script's absolute reference under `depotRetrofits`, and declares two probe params (`depotRetrofitsProbePool`, `depotRetrofitsProbeRadius`; 1-based, 1 = Base, 2 = probe value; not modifiable after construction, but they show in the build menu). It logs `wrap` and `skip` lines with the `fileName` the game passes.
+- **[construction.script.tl](depot_retrofits_1/content/construction.script.tl)**: the wrapper `update` loads the original with base `::/scripts/util.tl` `useFn`, runs it, then scales `maintenancePool` (x2) and `catchmentArea.radius` (x1.5) on every subconstruction with a `depot` table when the probe param is 2. The scaling is under `pcall`; a missing original raises, since there is no result to return.
+- **[probe.gs.lua](depot_retrofits_1/content/probe.gs.lua) and [probe.script.tl](depot_retrofits_1/content/probe.script.tl)**: the game script. A game day after the first load, it logs every depot (`probe depot`), picks the busiest player-owned depot and maintenance building by vehicles maintained, logs their before-state, and sends `createProposalReplaceConstruction` with both probe params set to 2. It then logs `probe after` lines at about 1 game hour, 1 day, 7 days, 1 month and 2 months: whether the old construction and depot entities exist, which depot now stands for the target, pool, radius, and how many of the vehicles maintained before are still maintained by it or still name it as their `maintenanceStation`. The state remembers the run (`phase`), so a save made afterwards does not repeat it.
+
+The param keys and the capture key are copied into each of the three scripts (no shared module, so no extra load); keep the copies equal.
 
 ## In-game test loop
 

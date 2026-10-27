@@ -60,4 +60,4 @@ The rail depot's upkeep and cost are multiplied by its template's year coefficie
 
 ## Test results
 
-None yet.
+None yet. The first probe (`depot_retrofits_1/`, described in the repo's CLAUDE.md) rebuilds the busiest depot and maintenance building in a test save with a doubled pool and a 1.5 times wider radius, and logs whether the entities and the maintained vehicles survive.
