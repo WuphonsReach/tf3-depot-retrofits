@@ -185,8 +185,10 @@ local effect = function(s : TabState, tree : string, level : integer, nextLevel?
 end
 
 local logShown = function(s : TabState)
-	if shownLines >= maxShownLines or shownKeys[tostring(s.construction) .. " " .. s.key] then return end
-	shownKeys[tostring(s.construction) .. " " .. s.key] = true
+	-- The accumulated costs grow every second while vehicles are serviced; a change there alone is not logged.
+	local logKey = tostring(s.construction) .. " " .. s.key:gsub(" accumulated=%S+", "")
+	if shownLines >= maxShownLines or shownKeys[logKey] then return end
+	shownKeys[logKey] = true
 	shownLines = shownLines + 1
 	local prices : {string} = {}
 	for _, tree in ipairs(levels.trees) do
