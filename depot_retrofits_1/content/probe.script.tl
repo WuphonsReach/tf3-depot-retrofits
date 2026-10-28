@@ -1,38 +1,54 @@
--- Rebuild probe. Once per save, a game day after the load, it rebuilds the busiest depot and the busiest maintenance building
--- with both probe params set to 2 (pool x2, radius x1.5, applied by construction.script.tl), using the same replace proposal a
--- level purchase will use. Before and after, it logs whether the construction and depot entities survive, the pool and radius,
--- and which of the vehicles the depot maintained before are still maintained by it. The after-state is logged five times, up to
--- two game months later. The state remembers that the probe ran, so a save made afterwards does not run it again. Log lines
--- start with "DEPOT_RETROFITS".
+-- Rebuild probe. Once per save, a game day after the load, it rebuilds three buildings with the same replace proposal a level
+-- purchase will use: the busiest depot and the busiest maintenance building with all five probe params set to 2 (pool x2,
+-- radius x1.5, noise x0.5, pollution x0.25, upkeep x2, applied by construction.script.tl), and the next busiest building of
+-- either kind as a control, with its params unchanged. Right after, it books two small test charges, one as depot
+-- construction and one as infrastructure maintenance, to show where a level's price and upkeep would land in the finances.
+-- Before and after, it logs per building whether the construction and depot entities survive, pool, radius, upkeep,
+-- emissions, and where the vehicles it maintained before are now maintained and whether they kept their line; and one line
+-- with every depot's usage. The after-state is logged eleven times, up to a game year later. On every later load of a save
+-- made afterwards, it logs the three buildings again, to show whether loading regenerates them. The state remembers the run,
+-- so it is not repeated. Log lines start with "DEPOT_RETROFITS".
 
 -- Shared with mod.script.tl and construction.script.tl; keep the copies equal.
 local poolParam = "depotRetrofitsProbePool"
 local radiusParam = "depotRetrofitsProbeRadius"
+local noiseParam = "depotRetrofitsProbeNoise"
+local pollutionParam = "depotRetrofitsProbePollution"
+local upkeepParam = "depotRetrofitsProbeUpkeep"
+local probeParams = { poolParam, radiusParam, noiseParam, pollutionParam, upkeepParam }
 local probeValue = 2
 
 -- Clock units: a game year is 1,461,000.
 local dayClock = 4000
 local monthClock = 121750
 local startDelay = dayClock
-local checkOffsets = { 200, dayClock, 7 * dayClock, monthClock, 2 * monthClock }
+local checkOffsets = { 200, dayClock, 2 * dayClock, 4 * dayClock, 7 * dayClock, 14 * dayClock, monthClock, 2 * monthClock,
+	3 * monthClock, 6 * monthClock, 12 * monthClock }
+local testCharge = 1000
 local maxInventoryLines = 80
 local maxVehicleIds = 60
+local maxLoadLogs = 20
+local stateVersion = 2 -- a state from an older probe is set aside, not continued
 
 local record Target
 	kind : string -- "depot" or "maintenance"
+	role : string -- "scaled" or "control"
 	construction : Engine.Entity
 	depot : Engine.Entity
 	fileName : string
 	vehicles : {Engine.Entity} -- maintained by the depot before the rebuild
+	lines : {Engine.Entity} -- each vehicle's line before the rebuild, same order (0 for none)
 end
 
 local record ProbeState
+	version : integer
 	firstSeen : number
 	phase : string -- nil before the rebuild, then "sent", then "done"
 	sentAt : number
 	checksDone : integer
 	targets : {Target}
 	depotsBefore : {Engine.Entity}
+	loadLogs : integer
 end
 
 local record DepotInfo
@@ -48,9 +64,16 @@ local record DepotInfo
 	inDepot : integer
 	going : integer
 	assigned : integer
-	rawPool : string
-	rawRadius : string
+	raw : string
+	upkeepConstruction : string
+	upkeepDepot : string
+	upkeepCalc : string
+	noisePower : string
+	pollutionPower : string
 end
+
+-- Module variables do not survive a load, so this marks the first update after each load.
+local loadSeen = false
 
 local say = function(text : string)
 	log.message("DEPOT_RETROFITS " .. text)
@@ -104,12 +127,23 @@ local paramKeys = function(params : {string:any}) : string
 	return table.concat(keys, ",")
 end
 
+-- The five probe params as "pool/radius/noise/pollution/upkeep".
+local rawValues = function(params : {string:any}) : string
+	local parts : {string} = {}
+	for _, key in ipairs(probeParams) do parts[#parts + 1] = tostring(params[key]) end
+	return table.concat(parts, "/")
+end
+
 local constructionForDepot = function(depot : Engine.Entity) : Engine.Entity
 	local ok, construction = pcall(api.engine.system.streetConnectorSystem.getConstructionEntityForDepot, depot)
 	if ok and exists(construction) then return construction end
 	ok, construction = pcall(api.engine.system.streetConnectorSystem.getConstructionEntityForSubconstruction, depot)
 	if ok and exists(construction) then return construction end
 	return nil
+end
+
+local transportVehicle = function(vehicle : Engine.Entity) : Engine.Component.TransportVehicle
+	return api.engine.getComponent(vehicle, api.type.ComponentType.TRANSPORT_VEHICLE) as Engine.Component.TransportVehicle
 end
 
 -- Vehicles per maintenance station, from each vehicle's own record.
@@ -119,7 +153,7 @@ local assignedCounts = function() : {Engine.Entity : integer}, integer
 	local ok, err = pcall(function() : string
 		api.engine.forEachEntityWithComponent(function(vehicle : Engine.Entity)
 			total = total + 1
-			local tv : Engine.Component.TransportVehicle = api.engine.getComponent(vehicle, api.type.ComponentType.TRANSPORT_VEHICLE)
+			local tv = transportVehicle(vehicle)
 			local station = tv and tv.maintenanceStation
 			if station ~= nil then counts[station] = (counts[station] or 0) + 1 end
 		end, api.type.ComponentType.TRANSPORT_VEHICLE)
@@ -133,6 +167,17 @@ local listOrEmpty = function(fn : function(Engine.Entity) : {Engine.Entity}, ent
 	local ok, list = pcall(fn, entity)
 	if ok and type(list) == "table" then return list end
 	return {}
+end
+
+local upkeepOf = function(entity : Engine.Entity) : string
+	if entity == nil then return "nil" end
+	local cost : Engine.Component.MaintenanceCost = nil
+	local ok = pcall(function() : string
+		cost = api.engine.getComponent(entity, api.type.ComponentType.MAINTENANCE_COST) as Engine.Component.MaintenanceCost
+		return nil
+	end)
+	if not ok then return "err" end
+	return cost and tostring(cost.maintenanceCost) or "none"
 end
 
 local readDepot = function(depot : Engine.Entity, assigned : {Engine.Entity : integer}) : DepotInfo
@@ -150,15 +195,20 @@ local readDepot = function(depot : Engine.Entity, assigned : {Engine.Entity : in
 		inDepot = #listOrEmpty(tvs.getDepotVehicles, depot),
 		going = #listOrEmpty(tvs.getGoingToDepotVehicles, depot),
 		assigned = assigned[depot] or 0,
+		upkeepDepot = upkeepOf(depot),
 	}
+	local okCalc, calc = pcall(api.engine.util.maintenance.calcMaintenanceForSubconstruction, depot)
+	info.upkeepCalc = okCalc and tostring(calc) or "err"
+	local emitter = api.engine.getComponent(depot, api.type.ComponentType.EMISSION_EMITTER) as Engine.Component.EmissionEmitter
+	info.noisePower = emitter and tostring(emitter.noisePower) or "none"
+	info.pollutionPower = emitter and tostring(emitter.pollutionPower) or "none"
 	info.construction = constructionForDepot(depot)
+	info.upkeepConstruction = upkeepOf(info.construction)
 	if info.construction ~= nil then
 		local con : Engine.Component.Construction = api.engine.getComponent(info.construction, api.type.ComponentType.CONSTRUCTION)
 		if con ~= nil then
 			info.fileName = tostring(con.fileName)
-			local params = constructionParams(con)
-			info.rawPool = tostring(params[poolParam])
-			info.rawRadius = tostring(params[radiusParam])
+			info.raw = rawValues(constructionParams(con))
 		end
 	end
 	return info
@@ -170,7 +220,9 @@ local describe = function(info : DepotInfo) : string
 		.. " maintained=" .. tostring(#info.maintained) .. " assigned=" .. tostring(info.assigned)
 		.. " inDepot=" .. tostring(info.inDepot) .. " going=" .. tostring(info.going)
 		.. " maxPoolUsage=" .. tostring(info.maxPoolUsage) .. " averagePoolUsage=" .. tostring(info.averagePoolUsage)
-		.. " rawPool=" .. tostring(info.rawPool) .. " rawRadius=" .. tostring(info.rawRadius)
+		.. " upkeepConstruction=" .. info.upkeepConstruction .. " upkeepDepot=" .. info.upkeepDepot
+		.. " upkeepCalc=" .. info.upkeepCalc .. " noisePower=" .. info.noisePower .. " pollutionPower=" .. info.pollutionPower
+		.. " raw=" .. tostring(info.raw)
 end
 
 local allDepots = function() : {Engine.Entity}
@@ -198,8 +250,23 @@ local ownedDepots = function() : {Engine.Entity : boolean}
 	return owned
 end
 
--- Logs every depot and picks the busiest depot and maintenance building (most vehicles maintained, then most assigned).
-local inventory = function(label : string) : {string : DepotInfo}, {Engine.Entity}
+local busier = function(a : DepotInfo, b : DepotInfo) : boolean
+	if #a.maintained ~= #b.maintained then return #a.maintained > #b.maintained end
+	if a.assigned ~= b.assigned then return a.assigned > b.assigned end
+	return a.depot < b.depot
+end
+
+-- Every depot's usage on one line: "depot:maintained/pool".
+local networkLine = function(label : string, infos : {DepotInfo}) : string
+	local parts : {string} = {}
+	for _, info in ipairs(infos) do
+		parts[#parts + 1] = tostring(info.depot) .. ":" .. tostring(#info.maintained) .. "/" .. tostring(info.pool)
+	end
+	return "probe network label=" .. label .. " depots=" .. table.concat(parts, ",")
+end
+
+-- Logs every depot and returns the player's depots, busiest first (all depots if none are found as owned).
+local inventory = function(label : string) : {DepotInfo}, {Engine.Entity}
 	local assigned, vehicles = assignedCounts()
 	local depots = allDepots()
 	local owned = ownedDepots()
@@ -207,7 +274,7 @@ local inventory = function(label : string) : {string : DepotInfo}, {Engine.Entit
 	for _ in pairs(owned) do ownedCount = ownedCount + 1 end
 	say("probe inventory label=" .. label .. " depots=" .. tostring(#depots) .. " owned=" .. tostring(ownedCount)
 		.. " vehicles=" .. tostring(vehicles) .. " t=" .. tostring(now()))
-	local best : {string : DepotInfo} = {}
+	local eligible : {DepotInfo} = {}
 	local lines = 0
 	for _, depot in ipairs(depots) do
 		local ok, info = pcall(readDepot, depot, assigned)
@@ -218,60 +285,110 @@ local inventory = function(label : string) : {string : DepotInfo}, {Engine.Entit
 				lines = lines + 1
 				say("probe depot label=" .. label .. " owned=" .. tostring(owned[depot] == true) .. " " .. describe(info))
 			end
-			-- With no owned depots found (the filter may not apply to depot entities), every depot competes.
-			local eligible = ownedCount == 0 or owned[depot] == true
-			local current = best[info.kind]
-			if eligible and info.construction ~= nil and (current == nil or #info.maintained > #current.maintained
-				or (#info.maintained == #current.maintained and info.assigned > current.assigned)) then
-				best[info.kind] = info
+			if info.construction ~= nil and (ownedCount == 0 or owned[depot] == true) then
+				eligible[#eligible + 1] = info
 			end
 		end
 	end
-	return best, depots
+	table.sort(eligible, busier)
+	return eligible, depots
+end
+
+local carrierFor = function(fileName : string) : JournalEntry.Carrier
+	local carriers = api.type.JournalEntry.Carrier
+	local name = (fileName or ""):lower()
+	if name:find("tram", 1, true) then return carriers.TRAM end
+	if name:find("/road/", 1, true) then return carriers.ROAD end
+	if name:find("/rail/", 1, true) then return carriers.RAIL end
+	if name:find("/water/", 1, true) then return carriers.WATER end
+	return carriers.OTHER
+end
+
+-- Books one test charge; "construction" lands as depot construction, "maintenance" as infrastructure maintenance.
+local bookCharge = function(category : string, carrier : JournalEntry.Carrier) : string
+	local entry = api.type.JournalEntry.new()
+	entry.amount = -testCharge
+	entry.time = -1 -- the engine fills in the time
+	if category == "construction" then
+		entry.category.type = api.type.JournalEntry.Type.CONSTRUCTION
+		entry.category.construction = api.type.JournalEntry.Construction.DEPOT
+	else
+		entry.category.type = api.type.JournalEntry.Type.MAINTENANCE
+		entry.category.maintenance = api.type.JournalEntry.Maintenance.INFRASTRUCTURE
+	end
+	entry.category.carrier = carrier
+	api.cmd.sendCommand(api.cmd.makeJournalBookAssetCmd(api.engine.util.getPlayer(), entry, api.type.Vec3f.new(0, 0, 0)))
+	return nil
 end
 
 local sendRebuild = function(target : Target) : string
 	local con : Engine.Component.Construction = api.engine.getComponent(target.construction, api.type.ComponentType.CONSTRUCTION)
 	if con == nil then
-		say("probe rebuildSkipped kind=" .. target.kind .. " reason=noConstruction construction=" .. tostring(target.construction))
+		say("probe rebuildSkipped kind=" .. target.kind .. " role=" .. target.role .. " reason=noConstruction construction="
+			.. tostring(target.construction))
 		return nil
 	end
 	local params = constructionParams(con)
-	say("probe params kind=" .. target.kind .. " construction=" .. tostring(target.construction) .. " keys=" .. paramKeys(params)
-		.. " rawPool=" .. tostring(params[poolParam]) .. " rawRadius=" .. tostring(params[radiusParam]))
-	params[poolParam] = probeValue
-	params[radiusParam] = probeValue
+	say("probe params kind=" .. target.kind .. " role=" .. target.role .. " construction=" .. tostring(target.construction)
+		.. " keys=" .. paramKeys(params) .. " raw=" .. rawValues(params))
+	if target.role == "scaled" then
+		for _, key in ipairs(probeParams) do params[key] = probeValue end
+	end
 	local ok, proposal = pcall(api.engine.util.proposal.createProposalReplaceConstruction, target.construction, params)
 	if not ok or proposal == nil then
-		say("probe rebuildSkipped kind=" .. target.kind .. " reason=noProposal error=" .. tostring(proposal))
+		say("probe rebuildSkipped kind=" .. target.kind .. " role=" .. target.role .. " reason=noProposal error=" .. tostring(proposal))
 		return nil
 	end
 	local sent, err = pcall(function() : string
 		api.cmd.sendCommand(api.cmd.makeWorldBuildProposalCmd(proposal, nil, false, false, false))
 		return nil
 	end)
-	say("probe rebuildSent kind=" .. target.kind .. " construction=" .. tostring(target.construction)
+	say("probe rebuildSent kind=" .. target.kind .. " role=" .. target.role .. " construction=" .. tostring(target.construction)
 		.. " depot=" .. tostring(target.depot) .. " sent=" .. tostring(sent) .. " error=" .. tostring(err)
 		.. " balance=" .. balance())
 	return nil
 end
 
+local addTarget = function(targets : {Target}, info : DepotInfo, role : string)
+	local lines : {Engine.Entity} = {}
+	for i, vehicle in ipairs(info.maintained) do
+		local tv = transportVehicle(vehicle)
+		lines[i] = tv and tv.line or 0
+	end
+	say("probe before kind=" .. info.kind .. " role=" .. role .. " " .. describe(info) .. " vehicles=" .. idList(info.maintained)
+		.. " lines=" .. idList(lines))
+	table.insert(targets, {
+		kind = info.kind,
+		role = role,
+		construction = info.construction,
+		depot = info.depot,
+		fileName = info.fileName,
+		vehicles = info.maintained,
+		lines = lines,
+	})
+end
+
 local start = function(state : GameScriptState<ProbeState>, probe : ProbeState, t : number) : string
-	local best, depots = inventory("before")
+	local eligible, depots = inventory("before")
+	say(networkLine("before", eligible))
 	probe.targets = {}
+	local picked : {Engine.Entity : boolean} = {}
 	for _, kind in ipairs({ "depot", "maintenance" }) do
-		local info = best[kind]
-		if info == nil then
-			say("probe noTarget kind=" .. kind)
-		else
-			say("probe before kind=" .. kind .. " " .. describe(info) .. " vehicles=" .. idList(info.maintained))
-			table.insert(probe.targets, {
-				kind = kind,
-				construction = info.construction,
-				depot = info.depot,
-				fileName = info.fileName,
-				vehicles = info.maintained,
-			})
+		local found = false
+		for _, info in ipairs(eligible) do
+			if info.kind == kind then
+				addTarget(probe.targets, info, "scaled")
+				picked[info.depot] = true
+				found = true
+				break
+			end
+		end
+		if not found then say("probe noTarget kind=" .. kind) end
+	end
+	for _, info in ipairs(eligible) do
+		if not picked[info.depot] then
+			addTarget(probe.targets, info, "control")
+			break
 		end
 	end
 	-- The state is saved before anything is sent: a failure must not repeat on every update.
@@ -281,10 +398,16 @@ local start = function(state : GameScriptState<ProbeState>, probe : ProbeState, 
 	probe.depotsBefore = depots
 	state:set(probe)
 	say("probe balanceBefore=" .. balance())
-	-- Each target on its own guard: a failure on the first must not stop the second.
+	-- Each step on its own guard: a failure in one must not stop the others.
 	for _, target in ipairs(probe.targets) do
 		local ok, err = pcall(sendRebuild, target)
-		if not ok then say("probe rebuildError kind=" .. target.kind .. " error=" .. tostring(err)) end
+		if not ok then say("probe rebuildError kind=" .. target.kind .. " role=" .. target.role .. " error=" .. tostring(err)) end
+	end
+	local carrier = carrierFor(probe.targets[1] and probe.targets[1].fileName)
+	for _, category in ipairs({ "construction", "maintenance" }) do
+		local ok, err = pcall(bookCharge, category, carrier)
+		say("probe charge category=" .. category .. " amount=-" .. tostring(testCharge) .. " sent=" .. tostring(ok)
+			.. " error=" .. tostring(err) .. " balance=" .. balance())
 	end
 	return nil
 end
@@ -310,57 +433,92 @@ local currentDepot = function(target : Target, infos : {Engine.Entity : DepotInf
 	return match, match and "newDepot" or "notFound", candidates
 end
 
-local check = function(probe : ProbeState, n : integer) : string
-	local before : {Engine.Entity : boolean} = {}
-	for _, depot in ipairs(probe.depotsBefore or {}) do before[depot] = true end
-	local assigned = assignedCounts()
+-- Where the target's former vehicles are maintained now, and whether they kept their line.
+local followVehicles = function(target : Target, info : DepotInfo) : string
+	local kept, keptAssigned, onOldDepot, dangling, elsewhere, unassigned, gone = 0, 0, 0, 0, 0, 0, 0
+	local lineKept, lineChanged = 0, 0
+	local stations : {Engine.Entity : integer} = {}
+	local maintainedNow : {Engine.Entity : boolean} = {}
+	for _, vehicle in ipairs(info and info.maintained or {}) do maintainedNow[vehicle] = true end
+	for i, vehicle in ipairs(target.vehicles or {}) do
+		if not exists(vehicle) then
+			gone = gone + 1
+		else
+			if maintainedNow[vehicle] then kept = kept + 1 end
+			local tv = transportVehicle(vehicle)
+			local station = tv and tv.maintenanceStation
+			if station == nil then
+				unassigned = unassigned + 1
+			elseif info ~= nil and station == info.depot then
+				keptAssigned = keptAssigned + 1
+			elseif station == target.depot then
+				onOldDepot = onOldDepot + 1 -- the old depot id, while another depot now stands for the target
+			elseif not exists(station) then
+				dangling = dangling + 1
+			else
+				elsewhere = elsewhere + 1
+				stations[station] = (stations[station] or 0) + 1
+			end
+			if (tv and tv.line or 0) == ((target.lines or {})[i] or 0) then lineKept = lineKept + 1 else lineChanged = lineChanged + 1 end
+		end
+	end
+	local parts : {string} = {}
+	for station, count in pairs(stations) do parts[#parts + 1] = tostring(station) .. ":" .. tostring(count) end
+	table.sort(parts)
+	return "vehiclesBefore=" .. tostring(#(target.vehicles or {})) .. " stillMaintained=" .. tostring(kept)
+		.. " stillAssigned=" .. tostring(keptAssigned) .. " onOldDepot=" .. tostring(onOldDepot) .. " dangling=" .. tostring(dangling)
+		.. " assignedElsewhere=" .. tostring(elsewhere) .. " unassigned=" .. tostring(unassigned) .. " vehiclesGone=" .. tostring(gone)
+		.. " lineKept=" .. tostring(lineKept) .. " lineChanged=" .. tostring(lineChanged)
+		.. " elsewhereAt=" .. (#parts > 0 and table.concat(parts, ",") or "none")
+end
+
+local readAll = function(assigned : {Engine.Entity : integer}) : {Engine.Entity : DepotInfo}, {DepotInfo}
 	local infos : {Engine.Entity : DepotInfo} = {}
-	local newDepots = 0
+	local list : {DepotInfo} = {}
 	for _, depot in ipairs(allDepots()) do
 		local ok, info = pcall(readDepot, depot, assigned)
 		if ok and info ~= nil then
 			infos[depot] = info
-			if not before[depot] then
-				newDepots = newDepots + 1
-				say("probe newDepot check=" .. tostring(n) .. " " .. describe(info))
-			end
+			list[#list + 1] = info
+		end
+	end
+	return infos, list
+end
+
+local check = function(probe : ProbeState, n : integer) : string
+	local before : {Engine.Entity : boolean} = {}
+	for _, depot in ipairs(probe.depotsBefore or {}) do before[depot] = true end
+	local infos, list = readAll((assignedCounts()))
+	local newDepots = 0
+	for _, info in ipairs(list) do
+		if not before[info.depot] then
+			newDepots = newDepots + 1
+			say("probe newDepot check=" .. tostring(n) .. " " .. describe(info))
 		end
 	end
 	say("probe check=" .. tostring(n) .. " t=" .. tostring(now()) .. " sinceSent=" .. tostring(now() - probe.sentAt)
 		.. " newDepots=" .. tostring(newDepots) .. " balance=" .. balance())
 	for _, target in ipairs(probe.targets or {}) do
 		local info, how, candidates = currentDepot(target, infos, before)
-		local kept, keptAssigned, onOldDepot, dangling, elsewhere, unassigned, gone = 0, 0, 0, 0, 0, 0, 0
-		local maintainedNow : {Engine.Entity : boolean} = {}
-		for _, vehicle in ipairs(info and info.maintained or {}) do maintainedNow[vehicle] = true end
-		for _, vehicle in ipairs(target.vehicles or {}) do
-			if not exists(vehicle) then
-				gone = gone + 1
-			else
-				if maintainedNow[vehicle] then kept = kept + 1 end
-				local tv : Engine.Component.TransportVehicle = api.engine.getComponent(vehicle, api.type.ComponentType.TRANSPORT_VEHICLE)
-				local station = tv and tv.maintenanceStation
-				if station == nil then
-					unassigned = unassigned + 1
-				elseif info ~= nil and station == info.depot then
-					keptAssigned = keptAssigned + 1
-				elseif station == target.depot then
-					onOldDepot = onOldDepot + 1 -- the old depot id, while another depot now stands for the target
-				elseif not exists(station) then
-					dangling = dangling + 1
-				else
-					elsewhere = elsewhere + 1
-				end
-			end
-		end
-		say("probe after check=" .. tostring(n) .. " kind=" .. target.kind
+		say("probe after check=" .. tostring(n) .. " kind=" .. target.kind .. " role=" .. target.role
 			.. " oldConstruction=" .. tostring(target.construction) .. " oldConstructionExists=" .. tostring(exists(target.construction))
 			.. " oldDepot=" .. tostring(target.depot) .. " oldDepotExists=" .. tostring(exists(target.depot))
-			.. " found=" .. how .. " candidates=" .. tostring(candidates)
-			.. " vehiclesBefore=" .. tostring(#(target.vehicles or {})) .. " stillMaintained=" .. tostring(kept)
-			.. " stillAssigned=" .. tostring(keptAssigned) .. " onOldDepot=" .. tostring(onOldDepot) .. " dangling=" .. tostring(dangling)
-			.. " assignedElsewhere=" .. tostring(elsewhere) .. " unassigned=" .. tostring(unassigned) .. " vehiclesGone=" .. tostring(gone)
+			.. " found=" .. how .. " candidates=" .. tostring(candidates) .. " " .. followVehicles(target, info)
 			.. (info and (" " .. describe(info) .. " vehicles=" .. idList(info.maintained)) or ""))
+	end
+	say(networkLine("check" .. tostring(n), list))
+	return nil
+end
+
+-- After a load: the three buildings as they stand, to compare with the last check before the save.
+local loadCheck = function(probe : ProbeState) : string
+	local infos = readAll((assignedCounts()))
+	say("probe reload t=" .. tostring(now()) .. " phase=" .. tostring(probe.phase) .. " checksDone=" .. tostring(probe.checksDone)
+		.. " balance=" .. balance())
+	for _, target in ipairs(probe.targets or {}) do
+		local info = infos[target.depot]
+		say("probe reload kind=" .. target.kind .. " role=" .. target.role .. " depotExists=" .. tostring(exists(target.depot))
+			.. (info and (" " .. describe(info)) or ""))
 	end
 	return nil
 end
@@ -368,6 +526,23 @@ end
 local probeScript : GameScript<ProbeState> = {
 	update = function(_userParams : table, state : GameScriptState<ProbeState>, _dt : number) : any
 		local probe = state:get() or {}
+		if probe.version ~= stateVersion then
+			if next(probe as table) ~= nil then
+				say("probe oldStateReset version=" .. tostring(probe.version) .. " phase=" .. tostring(probe.phase))
+			end
+			probe = { version = stateVersion }
+			state:set(probe)
+		end
+		if not loadSeen then
+			loadSeen = true
+			-- Capped in the state as well, in case module variables reset more often than on a load.
+			if probe.targets ~= nil and (probe.loadLogs or 0) < maxLoadLogs then
+				probe.loadLogs = (probe.loadLogs or 0) + 1
+				state:set(probe)
+				local ok, err = pcall(loadCheck, probe)
+				if not ok then say("probe reloadError error=" .. tostring(err)) end
+			end
+		end
 		if probe.phase == "done" then return end
 		local t = now()
 		if probe.firstSeen == nil then

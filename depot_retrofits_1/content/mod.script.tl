@@ -1,17 +1,20 @@
 -- runFn registers a loadConstruction modifier that wraps the update script of every construction that builds a depot or a
 -- maintenance building. The wrapper (construction.script.tl) runs the original script and then scales the depot's
--- maintenance pool and radius from two probe params. The params are not modifiable after construction but do show in the
--- build menu (the game has no hidden param); leave them at "Base" when placing a depot, or the probe's before-state is already
--- scaled. Each wrapped construction keeps its own params and the original script's reference in its updateScript params, so
--- the wrapper knows what to call. Log lines start with "DEPOT_RETROFITS".
+-- maintenance pool, radius, noise, pollution and upkeep from five probe params. The params are not modifiable after
+-- construction but do show in the build menu (the game has no hidden param); leave them at "Base" when placing a depot, or
+-- the probe's before-state is already scaled. Each wrapped construction keeps its own params and the original script's
+-- reference in its updateScript params, so the wrapper knows what to call. Log lines start with "DEPOT_RETROFITS".
 
-local modVersion = "0.1-probe"
+local modVersion = "0.2-probe"
 
 -- Shared with construction.script.tl and probe.script.tl; keep the copies equal.
 local wrapperRef = "depot_retrofits_1::/construction.script@update"
 local captureKey = "depotRetrofits"
 local poolParam = "depotRetrofitsProbePool"
 local radiusParam = "depotRetrofitsProbeRadius"
+local noiseParam = "depotRetrofitsProbeNoise"
+local pollutionParam = "depotRetrofitsProbePollution"
+local upkeepParam = "depotRetrofitsProbeUpkeep"
 
 local record ScriptHook
 	fileName : string
@@ -142,6 +145,9 @@ local wrapConstruction = function(fileName : string, definition : Definition) : 
 	if type(definition.params) ~= "table" then definition.params = {} end
 	table.insert(definition.params, probeParam(poolParam, "Retrofit probe: vehicles maintained", { "Base", "x2" }))
 	table.insert(definition.params, probeParam(radiusParam, "Retrofit probe: maintenance radius", { "Base", "x1.5" }))
+	table.insert(definition.params, probeParam(noiseParam, "Retrofit probe: noise", { "Base", "x0.5" }))
+	table.insert(definition.params, probeParam(pollutionParam, "Retrofit probe: pollution", { "Base", "x0.25" }))
+	table.insert(definition.params, probeParam(upkeepParam, "Retrofit probe: upkeep", { "Base", "x2" }))
 
 	say("wrap fileName=" .. name .. " marker=" .. marker .. " ref=" .. script.fileName .. " resolved=" .. resolved)
 	return definition
