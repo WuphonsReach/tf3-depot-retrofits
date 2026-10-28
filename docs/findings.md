@@ -6,7 +6,8 @@
 - **The method works, tested in game.** A rebuild keeps the construction and depot entity ids, keeps every vehicle's line, costs nothing, and applies all five values: pool, radius, noise, pollution (the emitter power follows the scaled values exactly) and upkeep. A game script can charge the level's price with a journal entry.
 - **The cost of a rebuild: vehicles are reshuffled.** Every rebuild, even one that changes nothing, clears the maintenance link of every vehicle the building maintained. Within a game day the game assigns each vehicle again, by its own choice: in the test the maintenance buildings got all their vehicles back, the depot none of its 10 (they went to a nearer maintenance building and stayed there for the whole year). No command sets a vehicle's maintenance station, so the mod cannot put them back. Over the following months, the larger pool and radius draw vehicles in: the rebuilt maintenance building grew from 9 to 13 vehicles, the rebuilt depot later took 6 from a neighbour.
 - **Pollution and noise.** The base game cannot green depots: the Industry Greenification tool only reaches industries. Depot emissions come from the same construction data, so the rebuild covers both trees. A larger pool also lowers emissions by itself, since the emission state follows vehicles in maintenance against the pool.
-- **Unknown.** Whether loading a save regenerates constructions (a save-and-reload check is pending), and which finance rows the test charges landed in.
+- **Saved with the game.** Loading a save does not rerun the construction scripts: the rebuilt buildings came back with their scaled values and level params, and the wrapper was not called.
+- **Unknown.** How to keep the level params out of the build menu (construction params have no hidden flag), and which finance rows the test charges landed in.
 
 ## Depot values in the base game
 
@@ -59,7 +60,6 @@ The rail depot's upkeep and cost are multiplied by its template's year coefficie
 
 ## Unknowns
 
-- Whether the game regenerates constructions when a save loads.
 - Which finance rows the test charges landed in (the balance fell by exactly the amount; the rows were not checked).
 - How the game picks the building a vehicle is assigned to.
 
@@ -88,5 +88,7 @@ Both probes ran on the same 1900 save, with 24 player depots and 90 vehicles; th
 | 6 months | 0 | 12 | 11 |
 | 1 year | 6 (5 from the control) | 13 (8 of the 9) | 2 (none of the 9) |
 | Lines kept | all 10 | all 9 | all 9 |
+
+After the year, the game was saved, quit and the autosave loaded again: the three buildings still had the same pool, radius, upkeep, emitter power and level params, and no wrapper call was logged during the load.
 
 The emitter power matched the scaled values at every check: for example the scaled depot at 6 of 24 read noise 25 and pollution 21.25, a quarter of the way from 20/20 to 40/25. A group of about five vehicles moved between the control and the scaled depot several times during the year; the depot's own 10 stayed at 262157 throughout.
