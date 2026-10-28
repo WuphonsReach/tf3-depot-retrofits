@@ -51,11 +51,18 @@ Payback of the upkeep tree. Every base building costs 6 × its yearly base upkee
 
 The early levels pay back quickly and the late ones slowly: with the other trees full, level 1 saves 0.8 × base a year for 0.6 × base, level 15 the same 0.8 × base for 40 × base.
 
+## Buying a level
+
+- Levels are retrofits: they are bought for a building that already stands, including buildings placed before the mod was added. A newly placed depot or maintenance building starts at level 0 in every tree, and the build menu offers no way to place one with levels already set.
+- Buying a level rebuilds the construction. The game then reassigns the vehicles the building maintained, and some may settle at another building. That is accepted: players rarely track which building maintains which vehicle, and the game reshuffles assignments in normal play too.
+
 ## Rank gate
 
 A tree's maximum level equals the company rank.
 
 ## Open points
+
+- How to keep levels out of the build menu. Construction params have no hidden flag (`ConstructionScriptParam` in the game's type definitions), and a declared level param shows up when a depot is placed. To test: whether a rebuild keeps a param that is not declared; whether a param limited by `yearFrom` disappears from the menu but survives a rebuild; whether a param with a single value accepts a higher value from a rebuild.
 
 - Whether each tree gets its own cost basis. The upkeep tree's payback scales with its price: 0.79 × the ladder gives 10 years at full levels, 1.18 × gives 15.
 - Whether the rank gate is an in-game setting. The proposal is a setting that is on by default.
