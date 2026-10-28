@@ -1,17 +1,18 @@
 -- runFn registers a loadConstruction modifier that wraps the update script of every construction that builds a depot or a
--- maintenance building. The wrapper (construction.script.tl) runs the original script and logs the level params it receives.
--- Probe 0.3 tests how to keep level params out of the build menu, with three variants of a level param: one declared with
--- an availability year far in the future, one declared with a single value, and one not declared at all (the probe sends it
--- in the rebuild). Each wrapped construction keeps its own params and the original script's reference in its updateScript
+-- maintenance building. The wrapper (construction.script.tl) runs the original script and applies the building's levels.
+-- Each wrapped construction declares one param per level tree (keys in levels.tl), with an availability year past the end of
+-- the calendar, which keeps them out of the build menu: a new building starts at level 0, and the game script stores levels
+-- with a rebuild. Each wrapped construction keeps its own params and the original script's reference in its updateScript
 -- params, so the wrapper knows what to call. Log lines start with "DEPOT_RETROFITS".
 
-local modVersion = "0.3-probe"
+local modVersion = "0.4-probe"
 
--- Shared with construction.script.tl and probe.script.tl; keep the copies equal.
+-- Shared with construction.script.tl and levels_card.script.tl; keep the copies equal.
 local wrapperRef = "depot_retrofits_1::/construction.script@update"
 local captureKey = "depotRetrofits"
-local futureParam = "depotRetrofitsFutureLevel"
-local singleParam = "depotRetrofitsSingleLevel"
+
+-- The game's date card goes up to the year 5000; a level param available from 9999 never shows in the build menu.
+local hiddenYear = 9999
 
 local record ScriptHook
 	fileName : string
@@ -55,6 +56,10 @@ local say = function(text : string)
 	end
 end
 
+-- Guarded: without the levels module nothing is wrapped, and the log says why.
+local levelsLoaded, levelsModule = pcall(ug_require, "depot_retrofits_1::/levels.tl")
+local levels = levelsLoaded and (levelsModule as DepotRetrofitsLevels) or nil
+
 -- Base depot .con files name their update script relative to their own folder ("rail_depot.script@updateFn"); the wrapper
 -- lives in this mod, so it needs the absolute form ("::/depots/rail/rail_depot.script@updateFn"). nil when the owner's name
 -- has no "::" namespace part: then the reference cannot be resolved safely and the construction is left alone.
@@ -90,17 +95,19 @@ end
 
 local levelValues = function() : {string}
 	local values : {string} = {}
-	for level = 0, 15 do values[#values + 1] = tostring(level) end
+	for level = 0, levels.maxLevel do values[#values + 1] = tostring(level) end
 	return values
 end
 
-local probeParam = function(key : string, name : string, values : {string}) : ParamDef
+local levelParam = function(tree : string) : ParamDef
 	return {
-		key = key,
-		name = name,
-		tooltip = "Depot Retrofits test value, set by the mod's probe.",
-		values = values,
+		key = levels.paramKeys[tree],
+		name = "Retrofit level: " .. levels.names[tree],
+		tooltip = "Bought in the building's window; not offered when placing a building.",
+		values = levelValues(),
 		defaultIndex = 1,
+		yearFrom = hiddenYear,
+		yearTo = 0,
 		uiType = "ComboBox",
 		postConstructionModifiable = false,
 	}
@@ -146,13 +153,10 @@ local wrapConstruction = function(fileName : string, definition : Definition) : 
 	capture[captureKey] = { fileName = resolved, ref = script.fileName, owner = name }
 	definition.updateScript = { fileName = wrapperRef, params = capture }
 
-	-- Two of the three variants are declared; the third (depotRetrofitsUndeclaredLevel) is not. Values are 1-based.
 	if type(definition.params) ~= "table" then definition.params = {} end
-	local future = probeParam(futureParam, "Retrofit probe: future-year level", levelValues())
-	future.yearFrom = 3000
-	future.yearTo = 0
-	table.insert(definition.params, future)
-	table.insert(definition.params, probeParam(singleParam, "Retrofit probe: single-value level", { "0" }))
+	for _, tree in ipairs(levels.trees) do
+		table.insert(definition.params, levelParam(tree))
+	end
 
 	say("wrap fileName=" .. name .. " marker=" .. marker .. " ref=" .. script.fileName .. " resolved=" .. resolved)
 	return definition
@@ -160,7 +164,8 @@ end
 
 local mod : DepotRetrofitsMod = {
 	runFn = function(_captureParams : table, _settings : table, _allModParams : {string : {string : integer}})
-		say("version " .. modVersion)
+		say("version " .. modVersion .. " levels=" .. tostring(levelsLoaded) .. (levelsLoaded and "" or (" error=" .. tostring(levelsModule))))
+		if levels == nil then return end
 		addModifier("loadConstruction", function(fileName : string, definition : Definition) : Definition
 			local ok, result = pcall(wrapConstruction, fileName, definition)
 			if ok then return result as Definition end

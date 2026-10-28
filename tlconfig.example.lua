@@ -4,8 +4,8 @@ return {
 		"<tf3_install_folder>api/tealdef",
 		"<tf3_install_folder>base/tealdef",
 
-		-- list your mods here, if you provide your own d.tl definitions
-		-- "example_mod_1",
+		-- this mod's own definitions (the shared levels module), for type checking only
+		"types",
 	},
 	global_env_def = "all_def"
 }

@@ -7,7 +7,9 @@
 - **The cost of a rebuild: vehicles are reshuffled.** Every rebuild, even one that changes nothing, clears the maintenance link of every vehicle the building maintained. Within a game day the game assigns each vehicle again, by its own choice: in the test the maintenance buildings got all their vehicles back, the depot none of its 10 (they went to a nearer maintenance building and stayed there for the whole year). No command sets a vehicle's maintenance station, so the mod cannot put them back. Over the following months, the larger pool and radius draw vehicles in: the rebuilt maintenance building grew from 9 to 13 vehicles, the rebuilt depot later took 6 from a neighbour.
 - **Pollution and noise.** The base game cannot green depots: the Industry Greenification tool only reaches industries. Depot emissions come from the same construction data, so the rebuild covers both trees. A larger pool also lowers emissions by itself, since the emission state follows vehicles in maintenance against the pool.
 - **Saved with the game.** Loading a save does not rerun the construction scripts: the rebuilt buildings came back with their scaled values and level params, and the wrapper was not called.
-- **Keeping levels out of the build menu.** A level param declared with an availability year far in the future (`yearFrom` 3000) does not show in the build menu and is not passed when a depot is placed, yet a rebuild stores it and passes it to the update script. A param that is not declared at all behaves the same way. A declared param with a single value still shows in the menu.
+- **Keeping levels out of the build menu.** A level param declared with an availability year far in the future (`yearFrom` 3000) does not show in the build menu and is not passed when a depot is placed, yet a rebuild stores it and passes it to the update script. A param that is not declared at all behaves the same way. A declared param with a single value still shows in the menu. The mod now declares 9999, since a long game can pass 3000; the same behaviour is expected but not yet checked.
+- **Where the levels card goes.** Every vehicle depot, depot or maintenance building, opens the base maintenance station window, which shows the cards registered for its extension point. A mod adds a card with a `react-plugin` resource; no window script is replaced. Not yet tested in game.
+- **Reading the rank.** The base `company_progression_util.tl` gives the claimed rank (`level`) and the earned rank (`potentialLevel`); the company window reads it the same way. Not yet tested from this mod.
 - **Unknown.** Whether the game's own rebuilds of a construction (for example electrifying a rail depot) keep the level params; which finance rows the test charges show under.
 
 ## Depot values in the base game
@@ -47,6 +49,18 @@ The rail depot's upkeep and cost are multiplied by its template's year coefficie
 - The update script also sets the building's upkeep (`result.maintenanceCost`), so the wrapper can scale it in the same rebuild.
 - Charging money: a game script books a journal entry with `api.cmd.makeJournalBookAssetCmd(player, entry, position)`, the way the base marketing tool charges for a campaign (`gui/construction/tools/marketing_campaign_tool.script.tl`). The categories are in `scripts/journal.d.tl` (base tealdef): type `CONSTRUCTION` with subcategory `DEPOT`, type `MAINTENANCE` with `INFRASTRUCTURE`, and so on.
 - No command sets a vehicle's maintenance station (`api/tealdef/api/cmd.d.tl`).
+
+## The building window
+
+- Clicking a depot or a maintenance building opens `MaintenanceStationWindowContent` for its `VEHICLE_DEPOT` entity (`gui/entity_window/make_entity_window.tl` in `gui.zip`). A construction with one such subconstruction opens it directly; one with several gets a tab per subconstruction.
+- That window collects cards from `MaintenanceStationEowExtensionPoint` (`gui/entity_window/maintenance_station/maintenance_station_eow.script.tl`). The base cards are registered by resources of type `react-plugin ::MaintenanceStationEowExtensionPoint` with a `filePath`, an optional `condition` and an `order` (pool 20, balance 30, statistics 40, vehicles 50; for example `maintenance_station_balance.res.lua`). The card function receives the depot entity, the ownership state and the construction entity (nil while the construction cannot be modified).
+- The other route is a construction's own `entityWindowScript`, as the Cleaning Plant uses (`game_mechanics/emission/pollution_cleanup_facility_hud.script.tl`): it replaces the whole window and adds custom tabs. Industry Upgrades uses the plugin route for industries.
+- A GUI script sends an event to game scripts with `api.cmd.makeScriptingSendEventCmd("", id, name, param)`; a game script receives it in `handleEvent` once it has called `state:subscribeToEvent(name)`. The company window's rank claim works this way (`game_mechanics/company/company.tl` and `company_growth.script.tl`).
+- Widgets: `builtin.Button` takes `content` and `onClick`; any widget's `meta.enabled` greys it out (`scripts/builtin.d.tl`, `scripts/react.d.tl` in base tealdef).
+
+## Company rank
+
+- `company_progression_util.getCompanyProgressionState(player)` (`game_mechanics/company/company_progression_util.tl`) reads the state of `company_progression.gs`: `level` is the rank claimed in the company window, `potentialLevel` the rank earned. Rank rewards count from `level`.
 
 ## Pollution tools in the base game
 

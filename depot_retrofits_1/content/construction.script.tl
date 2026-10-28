@@ -1,16 +1,15 @@
 -- The update script of every wrapped depot construction (see mod.script.tl). It runs the construction's original update
--- script and logs the three level param variants it receives, with the depot's pool, so the probe log shows which variant
--- reaches the script on a rebuild and on a new placement. It changes nothing.
+-- script, then applies the building's levels (read from the construction params, formulas in levels.tl) to each
+-- subconstruction that builds a depot: maintenance pool, catchment radius, noise and pollution in both emission states, and
+-- the construction's upkeep. A building with no level params (placed before the mod, or new) is left as the original script
+-- made it.
 
--- Shared with mod.script.tl and probe.script.tl; keep the copies equal.
+-- Shared with mod.script.tl and levels_card.script.tl; keep the copies equal.
 local captureKey = "depotRetrofits"
-local futureParam = "depotRetrofitsFutureLevel"
-local singleParam = "depotRetrofitsSingleLevel"
-local undeclaredParam = "depotRetrofitsUndeclaredLevel"
 
--- The wrapper runs for every preview while the player places a depot, so the unchanged calls are logged only at first.
+-- The wrapper runs for every preview while the player places a depot, so the calls without levels are logged only at first.
 local maxPlainLines = 40
-local maxChangedLines = 200
+local maxLevelledLines = 400
 
 local record Own
 	fileName : string -- the original update script, absolute
@@ -27,12 +26,24 @@ local record DepotTable
 	catchmentArea : Catchment
 end
 
+local record EmissionState
+	noise : number
+	pollution : number
+end
+
+local record SubMetadata
+	emissions : {EmissionState}
+end
+
 local record Subconstruction
 	depot : DepotTable
+	metadata : SubMetadata
 end
 
 local record Result
 	subconstructions : {Subconstruction}
+	cost : number
+	maintenanceCost : number
 end
 
 local say = function(text : string)
@@ -47,10 +58,14 @@ local utilLoaded, utilModule = pcall(ug_require, "::/scripts/util.tl")
 local util = utilLoaded and (utilModule as Util) or nil
 if not utilLoaded then say("wrapper util unavailable error=" .. tostring(utilModule)) end
 
+local levelsLoaded, levelsModule = pcall(ug_require, "depot_retrofits_1::/levels.tl")
+local levels = levelsLoaded and (levelsModule as DepotRetrofitsLevels) or nil
+if not levelsLoaded then say("wrapper levels unavailable error=" .. tostring(levelsModule)) end
+
 local originals : {string : function({string:any}, {string:any}) : Result} = {}
 local missing : {string : boolean} = {}
 local plainLines = 0
-local changedLines = 0
+local levelledLines = 0
 
 local loadOriginal = function(own : Own) : function({string:any}, {string:any}) : Result
 	local cached = originals[own.fileName]
@@ -69,26 +84,73 @@ local loadOriginal = function(own : Own) : function({string:any}, {string:any}) 
 	return original
 end
 
-local paramKeys = function(params : {string:any}) : string
-	local keys : {string} = {}
-	for key in pairs(params) do keys[#keys + 1] = tostring(key) end
-	table.sort(keys)
-	return table.concat(keys, ",")
+-- "radius/vehicles/pollution/noise/upkeep".
+local describeLevels = function(values : {string : integer}) : string
+	local parts : {string} = {}
+	for _, tree in ipairs(levels.trees) do parts[#parts + 1] = tostring(values[tree]) end
+	return table.concat(parts, "/")
 end
 
-local logParams = function(result : Result, params : {string:any}, own : Own) : string
-	local future, single, undeclared = params[futureParam], params[singleParam], params[undeclaredParam]
-	local changed = (future ~= nil and future ~= 1) or (single ~= nil and single ~= 1) or undeclared ~= nil
-	if changed and changedLines >= maxChangedLines then return nil end
-	if not changed and plainLines >= maxPlainLines then return nil end
-	if changed then changedLines = changedLines + 1 else plainLines = plainLines + 1 end
-	local pools : {string} = {}
-	for _, sub in ipairs(result.subconstructions or {}) do
-		if type(sub) == "table" and type(sub.depot) == "table" then pools[#pools + 1] = tostring(sub.depot.maintenancePool) end
+-- "noise/pollution" per emission state, comma separated.
+local describeEmissions = function(sub : Subconstruction) : string
+	local emissions = sub.metadata and sub.metadata.emissions
+	if type(emissions) ~= "table" then return "none" end
+	local parts : {string} = {}
+	for _, state in ipairs(emissions) do
+		parts[#parts + 1] = tostring(state.noise) .. "/" .. tostring(state.pollution)
 	end
-	say("wrapper ref=" .. tostring(own.ref) .. " owner=" .. tostring(own.owner) .. " rawFuture=" .. tostring(future)
-		.. " rawSingle=" .. tostring(single) .. " rawUndeclared=" .. tostring(undeclared) .. " pool=" .. table.concat(pools, ",")
-		.. " paramKeys=" .. paramKeys(params))
+	return table.concat(parts, ",")
+end
+
+local applyLevels = function(result : Result, params : {string:any}, own : Own) : string
+	local values = levels.read(params)
+	local levelled = false
+	for _, tree in ipairs(levels.trees) do
+		if values[tree] > 0 then levelled = true end
+	end
+	local upkeepBefore = result.maintenanceCost
+	if levelled and type(upkeepBefore) == "number" then
+		result.maintenanceCost = math.floor(upkeepBefore * levels.upkeepFactor(values) + 0.5)
+	end
+	local noiseScale, pollutionScale = levels.emissionFactor(values.noise), levels.emissionFactor(values.pollution)
+	local found = 0
+	for index, sub in ipairs(result.subconstructions or {}) do
+		local depot = type(sub) == "table" and sub.depot or nil
+		if type(depot) == "table" then
+			found = found + 1
+			local poolBefore, radiusBefore = depot.maintenancePool, depot.catchmentArea and depot.catchmentArea.radius
+			local emissionsBefore = describeEmissions(sub)
+			if values.vehicles > 0 and type(poolBefore) == "number" then
+				depot.maintenancePool = levels.pool(poolBefore, values.vehicles)
+			end
+			if values.radius > 0 and type(radiusBefore) == "number" then
+				depot.catchmentArea.radius = levels.radius(radiusBefore, values.radius)
+			end
+			local emissions = sub.metadata and sub.metadata.emissions
+			if (values.noise > 0 or values.pollution > 0) and type(emissions) == "table" then
+				for _, state in ipairs(emissions) do
+					if type(state.noise) == "number" then state.noise = state.noise * noiseScale end
+					if type(state.pollution) == "number" then state.pollution = state.pollution * pollutionScale end
+				end
+			end
+			if (levelled and levelledLines < maxLevelledLines) or (not levelled and plainLines < maxPlainLines) then
+				if levelled then levelledLines = levelledLines + 1 else plainLines = plainLines + 1 end
+				say("wrapper ref=" .. tostring(own.ref) .. " owner=" .. tostring(own.owner) .. " sub=" .. tostring(index)
+					.. " levels=" .. describeLevels(values)
+					.. " poolBefore=" .. tostring(poolBefore) .. " poolAfter=" .. tostring(depot.maintenancePool)
+					.. " radiusBefore=" .. tostring(radiusBefore)
+					.. " radiusAfter=" .. tostring(depot.catchmentArea and depot.catchmentArea.radius)
+					.. " emissionsBefore=" .. emissionsBefore .. " emissionsAfter=" .. describeEmissions(sub)
+					.. " upkeepBefore=" .. tostring(upkeepBefore) .. " upkeepAfter=" .. tostring(result.maintenanceCost)
+					.. " cost=" .. tostring(result.cost))
+			end
+		end
+	end
+	if found == 0 and plainLines < maxPlainLines then
+		plainLines = plainLines + 1
+		say("wrapper noDepotTable ref=" .. tostring(own.ref) .. " owner=" .. tostring(own.owner)
+			.. " subconstructions=" .. tostring(result.subconstructions and #result.subconstructions))
+	end
 	return nil
 end
 
@@ -105,9 +167,10 @@ function wrapper.update(capture : {string:any}, params : {string:any}) : Result
 		if key ~= captureKey then originalCapture[key] = value end
 	end
 	local result = original(originalCapture, params)
+	if levels == nil then return result end
 	-- Guarded: an error here must not stop the depot from being built as the original script made it.
-	local ok, err = pcall(logParams, result, params or {}, own)
-	if not ok then say("wrapper logError ref=" .. tostring(own.ref) .. " error=" .. tostring(err)) end
+	local ok, err = pcall(applyLevels, result, params or {}, own)
+	if not ok then say("wrapper applyError ref=" .. tostring(own.ref) .. " error=" .. tostring(err)) end
 	return result
 end
 

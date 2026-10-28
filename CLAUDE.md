@@ -15,9 +15,11 @@ There is no build step and no unit tests. The code is Teal (`.tl`) that the game
 ```bash
 # Type check (needs gitignored tlconfig.lua copied from tlconfig.example.lua, with <tf3_install_folder> filled in)
 export PATH="$HOME/.luarocks/bin:$PATH"; eval "$(luarocks path --local)"
+tl check depot_retrofits_1/content/levels.tl
 tl check depot_retrofits_1/content/mod.script.tl
 tl check depot_retrofits_1/content/construction.script.tl
 tl check depot_retrofits_1/content/probe.script.tl
+tl check depot_retrofits_1/content/levels_card.script.tl
 
 # Check that _content.json lists every file under content/ (the game cannot load a file the list leaves out)
 python3 tools/check_content_list.py
@@ -27,14 +29,16 @@ Run `tl check` on each script you touch.
 
 ## Architecture (probe stage)
 
-`depot_retrofits_1/` is the mod. For now it carries only probes; the level system gets built once the probes settle how levels are stored. Probe 0.2 (pool, radius, noise, pollution and upkeep scaling, control rebuild, test charges, vehicle tracing) is in git history at `fe37966`; its results are in docs/findings.md. The current probe is 0.3:
+`depot_retrofits_1/` is the mod. The level system is being built inside a probe: levels are stored and applied for real, and the game script still runs a one-off test on load. Earlier probes are in git history (0.2, value scaling, at `fe37966`; 0.3, param variants, at `3adf8c6`); their results are in docs/findings.md. The current probe is 0.4:
 
+- **[levels.tl](depot_retrofits_1/content/levels.tl)**: the five trees, their param keys and the formulas of docs/spec.md (pool, radius, emissions, upkeep, build price, level price). Pure functions; every script loads it with `ug_require` under `pcall`. Its type is [types/depot_retrofits.d.tl](types/depot_retrofits.d.tl), which the mod does not ship.
 - **[mod.json](depot_retrofits_1/mod.json)** sets `runScript` to `mod.script@runFn`.
-- **[mod.script.tl](depot_retrofits_1/content/mod.script.tl)**: `runFn` registers a `loadConstruction` modifier. For every non-industry construction that uses the base depot HUD icons or sits under a `depots/` folder, and is not an edge object (the base path signals use the same HUD icons), it replaces `updateScript` with the wrapper, keeps the original capture params at the top level, and stores the original script's absolute reference under `depotRetrofits`. It declares two of three level param variants: `depotRetrofitsFutureLevel` (values 0 to 15, `yearFrom` 3000) and `depotRetrofitsSingleLevel` (one value). The third, `depotRetrofitsUndeclaredLevel`, is not declared. It logs `wrap` and `skip` lines with the `fileName` the game passes.
-- **[construction.script.tl](depot_retrofits_1/content/construction.script.tl)**: the wrapper `update` loads the original with base `::/scripts/util.tl` `useFn`, runs it, and logs which of the three variants it received, with the pool. It changes nothing. A missing original raises, since there is no result to return.
-- **[probe.gs.lua](depot_retrofits_1/content/probe.gs.lua) and [probe.script.tl](depot_retrofits_1/content/probe.script.tl)**: the game script. A game day after the first load, it rebuilds the three busiest player buildings, each with one variant set to 6, and reads the stored params back before and at checks after 1 game hour, 1 day, 7 days and 1 month. It books two test charges ($12,345 depot construction, $23,456 infrastructure maintenance) and logs the finance table's rows before and after (`computeFinanceTable`, as in the Best Before probe). Depots placed during the run are logged with their stored params. The state carries a version; a state from an older probe is reset.
+- **[mod.script.tl](depot_retrofits_1/content/mod.script.tl)**: `runFn` registers a `loadConstruction` modifier. For every non-industry construction that uses the base depot HUD icons or sits under a `depots/` folder, and is not an edge object (the base path signals use the same HUD icons), it replaces `updateScript` with the wrapper, keeps the original capture params at the top level, and stores the original script's absolute reference under `depotRetrofits`. It declares one param per tree (values 0 to 15, `yearFrom` 9999, so never in the build menu).
+- **[construction.script.tl](depot_retrofits_1/content/construction.script.tl)**: the wrapper `update` loads the original with base `::/scripts/util.tl` `useFn`, runs it, and applies the levels to pool, radius, both emission states and upkeep. A missing original raises, since there is no result to return.
+- **[probe.gs.lua](depot_retrofits_1/content/probe.gs.lua) and [probe.script.tl](depot_retrofits_1/content/probe.script.tl)**: the game script. A game day after the first load it gives the player's buildings without levels random levels by rebuilding them (every fourth is a control, the first gets all 15, the second all but upkeep), and checks pool, radius and upkeep against the formulas after 1 game hour, 1 day, 7 days and 1 month. It also handles the card's buy event: checks it, rebuilds with the new level and books the price as depot construction. It logs the company rank. The state carries a version; a state from an older probe is reset.
+- **[levels_card.script.tl](depot_retrofits_1/content/levels_card.script.tl) and [gui/depot_retrofits_levels.res.lua](depot_retrofits_1/content/gui/depot_retrofits_levels.res.lua)**: a card in the window every depot and maintenance building opens, registered as a plugin of the base `MaintenanceStationEowExtensionPoint`. It shows the rank, each tree's level and a buy button with the price.
 
-The param keys and the capture key are copied into each of the three scripts (no shared module, so no extra load); keep the copies equal.
+The wrapper reference, capture key and buy event name are copied into the scripts that use them (keep the copies equal); the param keys live in levels.tl only.
 
 ## In-game test loop
 

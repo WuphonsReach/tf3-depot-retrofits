@@ -1,5 +1,5 @@
 require "api_def"
 require "content_def"
 
--- list your mods here, if you provide your own d.tl definitions
--- require "example_mod_1"
+-- this mod's own definitions (types/depot_retrofits.d.tl)
+require "depot_retrofits"
