@@ -105,5 +105,7 @@ The emitter power matched the scaled values at every check: for example the scal
 
 The build menu was checked for the road, tram, road maintenance, rail, rail maintenance, water and water maintenance buildings. When a depot is placed, the params also carry `constructOpt56` and `constructOpt78`; after a rebuild they carry `upgrade`.
 
+A road maintenance building placed by hand during the run was stored without the future-year param (level 0) and with the single-value param at 1. Within days it took vehicles from the full maintenance building next to it (that one went from 16/16 to 14/16, the new one to 7/16), with no rebuild involved: the game moves vehicles to a new building on its own.
+
 The test charges ($12,345 as depot construction, $23,456 as infrastructure maintenance) lowered the balance by exactly $35,801. The construction charge appeared in the finance table's construction rows (key 2/2/6, which also holds the player's other construction this year); the maintenance charge is not among the investment rows the probe logs.
 
