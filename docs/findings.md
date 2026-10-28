@@ -7,7 +7,8 @@
 - **The cost of a rebuild: vehicles are reshuffled.** Every rebuild, even one that changes nothing, clears the maintenance link of every vehicle the building maintained. Within a game day the game assigns each vehicle again, by its own choice: in the test the maintenance buildings got all their vehicles back, the depot none of its 10 (they went to a nearer maintenance building and stayed there for the whole year). No command sets a vehicle's maintenance station, so the mod cannot put them back. Over the following months, the larger pool and radius draw vehicles in: the rebuilt maintenance building grew from 9 to 13 vehicles, the rebuilt depot later took 6 from a neighbour.
 - **Pollution and noise.** The base game cannot green depots: the Industry Greenification tool only reaches industries. Depot emissions come from the same construction data, so the rebuild covers both trees. A larger pool also lowers emissions by itself, since the emission state follows vehicles in maintenance against the pool.
 - **Saved with the game.** Loading a save does not rerun the construction scripts: the rebuilt buildings came back with their scaled values and level params, and the wrapper was not called.
-- **Unknown.** How to keep the level params out of the build menu (construction params have no hidden flag), and which finance rows the test charges landed in.
+- **Keeping levels out of the build menu.** A level param declared with an availability year far in the future (`yearFrom` 3000) does not show in the build menu and is not passed when a depot is placed, yet a rebuild stores it and passes it to the update script. A param that is not declared at all behaves the same way. A declared param with a single value still shows in the menu.
+- **Unknown.** Whether the game's own rebuilds of a construction (for example electrifying a rail depot) keep the level params; which finance rows the test charges show under.
 
 ## Depot values in the base game
 
@@ -62,6 +63,7 @@ The rail depot's upkeep and cost are multiplied by its template's year coefficie
 
 - Which finance rows the test charges landed in (the balance fell by exactly the amount; the rows were not checked).
 - How the game picks the building a vehicle is assigned to.
+- Whether a rebuild the game itself starts (a construction upgrade tool, a post-construction param change) keeps a param hidden by `yearFrom` or an undeclared one.
 
 ## Test results
 
@@ -92,3 +94,16 @@ Both probes ran on the same 1900 save, with 24 player depots and 90 vehicles; th
 After the year, the game was saved, quit and the autosave loaded again: the three buildings still had the same pool, radius, upkeep, emitter power and level params, and no wrapper call was logged during the load.
 
 The emitter power matched the scaled values at every check: for example the scaled depot at 6 of 24 read noise 25 and pollution 21.25, a quarter of the way from 20/20 to 40/25. A group of about five vehicles moved between the control and the scaled depot several times during the year; the depot's own 10 stayed at 262157 throughout.
+
+**Probe 0.3** (params; on a fresh load of the same save) rebuilt the three busiest buildings, each with one variant of a level param set to 6, and booked two test charges.
+
+| Variant | In the build menu | Passed when a depot is placed | After the rebuild |
+|---|---|---|---|
+| Declared, `yearFrom` 3000, values 0 to 15 | no | no | stored as 6, passed to the update script, unchanged after 7 days |
+| Declared, one value | yes, a box showing 0, for every depot type | 1 | stored as 6, passed, unchanged |
+| Not declared | no | no | stored as 6, passed, unchanged |
+
+The build menu was checked for the road, tram, road maintenance, rail, rail maintenance, water and water maintenance buildings. When a depot is placed, the params also carry `constructOpt56` and `constructOpt78`; after a rebuild they carry `upgrade`.
+
+The test charges ($12,345 as depot construction, $23,456 as infrastructure maintenance) lowered the balance by exactly $35,801. The construction charge appeared in the finance table's construction rows (key 2/2/6, which also holds the player's other construction this year); the maintenance charge is not among the investment rows the probe logs.
+
