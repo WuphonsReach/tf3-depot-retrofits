@@ -6,9 +6,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 A Transport Fever 3 script mod in development: depots and maintenance buildings get levels for maintenance radius, vehicles maintained, pollution, noise and upkeep, bought in the building's window. The spec is [docs/spec.md](docs/spec.md); the verified game facts and the open unknowns are in [docs/findings.md](docs/findings.md). Read findings before changing mechanics.
 
-The repo is local only for now: no remote, work on `main`. The name avoids "Upgrades" (too close to another mod's "Industry Upgrades"); inside the mod the terms are "level" and "retrofit".
+The repo is public on GitHub ([WuphonsReach/tf3-depot-retrofits](https://github.com/WuphonsReach/tf3-depot-retrofits), MIT); the mod is not on mod.io yet. `main` takes changes only through a pull request (see "CI and repo rules"): branch from `origin/main` as `<YYYY-MM-DD>-<slug>`, and push or open a PR only when the user asks. The name avoids "Upgrades" (too close to another mod's "Industry Upgrades"); inside the mod the terms are "level" and "retrofit".
 
-There is no build step and no unit tests. The code is Teal (`.tl`) that the game loads directly, and the only checks are the type checker and testing in the game. The user runs every in-game test.
+There is no build step and no unit tests. The code is Teal (`.tl`) that the game loads directly, and the only checks are the type checker, the CI checks below and testing in the game. The user runs every in-game test.
 
 ## Commands
 
@@ -26,6 +26,16 @@ python3 tools/check_content_list.py
 ```
 
 Run `tl check` on each script you touch.
+
+## CI and repo rules
+
+`.github/workflows/checks.yml` runs on every PR and every push to `main`: a `python-checks` job (`check_content_list.py`, `py_compile` of `tools/`) and a `teal-syntax` job (`tl gen` on each `.tl` file under `content/`, which fails on syntax errors only). CI cannot run `tl check` because the game's type definitions are not in the repo, so the type check stays a local step. Actions are pinned to full commit SHAs with the version in a trailing comment (`uses: actions/checkout@<sha> # v7.0.1`), at the latest release when added or bumped; look the SHA up with `gh api repos/<owner>/<action>/git/ref/tags/<tag>` and never use a floating tag like `@v4`.
+
+The rulesets match Best Before's and have no bypass actors, so they bind the owner too:
+
+- `main` and `pr-checks`: changes reach `main` only through a PR, and `pr-checks` requires the status checks `python-checks` and `teal-syntax`. The job names in `checks.yml` are the check names the ruleset matches: renaming a job means updating the ruleset (Settings > Rules) in the same change, or every PR will wait for a check that never reports.
+- `trunks`: `main` cannot be deleted or force-pushed.
+- `version-tags`: tags matching `v*.*` cannot be moved or deleted once pushed. Releases are immutable too, so check a tag and its release before publishing; a mistake means a new version, not a fix in place.
 
 ## Architecture (probe stage)
 
