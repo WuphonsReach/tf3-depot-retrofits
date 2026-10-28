@@ -1,20 +1,17 @@
 -- runFn registers a loadConstruction modifier that wraps the update script of every construction that builds a depot or a
--- maintenance building. The wrapper (construction.script.tl) runs the original script and then scales the depot's
--- maintenance pool, radius, noise, pollution and upkeep from five probe params. The params are not modifiable after
--- construction but do show in the build menu (the game has no hidden param); leave them at "Base" when placing a depot, or
--- the probe's before-state is already scaled. Each wrapped construction keeps its own params and the original script's
--- reference in its updateScript params, so the wrapper knows what to call. Log lines start with "DEPOT_RETROFITS".
+-- maintenance building. The wrapper (construction.script.tl) runs the original script and logs the level params it receives.
+-- Probe 0.3 tests how to keep level params out of the build menu, with three variants of a level param: one declared with
+-- an availability year far in the future, one declared with a single value, and one not declared at all (the probe sends it
+-- in the rebuild). Each wrapped construction keeps its own params and the original script's reference in its updateScript
+-- params, so the wrapper knows what to call. Log lines start with "DEPOT_RETROFITS".
 
-local modVersion = "0.2-probe"
+local modVersion = "0.3-probe"
 
 -- Shared with construction.script.tl and probe.script.tl; keep the copies equal.
 local wrapperRef = "depot_retrofits_1::/construction.script@update"
 local captureKey = "depotRetrofits"
-local poolParam = "depotRetrofitsProbePool"
-local radiusParam = "depotRetrofitsProbeRadius"
-local noiseParam = "depotRetrofitsProbeNoise"
-local pollutionParam = "depotRetrofitsProbePollution"
-local upkeepParam = "depotRetrofitsProbeUpkeep"
+local futureParam = "depotRetrofitsFutureLevel"
+local singleParam = "depotRetrofitsSingleLevel"
 
 local record ScriptHook
 	fileName : string
@@ -30,6 +27,8 @@ local record ParamDef
 	name : string
 	tooltip : string
 	values : {string}
+	yearFrom : integer
+	yearTo : integer
 	defaultIndex : integer
 	uiType : string
 	postConstructionModifiable : boolean
@@ -89,6 +88,12 @@ local depotMarker = function(fileName : string, definition : Definition) : strin
 	return nil
 end
 
+local levelValues = function() : {string}
+	local values : {string} = {}
+	for level = 0, 15 do values[#values + 1] = tostring(level) end
+	return values
+end
+
 local probeParam = function(key : string, name : string, values : {string}) : ParamDef
 	return {
 		key = key,
@@ -141,13 +146,13 @@ local wrapConstruction = function(fileName : string, definition : Definition) : 
 	capture[captureKey] = { fileName = resolved, ref = script.fileName, owner = name }
 	definition.updateScript = { fileName = wrapperRef, params = capture }
 
-	-- Declared so they are kept through every rebuild. Values are 1-based: 1 is the default, 2 is the probe value.
+	-- Two of the three variants are declared; the third (depotRetrofitsUndeclaredLevel) is not. Values are 1-based.
 	if type(definition.params) ~= "table" then definition.params = {} end
-	table.insert(definition.params, probeParam(poolParam, "Retrofit probe: vehicles maintained", { "Base", "x2" }))
-	table.insert(definition.params, probeParam(radiusParam, "Retrofit probe: maintenance radius", { "Base", "x1.5" }))
-	table.insert(definition.params, probeParam(noiseParam, "Retrofit probe: noise", { "Base", "x0.5" }))
-	table.insert(definition.params, probeParam(pollutionParam, "Retrofit probe: pollution", { "Base", "x0.25" }))
-	table.insert(definition.params, probeParam(upkeepParam, "Retrofit probe: upkeep", { "Base", "x2" }))
+	local future = probeParam(futureParam, "Retrofit probe: future-year level", levelValues())
+	future.yearFrom = 3000
+	future.yearTo = 0
+	table.insert(definition.params, future)
+	table.insert(definition.params, probeParam(singleParam, "Retrofit probe: single-value level", { "0" }))
 
 	say("wrap fileName=" .. name .. " marker=" .. marker .. " ref=" .. script.fileName .. " resolved=" .. resolved)
 	return definition
