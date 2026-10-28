@@ -23,6 +23,10 @@ tl check depot_retrofits_1/content/retrofit_window.script.tl
 
 # Check that _content.json lists every file under content/ (the game cannot load a file the list leaves out)
 python3 tools/check_content_list.py
+
+# Redraw the mod's preview image (depot_retrofits_1/_metadata/workshop_preview.jpg, 1920x1080; needs rsvg-convert and the Lato font)
+python3 tools/make_preview.py [--version 0.5] [--keep-svg local/preview/workshop_preview.svg]   # the version goes in the upper right corner, kept clear for it
+cp depot_retrofits_1/_metadata/workshop_preview.jpg depot_retrofits_1/_metadata/0.jpg   # 0.jpg is the cover the in-game uploader uses (byte-identical, as in Best Before); copy again after every redraw
 ```
 
 Run `tl check` on each script you touch.
