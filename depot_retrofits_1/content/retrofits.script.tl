@@ -1,18 +1,13 @@
--- Levels probe (0.4). Two jobs, both logged with the "DEPOT_RETROFITS" prefix:
+-- The game script: buying a level. The Retrofit tab in the building's window (retrofit_window.script.tl) sends a buy event;
+-- this script checks it (the construction runs our wrapper, the level the tab saw is still the stored one, below 15, within
+-- the company rank, enough money), rebuilds the construction with the new level, books the price as depot construction, and
+-- logs the building before, and after 1 game hour and 1 game day with the values the formulas in levels.tl predict. Log lines
+-- start with "DEPOT_RETROFITS".
 --
--- 1. Random levels. Once per save, a game day after the load, it gives the player's wrapped depots and maintenance buildings
---    levels by rebuilding them: every fourth building (by depot id) is a control and is left alone, the first of the others
---    gets every tree at 15, the second every tree but upkeep at 15, the rest a random level per tree (seeded by the
---    construction id, so a rerun gives the same levels). Only buildings without levels are picked. Before, and at checks
---    after 1 game hour, 1 day, 7 days and 1 month, it logs each building's pool, radius, upkeep, emitter power and vehicles,
---    with the values the formulas in levels.tl predict and whether they match. No money is charged for these.
--- 2. Buying a level. The Retrofit tab in the building's window (retrofit_window.script.tl) sends a buy event; this script checks
---    it (the level the card saw is still the stored one, below 15, within the company rank, enough money), rebuilds the
---    construction with the new level, books the price as depot construction, and logs the building before and after.
---
--- The company rank is logged at the load and at every check.
+-- The random levelling that tested the formulas across a whole save (probe 0.4) is in git history; its results are in
+-- docs/findings.md.
 
-local stateVersion = 4 -- a state from an older probe is set aside, not continued
+local stateVersion = 5 -- a state from an older version (the probes used 1 to 4) is set aside, not continued
 
 -- Shared with mod.script.tl, construction.script.tl and retrofit_window.script.tl; keep the copies equal.
 local wrapperRef = "depot_retrofits_1::/construction.script@update"
@@ -20,13 +15,10 @@ local buyEvent = "depotRetrofitsBuy"
 
 -- Clock units: a game day at calendar speed 1x is 4,000, a game year 1,461,000.
 local dayClock = 4000
-local monthClock = 121750
-local startDelay = dayClock
-local checkOffsets = { 200, dayClock, 7 * dayClock, monthClock }
 local buyCheckOffsets = { 200, dayClock }
-local buyPendingClock = 400 -- a second buy for the same building within this time is refused (the first rebuild is pending)
-local maxTargets = 30
-local controlEvery = 4
+-- A second buy for the same building is refused until the first rebuild has landed (the stored levels are the ones bought), or
+-- for this long in game time when it never lands. Game time stops while the game is paused, so landing is the normal way out.
+local buyPendingClock = 400
 
 local record Snapshot
 	pool : number
@@ -44,15 +36,6 @@ local record Expected
 	radius : number
 	upkeepScript : number
 	upkeepCharged : number
-end
-
-local record Target
-	construction : Engine.Entity
-	depot : Engine.Entity
-	fileName : string
-	role : string -- "control", "max", "noUpkeepTree" or "random"
-	levels : {string : integer}
-	before : Snapshot
 end
 
 local record Buy
@@ -74,16 +57,12 @@ end
 
 local record Pending
 	construction : Engine.Entity
+	to : {string : integer}
 	untilT : number
 end
 
-local record ProbeState
+local record RetrofitState
 	version : integer
-	firstSeen : number
-	phase : string -- nil before the random rebuilds, then "sent", then "done"
-	sentAt : number
-	checksDone : integer
-	targets : {Target}
 	buys : {Buy}
 	watches : {Watch}
 	pending : {Pending}
@@ -98,6 +77,9 @@ local levels = levelsLoaded and (levelsModule as DepotRetrofitsLevels) or nil
 
 local progressionLoaded, progressionModule = pcall(ug_require, "::/game_mechanics/company/company_progression_util.tl")
 local progression = progressionLoaded and (progressionModule as CompanyProgressionUtil) or nil
+
+-- Module variables do not persist across saves; this only keeps the load line to one per session.
+local loadLogged = false
 
 local exists = function(entity : Engine.Entity) : boolean
 	if entity == nil then return false end
@@ -149,14 +131,6 @@ end
 local storedLevels = function(construction : Engine.Entity) : {string : integer}
 	local con = getConstruction(construction)
 	return con and levels.read(constructionParams(con)) or nil
-end
-
-local constructionForDepot = function(depot : Engine.Entity) : Engine.Entity
-	local ok, construction = pcall(api.engine.system.streetConnectorSystem.getConstructionEntityForDepot, depot)
-	if ok and exists(construction) then return construction end
-	ok, construction = pcall(api.engine.system.streetConnectorSystem.getConstructionEntityForSubconstruction, depot)
-	if ok and exists(construction) then return construction end
-	return nil
 end
 
 -- true when the construction's definition runs our wrapper; nil when the definition cannot be read.
@@ -244,8 +218,8 @@ local near = function(a : number, b : number, tolerance : number) : boolean
 	return a ~= nil and b ~= nil and math.abs(a - b) <= tolerance
 end
 
--- "match=pool:yes,radius:yes,upkeep:yes,levels:yes" with the expected values, and whether all matched.
-local compare = function(snap : Snapshot, e : Expected, to : {string : integer}) : string, boolean
+-- "match=pool:yes,radius:yes,upkeep:yes,levels:yes" with the expected values.
+local compare = function(snap : Snapshot, e : Expected, to : {string : integer}) : string
 	local pool = snap.pool ~= nil and snap.pool == e.pool
 	local radius = near(snap.radius, e.radius, 0.01)
 	-- The script's upkeep from a building that already had levels went through two roundings.
@@ -254,31 +228,7 @@ local compare = function(snap : Snapshot, e : Expected, to : {string : integer})
 	local yn = function(b : boolean) : string return b and "yes" or "no" end
 	return "match=pool:" .. yn(pool) .. ",radius:" .. yn(radius) .. ",upkeep:" .. yn(upkeep) .. ",levels:" .. yn(stored)
 		.. " expPool=" .. tostring(e.pool) .. " expRadius=" .. tostring(e.radius) .. " expUpkeepScript=" .. tostring(e.upkeepScript)
-		.. " expUpkeepCharged=" .. tostring(e.upkeepCharged), pool and radius and upkeep and stored
-end
-
-local zeroLevels = function() : {string : integer}
-	local result : {string : integer} = {}
-	for _, tree in ipairs(levels.trees) do result[tree] = 0 end
-	return result
-end
-
-local allLevels = function(level : integer, upkeep : integer) : {string : integer}
-	local result : {string : integer} = {}
-	for _, tree in ipairs(levels.trees) do result[tree] = level end
-	result.upkeep = upkeep
-	return result
-end
-
--- Park-Miller generator, seeded by the construction id, so a rerun on the same save gives the same levels.
-local randomLevels = function(seed : integer) : {string : integer}
-	local x = (math.floor(seed) % 2147483646) + 1
-	local result : {string : integer} = {}
-	for _, tree in ipairs(levels.trees) do
-		x = (x * 16807) % 2147483647
-		result[tree] = math.floor(x) % (levels.maxLevel + 1)
-	end
-	return result
+		.. " expUpkeepCharged=" .. tostring(e.upkeepCharged)
 end
 
 local sendRebuild = function(construction : Engine.Entity, values : {string : integer}) : boolean, string
@@ -316,130 +266,29 @@ local bookPrice = function(amount : integer, fileName : string) : string
 	return nil
 end
 
--- Random levels -------------------------------------------------------------------------------------------------------------
-
-local pickTargets = function() : {Target}
-	local okOwned, owned = pcall(api.engine.getEntitiesWithComponent, api.type.ComponentType.VEHICLE_DEPOT,
-		{ requireOwnedByPlayer = api.engine.util.getPlayer() })
-	if not okOwned or type(owned) ~= "table" then
-		say("probe ownedUnavailable error=" .. tostring(owned))
-		return {}
-	end
-	local depots : {Engine.Entity} = {}
-	for _, depot in ipairs(owned as {Engine.Entity}) do depots[#depots + 1] = depot end
-	table.sort(depots)
-	local seen : {Engine.Entity : boolean} = {}
-	local targets : {Target} = {}
-	local eligible = 0
-	for _, depot in ipairs(depots) do
-		local construction = constructionForDepot(depot)
-		local con = construction and getConstruction(construction)
-		if con == nil then
-			say("probe skip depot=" .. tostring(depot) .. " reason=noConstruction")
-		elseif not seen[construction] then
-			seen[construction] = true
-			local wrapped = isWrapped(con)
-			local stored = levels.read(constructionParams(con))
-			local where = "probe skip depot=" .. tostring(depot) .. " construction=" .. tostring(construction)
-			if wrapped == false then
-				say(where .. " reason=notWrapped fileName=" .. tostring(con.fileName))
-			elseif not sameLevels(stored, zeroLevels()) then
-				say(where .. " reason=alreadyLevelled stored=" .. describeLevels(stored))
-			elseif #targets >= maxTargets then
-				say(where .. " reason=cap")
-			else
-				eligible = eligible + 1
-				local target : Target = { construction = construction, depot = depot, fileName = tostring(con.fileName) }
-				if eligible % controlEvery == 0 then
-					target.role, target.levels = "control", zeroLevels()
-				else
-					local levelled = eligible - math.floor(eligible / controlEvery)
-					if levelled == 1 then
-						target.role, target.levels = "max", allLevels(levels.maxLevel, levels.maxLevel)
-					elseif levelled == 2 then
-						target.role, target.levels = "noUpkeepTree", allLevels(levels.maxLevel, 0)
-					else
-						target.role, target.levels = "random", randomLevels(construction)
-					end
-				end
-				target.before = readSnapshot(depot, construction)
-				targets[#targets + 1] = target
-			end
-		end
-	end
-	say("probe inventory owned=" .. tostring(#depots) .. " targets=" .. tostring(#targets) .. " wrappedRead="
-		.. tostring(#targets == 0 or isWrapped(getConstruction(targets[1].construction)) ~= nil))
-	return targets
+local stillPending = function(p : Pending, t : number) : boolean
+	return t < p.untilT and not sameLevels(storedLevels(p.construction), p.to)
 end
 
-local start = function(state : GameScriptState<ProbeState>, probe : ProbeState, t : number) : string
-	probe.targets = pickTargets()
-	for _, target in ipairs(probe.targets) do
-		local charged = target.before.upkeepCharged
-		say("probe before role=" .. target.role .. " construction=" .. tostring(target.construction) .. " depot=" .. tostring(target.depot)
-			.. " fileName=" .. target.fileName .. " levels=" .. describeLevels(target.levels) .. " " .. describeSnapshot(target.before)
-			.. " buildPrice=" .. tostring(charged and levels.buildPrice(charged, zeroLevels())))
-	end
-	-- The state is saved before anything is sent: a failure must not repeat on every update.
-	probe.phase = "sent"
-	probe.sentAt = t
-	probe.checksDone = 0
-	state:set(probe)
-	local sent = 0
-	for _, target in ipairs(probe.targets) do
-		if target.role ~= "control" then
-			local ok, ran, result = pcall(sendRebuild, target.construction, target.levels)
-			if ok and ran then sent = sent + 1 end
-			say("probe rebuild role=" .. target.role .. " construction=" .. tostring(target.construction)
-				.. " levels=" .. describeLevels(target.levels) .. " result=" .. tostring(ok and result or ("error " .. tostring(ran))))
-		end
-	end
-	say("probe rebuildsSent count=" .. tostring(sent) .. " " .. describeRank())
-	return nil
-end
-
-local check = function(probe : ProbeState, n : integer) : string
-	local t = now()
-	say("probe check=" .. tostring(n) .. " t=" .. tostring(t) .. " sinceSent=" .. tostring(t - probe.sentAt) .. " " .. describeRank())
-	local matched, levelled, controls = 0, 0, 0
-	for _, target in ipairs(probe.targets or {}) do
-		local snap = readSnapshot(target.depot, target.construction)
-		local text, all = compare(snap, expectedAfter(target.before, zeroLevels(), target.levels), target.levels)
-		if target.role == "control" then
-			controls = controls + 1
-		else
-			levelled = levelled + 1
-			if all then matched = matched + 1 end
-		end
-		say("probe after check=" .. tostring(n) .. " role=" .. target.role .. " construction=" .. tostring(target.construction)
-			.. " depot=" .. tostring(target.depot) .. " levels=" .. describeLevels(target.levels) .. " " .. describeSnapshot(snap)
-			.. " maintainedBefore=" .. tostring(target.before.maintained) .. " " .. text)
-	end
-	say("probe summary check=" .. tostring(n) .. " levelled=" .. tostring(levelled) .. " matched=" .. tostring(matched)
-		.. " controls=" .. tostring(controls))
-	return nil
-end
-
--- Buying a level -----------------------------------------------------------------------------------------------------------
-
-local isPending = function(probe : ProbeState, construction : Engine.Entity, t : number) : boolean
-	for _, p in ipairs(probe.pending or {}) do
-		if p.construction == construction and t < p.untilT then return true end
+local isPending = function(retrofit : RetrofitState, construction : Engine.Entity, t : number) : boolean
+	for _, p in ipairs(retrofit.pending or {}) do
+		if p.construction == construction and stillPending(p, t) then return true end
 	end
 	return false
 end
 
 -- Returns the reason a buy was refused, or nil when it was carried out.
-local processBuy = function(probe : ProbeState, buy : Buy, t : number) : string
+local processBuy = function(retrofit : RetrofitState, buy : Buy, t : number) : string
 	if levels.paramKeys[buy.tree] == nil then return "unknownTree" end
 	local con = getConstruction(buy.construction)
 	if con == nil then return "noConstruction" end
+	if isWrapped(con) == false then return "notWrapped fileName=" .. tostring(con.fileName) end
 	local depot = con.depots and con.depots[1]
 	if not exists(depot) then return "noDepot" end
 	local from = levels.read(constructionParams(con))
 	if from[buy.tree] ~= buy.from then return "stale stored=" .. tostring(from[buy.tree]) end
 	if buy.from >= levels.maxLevel then return "maxLevel" end
-	if isPending(probe, buy.construction, t) then return "pending" end
+	if isPending(retrofit, buy.construction, t) then return "pending" end
 	local rank, _, rankSource = readRank()
 	if rank ~= nil and buy.from + 1 > rank then return "rank rank=" .. tostring(rank) end
 	local charged = chargedUpkeepOf(depot)
@@ -459,110 +308,85 @@ local processBuy = function(probe : ProbeState, buy : Buy, t : number) : string
 		.. " level=" .. tostring(buy.from + 1) .. " price=" .. tostring(price) .. " charged=" .. tostring(okCharge)
 		.. " chargeError=" .. tostring(chargeErr) .. " balanceBefore=" .. tostring(balance) .. " rank=" .. tostring(rank)
 		.. " rankSource=" .. rankSource .. " from=" .. describeLevels(from) .. " to=" .. describeLevels(to) .. " " .. describeSnapshot(before))
-	probe.pending = probe.pending or {}
-	table.insert(probe.pending, { construction = buy.construction, untilT = t + buyPendingClock })
-	probe.watches = probe.watches or {}
-	table.insert(probe.watches, { construction = buy.construction, depot = depot, label = buy.tree .. tostring(buy.from + 1),
+	retrofit.pending = retrofit.pending or {}
+	table.insert(retrofit.pending, { construction = buy.construction, to = to, untilT = t + buyPendingClock })
+	retrofit.watches = retrofit.watches or {}
+	table.insert(retrofit.watches, { construction = buy.construction, depot = depot, label = buy.tree .. tostring(buy.from + 1),
 		startedAt = t, checksDone = 0, from = from, to = to, before = before })
 	return nil
 end
 
-local processWatches = function(probe : ProbeState, t : number) : boolean
+local processWatches = function(retrofit : RetrofitState, t : number) : boolean
 	local changed = false
 	local kept : {Watch} = {}
-	for _, watch in ipairs(probe.watches or {}) do
+	for _, watch in ipairs(retrofit.watches or {}) do
 		local n = watch.checksDone + 1
 		if t >= watch.startedAt + buyCheckOffsets[n] then
 			watch.checksDone = n
 			changed = true
 			local snap = readSnapshot(watch.depot, watch.construction)
-			local text = compare(snap, expectedAfter(watch.before, watch.from, watch.to), watch.to)
 			say("buy after check=" .. tostring(n) .. " construction=" .. tostring(watch.construction) .. " bought=" .. watch.label
 				.. " balance=" .. tostring(balanceOf()) .. " " .. describeSnapshot(snap) .. " maintainedBefore=" .. tostring(watch.before.maintained)
-				.. " " .. text)
+				.. " " .. compare(snap, expectedAfter(watch.before, watch.from, watch.to), watch.to))
 		end
 		if watch.checksDone < #buyCheckOffsets then kept[#kept + 1] = watch end
 	end
-	probe.watches = kept
+	retrofit.watches = kept
 	local pending : {Pending} = {}
-	for _, p in ipairs(probe.pending or {}) do
-		if t < p.untilT then pending[#pending + 1] = p else changed = true end
+	for _, p in ipairs(retrofit.pending or {}) do
+		if stillPending(p, t) then pending[#pending + 1] = p else changed = true end
 	end
-	probe.pending = pending
+	retrofit.pending = pending
 	return changed
 end
 
-local loadProbe = function(state : GameScriptState<ProbeState>) : ProbeState
-	local probe = state:get() or {}
-	if probe.version ~= stateVersion then
-		if next(probe as table) ~= nil then
-			say("probe oldStateReset version=" .. tostring(probe.version) .. " phase=" .. tostring(probe.phase))
+local loadState = function(state : GameScriptState<RetrofitState>) : RetrofitState
+	local retrofit = state:get() or {}
+	if retrofit.version ~= stateVersion then
+		if next(retrofit as table) ~= nil then
+			say("oldStateReset version=" .. tostring(retrofit.version))
 		end
-		probe = { version = stateVersion }
-		state:set(probe)
+		retrofit = { version = stateVersion }
+		state:set(retrofit)
 	end
-	return probe
+	return retrofit
 end
 
-local probeScript : GameScript<ProbeState> = {
-	update = function(_userParams : table, state : GameScriptState<ProbeState>, _dt : number) : any
+local retrofitScript : GameScript<RetrofitState> = {
+	update = function(_userParams : table, state : GameScriptState<RetrofitState>, _dt : number) : any
 		if levels == nil then return end
 		if not state:hasEventSubscriptions() then
 			state:subscribeToEvent(buyEvent)
 		end
-		local probe = loadProbe(state)
+		local retrofit = loadState(state)
 		local t = now()
-		if probe.firstSeen == nil then
-			probe.firstSeen = t
-			state:set(probe)
-			say("probe loaded t=" .. tostring(t) .. " phase=" .. tostring(probe.phase) .. " startAt=" .. tostring(t + startDelay)
-				.. " " .. describeRank())
+		if not loadLogged then
+			loadLogged = true
+			say("gameScript loaded t=" .. tostring(t) .. " " .. describeRank())
 		end
 
 		-- One buy per update; the queue is saved first, so a buy that fails is not retried.
-		if probe.buys ~= nil and #probe.buys > 0 then
-			local buy = table.remove(probe.buys, 1)
-			state:set(probe)
-			local ok, refused = pcall(processBuy, probe, buy, t)
+		if retrofit.buys ~= nil and #retrofit.buys > 0 then
+			local buy = table.remove(retrofit.buys, 1)
+			state:set(retrofit)
+			local ok, refused = pcall(processBuy, retrofit, buy, t)
 			if not ok or refused ~= nil then
 				say("buy refused construction=" .. tostring(buy.construction) .. " tree=" .. tostring(buy.tree) .. " from=" .. tostring(buy.from)
 					.. " reason=" .. tostring(ok and refused or ("error " .. tostring(refused))))
 			end
-			state:set(probe)
+			state:set(retrofit)
 		end
-		local okWatch, watched = pcall(processWatches, probe, t)
+		local okWatch, watched = pcall(processWatches, retrofit, t)
 		if not okWatch then
 			say("buy watchError error=" .. tostring(watched))
-			probe.watches = {}
-			state:set(probe)
+			retrofit.watches = {}
+			state:set(retrofit)
 		elseif watched then
-			state:set(probe)
+			state:set(retrofit)
 		end
-
-		if probe.phase == "done" then return end
-		if probe.phase == nil then
-			if t < probe.firstSeen + startDelay then return end
-			local ok, err = pcall(start, state, probe, t)
-			if not ok then
-				-- Before the rebuilds were sent, stop for good: the error would otherwise repeat on every update. After they were
-				-- sent, the checks still run.
-				if probe.phase == nil then probe.phase = "done" end
-				state:set(probe)
-				say("probe startError phase=" .. tostring(probe.phase) .. " error=" .. tostring(err))
-			end
-			return
-		end
-		local n = (probe.checksDone or 0) + 1
-		if n > #checkOffsets or t < probe.sentAt + checkOffsets[n] then return end
-		probe.checksDone = n
-		if n == #checkOffsets then probe.phase = "done" end
-		state:set(probe)
-		local ok, err = pcall(check, probe, n)
-		if not ok then say("probe checkError check=" .. tostring(n) .. " error=" .. tostring(err)) end
-		if probe.phase == "done" then say("probe done") end
 	end,
 	-- Queued here and carried out in update: sendCommand cannot be called from handleEvent.
-	handleEvent = function(_userParams : table, state : GameScriptState<ProbeState>, src : string, id : string, name : string, param : any) : any
+	handleEvent = function(_userParams : table, state : GameScriptState<RetrofitState>, src : string, id : string, name : string, param : any) : any
 		if name ~= buyEvent then return end
 		local p = (type(param) == "table" and param or {}) as {string : any}
 		local buy : Buy = {
@@ -570,13 +394,13 @@ local probeScript : GameScript<ProbeState> = {
 			tree = tostring(p.tree),
 			from = math.floor(tonumber(p.from) or -1),
 		}
-		local probe = loadProbe(state)
-		probe.buys = probe.buys or {}
-		table.insert(probe.buys, buy)
-		state:set(probe)
+		local retrofit = loadState(state)
+		retrofit.buys = retrofit.buys or {}
+		table.insert(retrofit.buys, buy)
+		state:set(retrofit)
 		say("buy queued src=" .. tostring(src) .. " id=" .. tostring(id) .. " construction=" .. tostring(buy.construction)
-			.. " tree=" .. buy.tree .. " from=" .. tostring(buy.from) .. " queued=" .. tostring(#probe.buys))
+			.. " tree=" .. buy.tree .. " from=" .. tostring(buy.from) .. " queued=" .. tostring(#retrofit.buys))
 	end,
 }
 
-return probeScript
+return retrofitScript

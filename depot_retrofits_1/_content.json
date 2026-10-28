@@ -4,8 +4,8 @@
         "construction.script.tl",
         "levels.tl",
         "mod.script.tl",
-        "probe.gs.lua",
-        "probe.script.tl",
+        "retrofits.gs.lua",
+        "retrofits.script.tl",
         "retrofit_window.script.tl"
     ]
 }

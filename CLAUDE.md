@@ -18,7 +18,7 @@ export PATH="$HOME/.luarocks/bin:$PATH"; eval "$(luarocks path --local)"
 tl check depot_retrofits_1/content/levels.tl
 tl check depot_retrofits_1/content/mod.script.tl
 tl check depot_retrofits_1/content/construction.script.tl
-tl check depot_retrofits_1/content/probe.script.tl
+tl check depot_retrofits_1/content/retrofits.script.tl
 tl check depot_retrofits_1/content/retrofit_window.script.tl
 
 # Check that _content.json lists every file under content/ (the game cannot load a file the list leaves out)
@@ -37,15 +37,15 @@ The rulesets match Best Before's and have no bypass actors, so they bind the own
 - `trunks`: `main` cannot be deleted or force-pushed.
 - `version-tags`: tags matching `v*.*` cannot be moved or deleted once pushed. Releases are immutable too, so check a tag and its release before publishing; a mistake means a new version, not a fix in place.
 
-## Architecture (probe stage)
+## Architecture (0.5)
 
-`depot_retrofits_1/` is the mod. The level system is being built inside a probe: levels are stored and applied for real, and the game script still runs a one-off test on load. Earlier probes are in git history (0.2, value scaling, at `fe37966`; 0.3, param variants, at `3adf8c6`); their results are in docs/findings.md. The current probe is 0.4:
+`depot_retrofits_1/` is the mod. Levels are stored, applied and bought in the building's window; the game script only handles buys. The probes are in git history (0.2, value scaling, at `fe37966`; 0.3, param variants, at `3adf8c6`; 0.4, random levels across a save, at `449de35`); their results are in docs/findings.md.
 
 - **[levels.tl](depot_retrofits_1/content/levels.tl)**: the five trees, their param keys and the formulas of docs/spec.md (pool, radius, emissions, upkeep, build price, level price). Pure functions; every script loads it with `ug_require` under `pcall`. Its type is [types/depot_retrofits.d.tl](types/depot_retrofits.d.tl), which the mod does not ship.
 - **[mod.json](depot_retrofits_1/mod.json)** sets `runScript` to `mod.script@runFn`.
 - **[mod.script.tl](depot_retrofits_1/content/mod.script.tl)**: `runFn` registers a `loadConstruction` modifier. For every non-industry construction that uses the base depot HUD icons or sits under a `depots/` folder, and is not an edge object (the base path signals use the same HUD icons), it replaces `updateScript` with the wrapper, keeps the original capture params at the top level, and stores the original script's absolute reference under `depotRetrofits`. It declares one param per tree (values 0 to 15, `yearFrom` 9999, so never in the build menu) and sets the window script.
 - **[construction.script.tl](depot_retrofits_1/content/construction.script.tl)**: the wrapper `update` loads the original with base `::/scripts/util.tl` `useFn`, runs it, and applies the levels to pool, radius, both emission states and upkeep. A missing original raises, since there is no result to return.
-- **[probe.gs.lua](depot_retrofits_1/content/probe.gs.lua) and [probe.script.tl](depot_retrofits_1/content/probe.script.tl)**: the game script. A game day after the first load it gives the player's buildings without levels random levels by rebuilding them (every fourth is a control, the first gets all 15, the second all but upkeep), and checks pool, radius and upkeep against the formulas after 1 game hour, 1 day, 7 days and 1 month. It also handles the Retrofit tab's buy event: checks it, rebuilds with the new level and books the price as depot construction. It logs the company rank. The state carries a version; a state from an older probe is reset.
+- **[retrofits.gs.lua](depot_retrofits_1/content/retrofits.gs.lua) and [retrofits.script.tl](depot_retrofits_1/content/retrofits.script.tl)**: the game script. It handles the Retrofit tab's buy event: `handleEvent` queues it, `update` checks it (wrapped, level not stale, below 15, within the claimed rank, enough money), rebuilds with the new level, books the price as depot construction, and logs the building before and after 1 game hour and 1 day with the formulas' expected values. It logs the company rank on load. The state carries a version; a state from an older version is reset.
 - **[retrofit_window.script.tl](depot_retrofits_1/content/retrofit_window.script.tl)**: the building window. mod.script.tl names it as each wrapped construction's `entityWindowScript` (only where the construction has none). It returns the base construction window with the depot's own tab plus a Retrofit tab, as the base Cleaning Plant adds its tab: the rank, the building's radius, vehicles and upkeep, and one card per tree with the value now and after the next level and a buy button with the price.
 
 The wrapper reference, capture key and buy event name are copied into the scripts that use them (keep the copies equal); the param keys live in levels.tl only.
@@ -56,7 +56,7 @@ The wrapper reference, capture key and buy event name are copied into the script
 - The game log is `crash_dump/stdout.txt` beside that folder. It is overwritten at each launch and written live. Copy it to `local/logs/` (gitignored) before reading it. Log timestamps are UTC.
 - Every line the mod writes starts with `DEPOT_RETROFITS` and carries `key=value` fields. Log the state before and after every action (entity ids, pool, radius, vehicles).
 - After a change that adds a load or an API call, check the first log lines after the save loads for `Error while loading game script` before the user plays at speed: a broken load in the sibling mod raised an error every update and froze the game.
-- Test on a copy of a manual save. Probes act directly when loaded, with a small cap on what they do.
+- Test on a copy of a manual save. A probe (a test build of the game script) acts directly when loaded, with a small cap on what it does.
 
 ## Conventions
 

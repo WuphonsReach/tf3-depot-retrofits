@@ -2,10 +2,10 @@
 -- entityWindowScript). It returns the base construction window with the depot's own tab, as the game would show it, plus a
 -- Retrofit tab, the way the base Cleaning Plant adds its tab (game_mechanics/emission/pollution_cleanup_facility_hud.script.tl).
 -- The Retrofit tab shows each tree's level, what the next level changes, and a button that buys it: the button sends a buy
--- event to the game script (probe.script.tl), which checks it, charges the price and rebuilds the building. Prices follow
+-- event to the game script (retrofits.script.tl), which checks it, charges the price and rebuilds the building. Prices follow
 -- levels.tl from the upkeep the game charges for the building now. Log lines start with "DEPOT_RETROFITS".
 
--- Shared with mod.script.tl, construction.script.tl and probe.script.tl; keep the copies equal.
+-- Shared with mod.script.tl, construction.script.tl and retrofits.script.tl; keep the copies equal.
 local buyEventId = "DepotRetrofits"
 local buyEvent = "depotRetrofitsBuy"
 
