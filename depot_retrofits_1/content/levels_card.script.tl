@@ -57,6 +57,7 @@ local eow = loadModule("::/gui/entity_window/maintenance_station/maintenance_sta
 local levels = loadModule("depot_retrofits_1::/levels.tl") as DepotRetrofitsLevels
 local progression = loadModule("::/game_mechanics/company/company_progression_util.tl") as CompanyProgressionUtil
 local ready = react ~= nil and builtin ~= nil and engineReact ~= nil and contentCard ~= nil and eow ~= nil and levels ~= nil
+say("card loaded ready=" .. tostring(ready) .. " progression=" .. tostring(progression ~= nil))
 
 local shownLines = 0
 local shownKeys : {string : boolean} = {}
@@ -188,22 +189,48 @@ end
 
 local card : LevelsCard = {}
 
+-- The window's own state.constructionEntity is set only when entity_window_util.isConstructionModifiableEngine allows it
+-- (maintenance_station.tl), and the card did not show in game for road depots and maintenance buildings, so the
+-- construction is looked up from the depot here.
+local constructionOf = function(depot : Engine.Entity) : Engine.Entity
+	local ok, construction = pcall(api.engine.system.streetConnectorSystem.getConstructionEntityForSubconstruction, depot)
+	if ok and construction ~= nil and construction >= 0 then return construction end
+	return nil
+end
+
+local maxConditionLines = 40
+local conditionLines = 0
+
 function card.condition(params : MaintenanceStationEow.MaintenanceStationWidgetPluginParams) : boolean
-	if not ready or params.ownershipState ~= "Player" then return false end
-	local construction = params.state and params.state.constructionEntity
-	if construction == nil or construction < 0 then return false end
-	local ok, wrapped = pcall(function() : boolean
-		local con = api.engine.getComponent(construction, api.type.ComponentType.CONSTRUCTION) as Engine.Component.Construction
-		return con ~= nil and api.res.constructionRep.findAndGet(con.fileName).updateScript.fileName == wrapperRef
-	end)
-	if not ok then say("card conditionError construction=" .. tostring(construction) .. " error=" .. tostring(wrapped)) end
-	return ok and wrapped
+	local construction = ready and constructionOf(params.entityId) or nil
+	local result, reason = false, "ok"
+	if not ready then
+		reason = "notReady"
+	elseif params.ownershipState ~= "Player" then
+		reason = "owner=" .. tostring(params.ownershipState)
+	elseif construction == nil then
+		reason = "noConstruction"
+	else
+		local ok, wrapped = pcall(function() : boolean
+			local con = api.engine.getComponent(construction, api.type.ComponentType.CONSTRUCTION) as Engine.Component.Construction
+			return con ~= nil and api.res.constructionRep.findAndGet(con.fileName).updateScript.fileName == wrapperRef
+		end)
+		result = ok and wrapped == true
+		if not ok then reason = "error " .. tostring(wrapped) elseif not wrapped then reason = "notWrapped" end
+	end
+	if conditionLines < maxConditionLines then
+		conditionLines = conditionLines + 1
+		say("card condition depot=" .. tostring(params.entityId) .. " construction=" .. tostring(construction)
+			.. " show=" .. tostring(result) .. " reason=" .. reason)
+	end
+	return result
 end
 
 if ready then
 	card.LevelsPlugin = react.RegisterPluginRecipe(eow.MaintenanceStationEowExtensionPoint, "DepotRetrofitsLevelsPlugin",
 		function(params : MaintenanceStationEow.MaintenanceStationWidgetPluginParams) : TreeNodeId
-			local depot, construction = params.entityId, params.state.constructionEntity
+			local depot = params.entityId
+			local construction = constructionOf(depot)
 			local state = engineReact.useStepState(function() : CardState
 				return readCard(depot, construction)
 			end, nil, function(a : CardState, b : CardState) : boolean
