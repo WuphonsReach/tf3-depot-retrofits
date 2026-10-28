@@ -5,7 +5,7 @@
 -- start with "DEPOT_RETROFITS".
 --
 -- The random levelling that tested the formulas across a whole save (probe 0.4) is in git history; its results are in
--- docs/findings.md.
+-- docs/design/findings.md.
 
 local stateVersion = 5 -- a state from an older version (the probes used 1 to 4) is set aside, not continued
 

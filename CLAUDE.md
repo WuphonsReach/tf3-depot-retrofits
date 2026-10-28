@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-A Transport Fever 3 script mod in development: depots and maintenance buildings get levels for maintenance radius, vehicles maintained, pollution, noise and upkeep, bought in the building's window. The spec is [docs/spec.md](docs/spec.md); the verified game facts and the open unknowns are in [docs/findings.md](docs/findings.md). Read findings before changing mechanics.
+A Transport Fever 3 script mod in development: depots and maintenance buildings get levels for maintenance radius, vehicles maintained, pollution, noise and upkeep, bought in the building's window. The player-facing guide is [docs/user-guide.md](docs/user-guide.md). The design docs are in `docs/design/`: the spec is [docs/design/spec.md](docs/design/spec.md); the verified game facts and the open unknowns are in [docs/design/findings.md](docs/design/findings.md). Read findings before changing mechanics.
 
 The repo is public on GitHub ([WuphonsReach/tf3-depot-retrofits](https://github.com/WuphonsReach/tf3-depot-retrofits), MIT); the mod is not on mod.io yet. `main` takes changes only through a pull request (see "CI and repo rules"): branch from `origin/main` as `<YYYY-MM-DD>-<slug>`, and push or open a PR only when the user asks. The name avoids "Upgrades" (too close to another mod's "Industry Upgrades"); inside the mod the terms are "level" and "retrofit".
 
@@ -43,9 +43,9 @@ The rulesets match Best Before's and have no bypass actors, so they bind the own
 
 ## Architecture (0.5)
 
-`depot_retrofits_1/` is the mod. Levels are stored, applied and bought in the building's window; the game script only handles buys. The probes are in git history (0.2, value scaling, at `fe37966`; 0.3, param variants, at `3adf8c6`; 0.4, random levels across a save, at `449de35`); their results are in docs/findings.md.
+`depot_retrofits_1/` is the mod. Levels are stored, applied and bought in the building's window; the game script only handles buys. The probes are in git history (0.2, value scaling, at `fe37966`; 0.3, param variants, at `3adf8c6`; 0.4, random levels across a save, at `449de35`); their results are in docs/design/findings.md.
 
-- **[levels.tl](depot_retrofits_1/content/levels.tl)**: the five trees, their param keys and the formulas of docs/spec.md (pool, radius, emissions, upkeep, build price, level price). Pure functions; every script loads it with `ug_require` under `pcall`. Its type is [types/depot_retrofits.d.tl](types/depot_retrofits.d.tl), which the mod does not ship.
+- **[levels.tl](depot_retrofits_1/content/levels.tl)**: the five trees, their param keys and the formulas of docs/design/spec.md (pool, radius, emissions, upkeep, build price, level price). Pure functions; every script loads it with `ug_require` under `pcall`. Its type is [types/depot_retrofits.d.tl](types/depot_retrofits.d.tl), which the mod does not ship.
 - **[mod.json](depot_retrofits_1/mod.json)** sets `runScript` to `mod.script@runFn`.
 - **[mod.script.tl](depot_retrofits_1/content/mod.script.tl)**: `runFn` registers a `loadConstruction` modifier. For every non-industry construction that uses the base depot HUD icons or sits under a `depots/` folder, and is not an edge object (the base path signals use the same HUD icons), it replaces `updateScript` with the wrapper, keeps the original capture params at the top level, and stores the original script's absolute reference under `depotRetrofits`. It declares one param per tree (values 0 to 15, `yearFrom` 9999, so never in the build menu) and sets the window script.
 - **[construction.script.tl](depot_retrofits_1/content/construction.script.tl)**: the wrapper `update` loads the original with base `::/scripts/util.tl` `useFn`, runs it, and applies the levels to pool, radius, both emission states and upkeep. A missing original raises, since there is no result to return.
@@ -69,5 +69,5 @@ The wrapper reference, capture key and buy event name are copied into the script
 - Game scripts: module variables do not persist, so state lives in `state:get()`/`state:set()`. `sendCommand` cannot be called from `handleEvent` and cannot take a callback; send from `update`.
 - The Industry Upgrades mod has no licence: its method may be reused, its code may not be copied.
 - Cite base game facts by the source file inside the game's archives (for example `game_mechanics/emission/emissions.script.tl`), never by pasting code. Public docs carry no home paths or Steam ids.
-- Keep the README short and put detail in `docs/`. Every doc opens with an "In short" section (key drivers, how it works, how sure, what is unknown), then detail, with test results and logs at the bottom. Docs state the current status only; history belongs in git.
+- Keep the README short and put detail in `docs/`. Every doc opens with an "In short" section (key drivers, how it works, how sure, what is unknown), then detail, with test results and logs at the bottom. Docs state the current status only; history belongs in git. Player-facing docs (the user guide, the mod.io listing) use the simplest wording that is still exact.
 - The mod ships no game files. `all_def.tl` and `tlconfig.example.lua` are for type checking only and point at the game's own type definitions.

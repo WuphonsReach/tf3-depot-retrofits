@@ -2,7 +2,7 @@
 
 ## In short
 
-Depots and maintenance buildings get levels, bought one at a time in the building's own window. There are five level trees: maintenance radius, vehicles maintained, pollution, noise, and upkeep. Each tree has 15 levels, and a tree's highest level available is the company's current rank (the game has 15 ranks). Levels cost money. The first four trees raise the building's upkeep; the upkeep tree cuts it, and a full upkeep tree pays for itself in about 13 game years on a building with every other tree at 15. It is being built inside probe 0.4: levels are stored, applied and bought for real, on rebuilding the construction with new parameters (see [findings.md](findings.md) for what the probes showed).
+Depots and maintenance buildings get levels, bought one at a time in the building's own window. There are five level trees: maintenance radius, vehicles maintained, pollution, noise, and upkeep. Each tree has 15 levels, and a tree's highest level available is the company's current rank (the game has 15 ranks). Levels cost money. The first four trees raise the building's upkeep; the upkeep tree cuts it, and a full upkeep tree pays for itself in about 13 game years on a building with every other tree at 15. Version 0.5 stores, applies and sells levels by rebuilding the construction with new parameters (see [findings.md](findings.md) for what the tests showed).
 
 Open points are listed at the bottom.
 
@@ -11,7 +11,7 @@ Open points are listed at the bottom.
 | Tree | Game value changed | Per level | At level 15 |
 |---|---|---|---|
 | Maintenance radius | the depot's catchment radius | +5% | +75% |
-| Vehicles maintained | the depot's maintenance pool | +10%, rounded to the nearest vehicle, and at least +1 vehicle | +150%, or +15 vehicles if that is more |
+| Vehicles maintained | the depot's maintenance pool | +10%, or at least +1 vehicle | +150% or at least +15 vehicles |
 | Pollution | the building's pollution, in both emission states | -5% | -75% |
 | Noise | the building's noise, in both emission states | -5% | -75% |
 | Upkeep | the building's total upkeep, including what the other trees add | -5% of the total | -75% |

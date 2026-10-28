@@ -1,4 +1,4 @@
--- The five level trees and the formulas of docs/spec.md, shared by every script of the mod (each loads it with ug_require
+-- The five level trees and the formulas of docs/design/spec.md, shared by every script of the mod (each loads it with ug_require
 -- under pcall). Pure functions: no game API calls, so it loads the same in the mod, construction, game and GUI scripts.
 
 local levels : DepotRetrofitsLevels = {
