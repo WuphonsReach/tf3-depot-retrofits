@@ -4,7 +4,7 @@
 
 - **Where the values come from.** A depot's maintenance pool, its maintenance radius and its emissions are all set by the construction's update script when the building is built. No game command changes the pool or the radius afterwards, so the only way to change them is to rebuild the construction with new parameters. The plan is to wrap each depot construction's update script, read hidden level parameters, and scale the values.
 - **How sure.** The values and the missing commands come straight from the game's scripts and type definitions, so they are certain. The rebuild method is the one another published mod already uses for industries, so it is likely to work for depots.
-- **The big unknown.** Does a rebuild keep the depot's vehicles, their maintenance assignment and the depot's entity id? The whole design depends on it, and the probe mod (`depot_retrofits_1/`) tests it.
+- **What a rebuild keeps.** The first probe rebuilt a road depot and a road maintenance building in a live save. Both kept their construction and depot entity ids and took the new pool and radius, and the rebuild cost nothing. But every vehicle maintained there lost its maintenance link, and within a game day the game had sent them to other buildings: the depot kept none of its 10, the maintenance building 4 of its 9. Whether the vehicles drift back to the larger buildings over the following months is the open question; the probe's later checks are still running.
 - **Pollution.** The base game cannot green depots: the Industry Greenification tool only reaches industries. Depot emissions come from the same construction data, so the rebuild also covers the pollution tree.
 
 ## Depot values in the base game
@@ -38,7 +38,8 @@ The rail depot's upkeep and cost are multiplied by its template's year coefficie
 - Construction params are 1-based: the catenary param's `defaultIndex = 2` means "Yes", and `rail/rail_depot.script.lua` tests `params.catenary == 2` (`scripts/construction/param_util.tl` in `scripts.zip`). A param can be declared with `postConstructionModifiable = false` (`api/tealdef/api/type.d.tl`, record `ConstructionScriptParam`).
 - Depot `.con` files name their update script relative to their own folder (`"rail_depot.script@updateFn"`). `scripts/util.tl` `useFn` loads a script function from an absolute `file@function` reference.
 - A construction script can be Teal: the base heliport's module update script is a `.script.tl` file that returns a table (`stations/air/heliport/modules.script.tl`).
-- Telling a depot construction apart: every base depot and maintenance `.con` names `configureDepotHudIconsFn` with a `depotType` in its templates. The Roundhouse mod's depot does not, but its files sit under `depots/`.
+- Telling a depot construction apart: every base depot and maintenance `.con` names `configureDepotHudIconsFn` with a `depotType` in its templates. The Roundhouse mod's depot does not, but its files sit under `depots/`. The base path signals (`infrastructure/signal/signal_path_a.con.lua`, `signal_path_c.con.lua`) name the same HUD script; they are edge objects (`edgeObject`), which the depots are not.
+- The update script also sets the building's upkeep (`result.maintenanceCost`), so the wrapper can scale it in the same rebuild.
 
 ## Pollution tools in the base game
 
@@ -53,11 +54,26 @@ The rail depot's upkeep and cost are multiplied by its template's year coefficie
 
 ## Unknowns
 
-- Whether a rebuild keeps the depot's vehicles, their maintenance assignment and line assignments, and whether the construction and depot entity ids survive.
-- What `fileName` the `loadConstruction` modifier receives for a depot `.con`, and whether a relative update script resolves correctly against it.
+- Whether vehicles that lost their maintenance link after a rebuild come back to the rebuilt building, and how the game picks the building it sends them to.
+- Whether a rebuild keeps line assignments (not logged by the first probe).
 - Whether the game regenerates constructions when a save loads.
 - Whether a raised pool is filled by more vehicles over the following weeks, and whether a larger radius picks up vehicles from further away.
 
 ## Test results
 
-None yet. The first probe (`depot_retrofits_1/`, described in the repo's CLAUDE.md) rebuilds the busiest depot and maintenance building in a test save with a doubled pool and a 1.5 times wider radius, and logs whether the entities and the maintained vehicles survive.
+**First probe, partial** (`depot_retrofits_1/` 0.1-probe, described in the repo's CLAUDE.md; a 1900 save with 24 player depots and 90 vehicles). The probe rebuilt the busiest road depot and road maintenance building with a doubled pool and a 1.5 times wider radius.
+
+- The `loadConstruction` modifier received `::/depots/...con.lua` names (for example `::/depots/road/road_depot/road_depot.con.lua`) and the relative update script references resolved against them. All seven base depot and maintenance constructions and the Roundhouse were wrapped; the two path signals were wrapped too, by mistake (fixed since: edge objects are skipped).
+- The construction's params read back as `modules`, `seed` and `year`; the update script receives those plus `state` and `upgrade`.
+
+| | Road depot | Road maintenance |
+|---|---|---|
+| Construction and depot ids after the rebuild | unchanged | unchanged |
+| Pool | 12 → 24 | 16 → 32 |
+| Radius | 400 → 600 | 600 → 900 |
+| Money charged for the rebuild | none | none |
+| Vehicles maintained before | 10 | 9 |
+| About one game hour later | 0; all 10 name a station entity that no longer exists | 0; all 9 the same |
+| One game day later | 0; all 10 assigned to other buildings | 5: 4 of the 9, plus 1 other vehicle |
+
+The checks at 7 days, 1 month and 2 months are pending.
