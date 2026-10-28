@@ -5,7 +5,7 @@
 -- with a rebuild. Each wrapped construction keeps its own params and the original script's reference in its updateScript
 -- params, so the wrapper knows what to call. Log lines start with "DEPOT_RETROFITS".
 
-local modVersion = "0.4-probe"
+local modVersion = "0.5"
 
 -- Shared with construction.script.tl and retrofit_window.script.tl; keep the copies equal.
 local wrapperRef = "depot_retrofits_1::/construction.script@update"

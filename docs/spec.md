@@ -60,7 +60,7 @@ The early levels pay back quickly and the late ones slowly: with the other trees
 
 A tree's maximum level equals the company rank.
 
-## How it is built (probe 0.4)
+## How it is built (0.5)
 
 - **Storing levels.** One construction param per tree, values 0 to 15, declared with an availability year of 9999. That keeps it out of the build menu even in a save that runs past the year 3000 (the game's date card goes up to 5000), and a rebuild stores it.
 - **Price.** The build price is 6 × the upkeep the game charges for the building now, divided by what its current levels do to the upkeep. That gives today's build price, with the game's upkeep factor and inflation included, without reading the depot scripts' base cost.
