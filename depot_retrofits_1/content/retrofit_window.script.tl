@@ -136,10 +136,9 @@ local valueAt = function(s : TabState, tree : string, level : integer) : string
 	elseif tree == "vehicles" then
 		local base = levels.basePool(s.pool, now)
 		return base and tostring(levels.pool(base, level)) or "?"
-	elseif tree == "upkeep" then
-		return "-" .. tostring(5 * level) .. "% of total"
 	end
-	return "-" .. tostring(5 * level) .. "%"
+	local cut = level == 0 and "0%" or ("-" .. tostring(5 * level) .. "%")
+	return tree == "upkeep" and (cut .. " of total") or cut
 end
 
 local logShown = function(s : TabState)
@@ -310,7 +309,10 @@ window.entityWindowFn = function(_captureParams : any, entity : Engine.Entity, t
 			},
 		})
 	end
-	if shownLines < maxShownLines then
+	-- The game calls this many times while one window opens (about 60 in the first second), so log each building once.
+	local openKey = "open " .. tostring(entity) .. " " .. tostring(show)
+	if shownLines < maxShownLines and not shownKeys[openKey] then
+		shownKeys[openKey] = true
 		shownLines = shownLines + 1
 		say("window open construction=" .. tostring(entity) .. " depot=" .. tostring(depot) .. " retrofitTab=" .. tostring(show)
 			.. " owned=" .. tostring(okOwned and owned))
