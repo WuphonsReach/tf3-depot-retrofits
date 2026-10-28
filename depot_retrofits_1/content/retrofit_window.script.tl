@@ -23,6 +23,7 @@ local record TabState
 	pool : number
 	radius : number
 	maintained : integer
+	accumulated : number -- the MAINTENANCE_COST accumulated costs, which the game's upkeep footer adds to the upkeep
 	key : string -- every field above as text; the tab redraws when it changes
 end
 
@@ -60,9 +61,17 @@ local engineReact = loadModule("::/gui/main/engine_react_util.tl") as EngineReac
 local contentCard = loadModule("::/gui/main/content_card.tl") as ContentCard
 local levels = loadModule("depot_retrofits_1::/levels.tl") as DepotRetrofitsLevels
 local progression = loadModule("::/game_mechanics/company/company_progression_util.tl") as CompanyProgressionUtil
+-- Optional: without it the tab has no scroll container and no upkeep footer.
+local entityWindowUtil = loadModule("::/gui/entity_window/entity_window_util.tl") as EntityWindowUtil
 local ready = react ~= nil and builtin ~= nil and engineReact ~= nil and contentCard ~= nil and levels ~= nil
 say("window loaded ready=" .. tostring(ready) .. " constructionWindow=" .. tostring(makeEntityWindow ~= nil)
-	.. " progression=" .. tostring(progression ~= nil))
+	.. " progression=" .. tostring(progression ~= nil) .. " entityWindowUtil=" .. tostring(entityWindowUtil ~= nil))
+
+-- Stock icons: the upkeep symbol of the game's own upkeep footer (gui/entity_window/entity_window_util.tl, MaintenanceBar), and
+-- the flat-then-rising arrow of the vehicle window's "Send to Line" button (gui/entity_window/vehicle/vehicle.tl).
+local upkeepIcon = "::/gui/entity_window/icons/symbol_dollar_gear.tga"
+local buyIcon = "::/gui/entity_window/icons/symbol_arrow_up.tga"
+local rebuildNote = "Buying a level rebuilds the building; the game then reassigns the vehicles it maintained."
 
 local shownLines = 0
 local shownKeys : {string : boolean} = {}
@@ -107,17 +116,45 @@ local readTab = function(construction : Engine.Entity) : TabState
 		local okList, list = pcall(api.engine.system.transportVehicleSystem.getVehiclesForMaintenanceStation, depot)
 		s.maintained = okList and type(list) == "table" and #list or nil
 	end
+	-- Summed the way the footer sums them (each entry rounded); 0 when unreadable.
+	local okAccumulated, accumulated = pcall(function() : number
+		local cost = api.engine.getComponent(construction, api.type.ComponentType.MAINTENANCE_COST) as Engine.Component.MaintenanceCost
+		local sum = 0
+		if cost ~= nil and cost.accumulatedCost ~= nil then
+			for _, value in pairs(cost.accumulatedCost) do sum = sum + math.floor(value + 0.5) end
+		end
+		return sum
+	end)
+	s.accumulated = okAccumulated and accumulated or 0
 	s.buildPrice = s.chargedUpkeep and levels.buildPrice(s.chargedUpkeep, s.levels) or nil
 	local parts : {string} = {}
 	for _, tree in ipairs(levels.trees) do parts[#parts + 1] = tostring(s.levels[tree]) end
 	s.key = table.concat(parts, "/") .. " rank=" .. tostring(s.rank) .. "/" .. tostring(s.earnedRank)
 		.. " upkeep=" .. tostring(s.chargedUpkeep) .. " pool=" .. tostring(s.pool) .. " radius=" .. tostring(s.radius)
-		.. " maintained=" .. tostring(s.maintained)
+		.. " maintained=" .. tostring(s.maintained) .. " accumulated=" .. tostring(s.accumulated)
 	return s
 end
 
-local text = function(value : string, class? : string) : TreeNodeId
-	return builtin.TextView{ meta = { class = class or "font-scale-body" }, text = value }
+-- One text size everywhere in the tab, for now.
+local text = function(value : string) : TreeNodeId
+	return builtin.TextView{ meta = { class = "font-scale-body" }, text = value }
+end
+
+-- 20 x 20, the size of the footer's upkeep icon ("text-icon-size-hack" in gui/main/default.css.lua).
+local icon = function(path : string, tooltip? : string) : TreeNodeId
+	return builtin.ImageView{
+		meta = { class = "text-icon-size-hack", tooltip = tooltip },
+		path = path,
+		scaling = builtin.type.ImageViewScaling.AutoFit,
+	}
+end
+
+local iconText = function(path : string, value : string, tooltip? : string) : TreeNodeId
+	return builtin.BoxLayout{ orientation = builtin.type.Orientation.Horizontal, children = { icon(path, tooltip), text(value) } }
+end
+
+local perYear = function(amount : number) : string
+	return money(amount) .. "/" .. _("Year")
 end
 
 local withLevel = function(values : {string : integer}, tree : string, level : integer) : {string : integer}
@@ -137,53 +174,62 @@ local valueAt = function(s : TabState, tree : string, level : integer) : string
 		local base = levels.basePool(s.pool, now)
 		return base and tostring(levels.pool(base, level)) or "?"
 	end
-	local cut = level == 0 and "0%" or ("-" .. tostring(5 * level) .. "%")
-	return tree == "upkeep" and (cut .. " of total") or cut
+	return level == 0 and "0%" or ("-" .. tostring(5 * level) .. "%")
+end
+
+-- What the next level changes, "400 m -> 420 m"; the upkeep tree cuts the total upkeep, the other trees' increases included.
+local effect = function(s : TabState, tree : string, level : integer, nextLevel? : integer) : string
+	local result = valueAt(s, tree, level)
+	if nextLevel ~= nil then result = result .. " -> " .. valueAt(s, tree, nextLevel) end
+	return tree == "upkeep" and (result .. " of total") or result
 end
 
 local logShown = function(s : TabState)
-	if shownLines >= maxShownLines or shownKeys[tostring(s.construction) .. " " .. s.key] then return end
-	shownKeys[tostring(s.construction) .. " " .. s.key] = true
+	-- The accumulated costs grow every second while vehicles are serviced; a change there alone is not logged.
+	local logKey = tostring(s.construction) .. " " .. s.key:gsub(" accumulated=%S+", "")
+	if shownLines >= maxShownLines or shownKeys[logKey] then return end
+	shownKeys[logKey] = true
 	shownLines = shownLines + 1
 	local prices : {string} = {}
 	for _, tree in ipairs(levels.trees) do
 		local level = s.levels[tree]
 		prices[#prices + 1] = level < levels.maxLevel and s.buildPrice and tostring(levels.levelPrice(s.buildPrice, level + 1)) or "-"
 	end
-	say("window shown construction=" .. tostring(s.construction) .. " depot=" .. tostring(s.depot) .. " levels=" .. s.key
+	say("window shown construction=" .. tostring(s.construction) .. " depot=" .. tostring(s.depot) .. " state=" .. s.key
 		.. " buildPrice=" .. tostring(s.buildPrice) .. " nextPrices=" .. table.concat(prices, "/"))
 end
 
-local buyButton = function(s : TabState, tree : string, waiting : ReactStateT<{string : integer}>) : TreeNodeId
+-- The stock rising arrow and the price; the reason a level cannot be bought yet replaces the price, and the tooltip says more.
+-- No "buying" state: the rebuild lands within a second, paused or not, and the tab redraws with the new level. A second click
+-- before that sends the old level, which the game script refuses as stale, so nothing is charged twice.
+local buyButton = function(s : TabState, tree : string) : TreeNodeId
 	local level = s.levels[tree]
 	local nextLevel = level + 1
-	local label : string
+	local label, tooltip : string, string
 	local enabled = false
 	local price = s.buildPrice and levels.levelPrice(s.buildPrice, nextLevel) or nil
-	if waiting:old()[tree] == level then
-		label = "Buying level " .. tostring(nextLevel) .. "..."
-	elseif price == nil then
-		label = "Price unknown"
+	if price == nil then
+		label, tooltip = "?", "Price unknown"
 	elseif s.rank ~= nil and nextLevel > s.rank then
-		label = "Needs rank " .. tostring(nextLevel)
+		label, tooltip = "Rank " .. tostring(nextLevel), "Needs company rank " .. tostring(nextLevel)
 	else
-		label = "Level " .. tostring(nextLevel) .. "  " .. money(price)
+		label, tooltip = money(price), "Buy level " .. tostring(nextLevel) .. ". " .. rebuildNote
 		enabled = true
 	end
 	return builtin.Button{
-		-- "primary" is the class the base game's dialog buttons use (gui/line_vehicle_mgmt/feedback_list_util.tl).
-		meta = { class = "primary", enabled = enabled, localKey = "depot_retrofits_buy_" .. tree },
-		content = text(label),
+		-- "primary" is the class the base game's dialog buttons use (gui/line_vehicle_mgmt/feedback_list_util.tl); its disabled
+		-- style greys the icon and the text (gui/main/default.css.lua).
+		meta = { class = "primary", enabled = enabled, tooltip = tooltip, localKey = "depot_retrofits_buy_" .. tree },
+		content = builtin.Component{ layout = builtin.BoxLayout{
+			orientation = builtin.type.Orientation.Horizontal,
+			children = { icon(buyIcon), text(label) },
+		} },
 		onClick = function()
 			if not enabled then return end
 			say("window buy construction=" .. tostring(s.construction) .. " tree=" .. tree .. " from=" .. tostring(level)
 				.. " shownPrice=" .. tostring(price))
 			api.cmd.sendCommand(api.cmd.makeScriptingSendEventCmd("", buyEventId, buyEvent,
 				{ construction = s.construction, tree = tree, from = level }))
-			local marked : {string : integer} = {}
-			for key, value in pairs(waiting:old()) do marked[key] = value end
-			marked[tree] = level
-			waiting:set(marked)
 		end,
 	}
 end
@@ -209,42 +255,57 @@ local card = function(title : string, rows : {TreeNodeId}, gameCtx : GameContext
 	}
 end
 
--- One card per tree. First row: the level at the left, the value now and after the next level at the right. Second row:
--- the upkeep the next level brings at the left, the buy button at the right.
-local treeCard = function(s : TabState, tree : string, waiting : ReactStateT<{string : integer}>, gameCtx : GameContext) : TreeNodeId
+-- One card per tree. First row: the level at the left, the upkeep after the next level at the right. Second row: what the next
+-- level changes at the left, the buy button at the right. The upkeep counts what the game's upkeep footer counts.
+local treeCard = function(s : TabState, tree : string, gameCtx : GameContext) : TreeNodeId
 	local level = s.levels[tree]
-	local levelText = text("Level " .. tostring(level) .. " / " .. tostring(levels.maxLevel), "font-scale-headline")
+	local levelText = text("Level " .. tostring(level) .. "/" .. tostring(levels.maxLevel))
 	if level >= levels.maxLevel then
 		return card(levels.names[tree], {
-			spreadRow(levelText, text(valueAt(s, tree, level))),
-			spreadRow(text("Highest level", "font-scale-annotation"), builtin.Component{}),
+			spreadRow(levelText, text("Highest level")),
+			spreadRow(text(effect(s, tree, level)), builtin.Component{}),
 		}, gameCtx)
 	end
-	local upkeepText = "Upkeep unknown"
+	local nextUpkeep : TreeNodeId = text("?")
 	if s.chargedUpkeep ~= nil then
-		local nextUpkeep = s.chargedUpkeep / levels.upkeepFactor(s.levels) * levels.upkeepFactor(withLevel(s.levels, tree, level + 1))
-		upkeepText = "Upkeep " .. money(s.chargedUpkeep) .. " -> " .. money(nextUpkeep) .. " a year"
+		local charged = s.chargedUpkeep / levels.upkeepFactor(s.levels) * levels.upkeepFactor(withLevel(s.levels, tree, level + 1))
+		nextUpkeep = iconText(upkeepIcon, perYear(charged + s.accumulated), "Upkeep after level " .. tostring(level + 1))
 	end
 	return card(levels.names[tree], {
-		spreadRow(levelText, text(valueAt(s, tree, level) .. "  ->  " .. valueAt(s, tree, level + 1))),
-		spreadRow(text(upkeepText, "font-scale-annotation"), buyButton(s, tree, waiting)),
+		spreadRow(levelText, nextUpkeep),
+		spreadRow(text(effect(s, tree, level, level + 1)), buyButton(s, tree)),
 	}, gameCtx)
 end
 
-local tabBody = function(s : TabState, waiting : ReactStateT<{string : integer}>, gameCtx : GameContext) : TreeNodeId
-	local rank = tostring(s.rank or "?")
-	local rankNote = (s.earnedRank and s.earnedRank ~= s.rank) and ("rank " .. tostring(s.earnedRank) .. " earned, claim it to buy higher") or ("levels up to " .. rank)
-	local rows : {TreeNodeId} = {
-		card("Retrofit", {
-			spreadRow(text("Company rank " .. rank, "font-scale-headline"), text(rankNote, "font-scale-annotation")),
+-- The cards scroll and the game's own upkeep footer sits below them, as in the depot's tab
+-- (gui/entity_window/maintenance_station/maintenance_station.tl).
+local tabBody = function(s : TabState, gameCtx : GameContext) : TreeNodeId
+	local rankNote = (s.earnedRank and s.rank and s.earnedRank > s.rank)
+		and ("rank " .. tostring(s.earnedRank) .. " earned, claim it to buy higher") or ""
+	local cards : {TreeNodeId} = {
+		card("Summary", {
+			spreadRow(text("Company rank " .. tostring(s.rank or "?")), text(rankNote)),
 			spreadRow(text("Radius"), text(s.radius and string.format("%d m", math.floor(s.radius + 0.5)) or "?")),
-			spreadRow(text("Vehicles"), text(tostring(s.maintained or "?") .. " / " .. tostring(s.pool or "?"))),
-			spreadRow(text("Upkeep"), text(money(s.chargedUpkeep) .. " a year (" .. string.format("%.2f", levels.upkeepFactor(s.levels)) .. " x base)")),
-			text("Buying a level rebuilds the building; the game then reassigns the vehicles it maintained.", "font-scale-annotation"),
+			spreadRow(text("Vehicles"), text(tostring(s.maintained or "?") .. "/" .. tostring(s.pool or "?"))),
 		}, gameCtx),
 	}
-	for _, tree in ipairs(levels.trees) do rows[#rows + 1] = treeCard(s, tree, waiting, gameCtx) end
-	return builtin.BoxLayout{ orientation = builtin.type.Orientation.Vertical, children = rows }
+	for _, tree in ipairs(levels.trees) do cards[#cards + 1] = treeCard(s, tree, gameCtx) end
+	if entityWindowUtil == nil then
+		return builtin.BoxLayout{ orientation = builtin.type.Orientation.Vertical, children = cards }
+	end
+	return builtin.BoxLayout{
+		orientation = builtin.type.Orientation.Vertical,
+		children = {
+			entityWindowUtil.ContentWidgetScrollContainer(cards, true),
+			entityWindowUtil.MaintenanceBar{
+				entity = s.construction,
+				maintenancePeriodText = _("Year"),
+				initialCalloutText = "",
+				gameCtx = gameCtx,
+				showOnRightSide = false,
+			},
+		},
+	}
 end
 
 local RetrofitTab : Recipe<IEntityWindowParam> = nil
@@ -256,11 +317,10 @@ if ready then
 		end, nil, function(a : TabState, b : TabState) : boolean
 			return a ~= nil and b ~= nil and a.key == b.key
 		end)
-		local waiting = react.useState({}) as ReactStateT<{string : integer}>
 		local s = state:old()
 		local ok, body = pcall(function() : TreeNodeId
 			logShown(s)
-			return tabBody(s, waiting, params.gameCtx)
+			return tabBody(s, params.gameCtx)
 		end)
 		if not ok then
 			say("window error construction=" .. tostring(construction) .. " error=" .. tostring(body))
