@@ -198,15 +198,15 @@ local logShown = function(s : TabState)
 end
 
 -- The stock rising arrow and the price; the reason a level cannot be bought yet replaces the price, and the tooltip says more.
-local buyButton = function(s : TabState, tree : string, waiting : ReactStateT<{string : integer}>) : TreeNodeId
+-- No "buying" state: the rebuild lands within a second, paused or not, and the tab redraws with the new level. A second click
+-- before that sends the old level, which the game script refuses as stale, so nothing is charged twice.
+local buyButton = function(s : TabState, tree : string) : TreeNodeId
 	local level = s.levels[tree]
 	local nextLevel = level + 1
 	local label, tooltip : string, string
 	local enabled = false
 	local price = s.buildPrice and levels.levelPrice(s.buildPrice, nextLevel) or nil
-	if waiting:old()[tree] == level then
-		label, tooltip = "...", "Buying level " .. tostring(nextLevel)
-	elseif price == nil then
+	if price == nil then
 		label, tooltip = "?", "Price unknown"
 	elseif s.rank ~= nil and nextLevel > s.rank then
 		label, tooltip = "Rank " .. tostring(nextLevel), "Needs company rank " .. tostring(nextLevel)
@@ -228,10 +228,6 @@ local buyButton = function(s : TabState, tree : string, waiting : ReactStateT<{s
 				.. " shownPrice=" .. tostring(price))
 			api.cmd.sendCommand(api.cmd.makeScriptingSendEventCmd("", buyEventId, buyEvent,
 				{ construction = s.construction, tree = tree, from = level }))
-			local marked : {string : integer} = {}
-			for key, value in pairs(waiting:old()) do marked[key] = value end
-			marked[tree] = level
-			waiting:set(marked)
 		end,
 	}
 end
@@ -259,7 +255,7 @@ end
 
 -- One card per tree. First row: the level at the left, the upkeep after the next level at the right. Second row: what the next
 -- level changes at the left, the buy button at the right. The upkeep counts what the game's upkeep footer counts.
-local treeCard = function(s : TabState, tree : string, waiting : ReactStateT<{string : integer}>, gameCtx : GameContext) : TreeNodeId
+local treeCard = function(s : TabState, tree : string, gameCtx : GameContext) : TreeNodeId
 	local level = s.levels[tree]
 	local levelText = text("Level " .. tostring(level) .. "/" .. tostring(levels.maxLevel))
 	if level >= levels.maxLevel then
@@ -275,13 +271,13 @@ local treeCard = function(s : TabState, tree : string, waiting : ReactStateT<{st
 	end
 	return card(levels.names[tree], {
 		spreadRow(levelText, nextUpkeep),
-		spreadRow(text(effect(s, tree, level, level + 1)), buyButton(s, tree, waiting)),
+		spreadRow(text(effect(s, tree, level, level + 1)), buyButton(s, tree)),
 	}, gameCtx)
 end
 
 -- The cards scroll and the game's own upkeep footer sits below them, as in the depot's tab
 -- (gui/entity_window/maintenance_station/maintenance_station.tl).
-local tabBody = function(s : TabState, waiting : ReactStateT<{string : integer}>, gameCtx : GameContext) : TreeNodeId
+local tabBody = function(s : TabState, gameCtx : GameContext) : TreeNodeId
 	local rankNote = (s.earnedRank and s.rank and s.earnedRank > s.rank)
 		and ("rank " .. tostring(s.earnedRank) .. " earned, claim it to buy higher") or ""
 	local cards : {TreeNodeId} = {
@@ -291,7 +287,7 @@ local tabBody = function(s : TabState, waiting : ReactStateT<{string : integer}>
 			spreadRow(text("Vehicles"), text(tostring(s.maintained or "?") .. "/" .. tostring(s.pool or "?"))),
 		}, gameCtx),
 	}
-	for _, tree in ipairs(levels.trees) do cards[#cards + 1] = treeCard(s, tree, waiting, gameCtx) end
+	for _, tree in ipairs(levels.trees) do cards[#cards + 1] = treeCard(s, tree, gameCtx) end
 	if entityWindowUtil == nil then
 		return builtin.BoxLayout{ orientation = builtin.type.Orientation.Vertical, children = cards }
 	end
@@ -319,11 +315,10 @@ if ready then
 		end, nil, function(a : TabState, b : TabState) : boolean
 			return a ~= nil and b ~= nil and a.key == b.key
 		end)
-		local waiting = react.useState({}) as ReactStateT<{string : integer}>
 		local s = state:old()
 		local ok, body = pcall(function() : TreeNodeId
 			logShown(s)
-			return tabBody(s, waiting, params.gameCtx)
+			return tabBody(s, params.gameCtx)
 		end)
 		if not ok then
 			say("window error construction=" .. tostring(construction) .. " error=" .. tostring(body))
