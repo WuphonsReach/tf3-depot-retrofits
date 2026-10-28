@@ -37,6 +37,7 @@ local record Definition
 	updateScript : ScriptHook
 	configureHudIconsScript : ScriptHook
 	constructionTemplates : {Template}
+	edgeObject : table
 	params : {ParamDef}
 end
 
@@ -107,6 +108,11 @@ local wrapConstruction = function(fileName : string, definition : Definition) : 
 		if lower:find("depot", 1, true) or lower:find("maint", 1, true) then
 			say("skip fileName=" .. name .. " reason=noMarker")
 		end
+		return definition
+	end
+	-- The base path signals name the depot HUD icons too (infrastructure/signal/signal_path_a.con.lua); they are edge objects.
+	if definition.edgeObject ~= nil then
+		say("skip fileName=" .. name .. " reason=edgeObject marker=" .. marker)
 		return definition
 	end
 	if script == nil or type(script.fileName) ~= "string" or script.fileName == "" then
