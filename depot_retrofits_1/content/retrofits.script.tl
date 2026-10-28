@@ -16,7 +16,9 @@ local buyEvent = "depotRetrofitsBuy"
 -- Clock units: a game day at calendar speed 1x is 4,000, a game year 1,461,000.
 local dayClock = 4000
 local buyCheckOffsets = { 200, dayClock }
-local buyPendingClock = 400 -- a second buy for the same building within this time is refused (the first rebuild is pending)
+-- A second buy for the same building is refused until the first rebuild has landed (the stored levels are the ones bought), or
+-- for this long in game time when it never lands. Game time stops while the game is paused, so landing is the normal way out.
+local buyPendingClock = 400
 
 local record Snapshot
 	pool : number
@@ -55,6 +57,7 @@ end
 
 local record Pending
 	construction : Engine.Entity
+	to : {string : integer}
 	untilT : number
 end
 
@@ -263,9 +266,13 @@ local bookPrice = function(amount : integer, fileName : string) : string
 	return nil
 end
 
+local stillPending = function(p : Pending, t : number) : boolean
+	return t < p.untilT and not sameLevels(storedLevels(p.construction), p.to)
+end
+
 local isPending = function(retrofit : RetrofitState, construction : Engine.Entity, t : number) : boolean
 	for _, p in ipairs(retrofit.pending or {}) do
-		if p.construction == construction and t < p.untilT then return true end
+		if p.construction == construction and stillPending(p, t) then return true end
 	end
 	return false
 end
@@ -302,7 +309,7 @@ local processBuy = function(retrofit : RetrofitState, buy : Buy, t : number) : s
 		.. " chargeError=" .. tostring(chargeErr) .. " balanceBefore=" .. tostring(balance) .. " rank=" .. tostring(rank)
 		.. " rankSource=" .. rankSource .. " from=" .. describeLevels(from) .. " to=" .. describeLevels(to) .. " " .. describeSnapshot(before))
 	retrofit.pending = retrofit.pending or {}
-	table.insert(retrofit.pending, { construction = buy.construction, untilT = t + buyPendingClock })
+	table.insert(retrofit.pending, { construction = buy.construction, to = to, untilT = t + buyPendingClock })
 	retrofit.watches = retrofit.watches or {}
 	table.insert(retrofit.watches, { construction = buy.construction, depot = depot, label = buy.tree .. tostring(buy.from + 1),
 		startedAt = t, checksDone = 0, from = from, to = to, before = before })
@@ -327,7 +334,7 @@ local processWatches = function(retrofit : RetrofitState, t : number) : boolean
 	retrofit.watches = kept
 	local pending : {Pending} = {}
 	for _, p in ipairs(retrofit.pending or {}) do
-		if t < p.untilT then pending[#pending + 1] = p else changed = true end
+		if stillPending(p, t) then pending[#pending + 1] = p else changed = true end
 	end
 	retrofit.pending = pending
 	return changed
