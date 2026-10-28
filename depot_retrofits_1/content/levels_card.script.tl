@@ -107,8 +107,8 @@ local effectText = function(tree : string, level : integer) : string
 	if level == 0 then return "no change" end
 	local percent = tostring(5 * level) .. "%"
 	if tree == "radius" then return "+" .. percent end
-	if tree == "vehicles" then return "+" .. tostring(10 * level) .. "%, at least +" .. tostring(level) end
-	if tree == "upkeep" then return "-" .. percent .. " of the total" end
+	if tree == "vehicles" then return "+" .. tostring(10 * level) .. "%, min +" .. tostring(level) end
+	if tree == "upkeep" then return "-" .. percent .. " of total" end
 	return "-" .. percent
 end
 
@@ -141,13 +141,14 @@ local buyButton = function(s : CardState, tree : string, waiting : ReactStateT<{
 	elseif price == nil then
 		label = "Price unknown"
 	elseif s.rank ~= nil and nextLevel > s.rank then
-		label = "Level " .. tostring(nextLevel) .. " needs rank " .. tostring(nextLevel)
+		label = "Needs rank " .. tostring(nextLevel)
 	else
-		label = "Buy level " .. tostring(nextLevel) .. ": " .. money(price)
+		label = "Level " .. tostring(nextLevel) .. ": " .. money(price)
 		enabled = true
 	end
 	return builtin.Button{
-		meta = { enabled = enabled, localKey = "depot_retrofits_buy_" .. tree },
+		-- "primary" is the class the base game's dialog buttons use (gui/line_vehicle_mgmt/feedback_list_util.tl).
+		meta = { class = "primary", enabled = enabled, localKey = "depot_retrofits_buy_" .. tree },
 		content = text(label),
 		onClick = function()
 			if not enabled then return end
@@ -172,8 +173,8 @@ local cardBody = function(s : CardState, waiting : ReactStateT<{string : integer
 		rows[#rows + 1] = builtin.BoxLayout{
 			orientation = builtin.type.Orientation.Horizontal,
 			children = {
-				text(levels.names[tree] .. ": level " .. tostring(s.levels[tree]) .. " of " .. tostring(levels.maxLevel)
-					.. " (" .. effectText(tree, s.levels[tree]) .. ")"),
+				text(levels.names[tree] .. " " .. tostring(s.levels[tree]) .. "/" .. tostring(levels.maxLevel)
+					.. (s.levels[tree] > 0 and (" (" .. effectText(tree, s.levels[tree]) .. ")") or "")),
 				buyButton(s, tree, waiting),
 			},
 		}
