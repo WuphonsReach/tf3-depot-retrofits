@@ -81,8 +81,10 @@ function levels.upkeepFactor(values : {string : integer}) : number
 	return (1 + upkeepPerOtherLevel * levels.otherLevels(values)) * (1 - upkeepStep * (values.upkeep or 0))
 end
 
+-- Rounded to $100: the game charges a whole-dollar upkeep, so undoing the levels' factor leaves up to about $12 of noise (at upkeep
+-- level 15), which showed as a $10,124 price instead of $10,125. Every base depot's build price is a whole $100.
 function levels.buildPrice(chargedUpkeep : number, values : {string : integer}) : number
-	return buildPricePerUpkeep * chargedUpkeep / levels.upkeepFactor(values)
+	return 100 * round(buildPricePerUpkeep * chargedUpkeep / levels.upkeepFactor(values) / 100)
 end
 
 function levels.levelPrice(buildPrice : number, level : integer) : integer
