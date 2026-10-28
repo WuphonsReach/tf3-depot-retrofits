@@ -6,7 +6,7 @@
 --    construction id, so a rerun gives the same levels). Only buildings without levels are picked. Before, and at checks
 --    after 1 game hour, 1 day, 7 days and 1 month, it logs each building's pool, radius, upkeep, emitter power and vehicles,
 --    with the values the formulas in levels.tl predict and whether they match. No money is charged for these.
--- 2. Buying a level. The levels card in the building's window (levels_card.script.tl) sends a buy event; this script checks
+-- 2. Buying a level. The Retrofit tab in the building's window (retrofit_window.script.tl) sends a buy event; this script checks
 --    it (the level the card saw is still the stored one, below 15, within the company rank, enough money), rebuilds the
 --    construction with the new level, books the price as depot construction, and logs the building before and after.
 --
@@ -14,7 +14,7 @@
 
 local stateVersion = 4 -- a state from an older probe is set aside, not continued
 
--- Shared with mod.script.tl, construction.script.tl and levels_card.script.tl; keep the copies equal.
+-- Shared with mod.script.tl, construction.script.tl and retrofit_window.script.tl; keep the copies equal.
 local wrapperRef = "depot_retrofits_1::/construction.script@update"
 local buyEvent = "depotRetrofitsBuy"
 
@@ -226,20 +226,10 @@ local describeSnapshot = function(s : Snapshot) : string
 		.. " stored=" .. describeLevels(s.levels)
 end
 
--- The base pool behind a pool built at a vehicles level (the smallest that gives it).
-local basePool = function(pool : number, level : integer) : integer
-	if pool == nil then return nil end
-	if level == 0 then return math.floor(pool + 0.5) end
-	for base = 1, math.floor(pool) do
-		if levels.pool(base, level) == pool then return base end
-	end
-	return nil
-end
-
 -- What the building should read after going from one set of levels to another, from what it read before.
 local expectedAfter = function(before : Snapshot, from : {string : integer}, to : {string : integer}) : Expected
 	local e : Expected = {}
-	local base = basePool(before.pool, from.vehicles)
+	local base = levels.basePool(before.pool, from.vehicles)
 	e.pool = base and levels.pool(base, to.vehicles) or nil
 	if before.radius ~= nil then
 		e.radius = before.radius / levels.radius(1, from.radius) * levels.radius(1, to.radius)

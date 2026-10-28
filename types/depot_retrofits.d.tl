@@ -15,6 +15,7 @@ global record DepotRetrofitsLevels
 	otherLevels : function(levels : {string : integer}) : integer
 
 	pool : function(basePool : number, level : integer) : integer
+	basePool : function(pool : number, level : integer) : integer
 	radius : function(baseRadius : number, level : integer) : number
 	emissionFactor : function(level : integer) : number
 	upkeepFactor : function(levels : {string : integer}) : number

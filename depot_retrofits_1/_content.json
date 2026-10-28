@@ -2,11 +2,10 @@
     "archives": null,
     "files": [
         "construction.script.tl",
-        "gui/depot_retrofits_levels.res.lua",
         "levels.tl",
-        "levels_card.script.tl",
         "mod.script.tl",
         "probe.gs.lua",
-        "probe.script.tl"
+        "probe.script.tl",
+        "retrofit_window.script.tl"
     ]
 }

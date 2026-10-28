@@ -59,6 +59,16 @@ function levels.pool(basePool : number, level : integer) : integer
 	return math.max(round(basePool * (1 + vehiclesStep * level)), round(basePool) + level)
 end
 
+-- The base pool behind a pool built at a vehicles level (the smallest that gives it); nil when none does.
+function levels.basePool(pool : number, level : integer) : integer
+	if pool == nil then return nil end
+	if level == 0 then return round(pool) end
+	for base = 1, math.floor(pool) do
+		if levels.pool(base, level) == pool then return base end
+	end
+	return nil
+end
+
 function levels.radius(baseRadius : number, level : integer) : number
 	return baseRadius * (1 + radiusStep * level)
 end

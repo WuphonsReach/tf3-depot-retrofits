@@ -19,7 +19,7 @@ tl check depot_retrofits_1/content/levels.tl
 tl check depot_retrofits_1/content/mod.script.tl
 tl check depot_retrofits_1/content/construction.script.tl
 tl check depot_retrofits_1/content/probe.script.tl
-tl check depot_retrofits_1/content/levels_card.script.tl
+tl check depot_retrofits_1/content/retrofit_window.script.tl
 
 # Check that _content.json lists every file under content/ (the game cannot load a file the list leaves out)
 python3 tools/check_content_list.py
@@ -33,10 +33,10 @@ Run `tl check` on each script you touch.
 
 - **[levels.tl](depot_retrofits_1/content/levels.tl)**: the five trees, their param keys and the formulas of docs/spec.md (pool, radius, emissions, upkeep, build price, level price). Pure functions; every script loads it with `ug_require` under `pcall`. Its type is [types/depot_retrofits.d.tl](types/depot_retrofits.d.tl), which the mod does not ship.
 - **[mod.json](depot_retrofits_1/mod.json)** sets `runScript` to `mod.script@runFn`.
-- **[mod.script.tl](depot_retrofits_1/content/mod.script.tl)**: `runFn` registers a `loadConstruction` modifier. For every non-industry construction that uses the base depot HUD icons or sits under a `depots/` folder, and is not an edge object (the base path signals use the same HUD icons), it replaces `updateScript` with the wrapper, keeps the original capture params at the top level, and stores the original script's absolute reference under `depotRetrofits`. It declares one param per tree (values 0 to 15, `yearFrom` 9999, so never in the build menu).
+- **[mod.script.tl](depot_retrofits_1/content/mod.script.tl)**: `runFn` registers a `loadConstruction` modifier. For every non-industry construction that uses the base depot HUD icons or sits under a `depots/` folder, and is not an edge object (the base path signals use the same HUD icons), it replaces `updateScript` with the wrapper, keeps the original capture params at the top level, and stores the original script's absolute reference under `depotRetrofits`. It declares one param per tree (values 0 to 15, `yearFrom` 9999, so never in the build menu) and sets the window script.
 - **[construction.script.tl](depot_retrofits_1/content/construction.script.tl)**: the wrapper `update` loads the original with base `::/scripts/util.tl` `useFn`, runs it, and applies the levels to pool, radius, both emission states and upkeep. A missing original raises, since there is no result to return.
 - **[probe.gs.lua](depot_retrofits_1/content/probe.gs.lua) and [probe.script.tl](depot_retrofits_1/content/probe.script.tl)**: the game script. A game day after the first load it gives the player's buildings without levels random levels by rebuilding them (every fourth is a control, the first gets all 15, the second all but upkeep), and checks pool, radius and upkeep against the formulas after 1 game hour, 1 day, 7 days and 1 month. It also handles the card's buy event: checks it, rebuilds with the new level and books the price as depot construction. It logs the company rank. The state carries a version; a state from an older probe is reset.
-- **[levels_card.script.tl](depot_retrofits_1/content/levels_card.script.tl) and [gui/depot_retrofits_levels.res.lua](depot_retrofits_1/content/gui/depot_retrofits_levels.res.lua)**: a card in the window every depot and maintenance building opens, registered as a plugin of the base `MaintenanceStationEowExtensionPoint`. It shows the rank, each tree's level and a buy button with the price.
+- **[retrofit_window.script.tl](depot_retrofits_1/content/retrofit_window.script.tl)**: the building window. mod.script.tl names it as each wrapped construction's `entityWindowScript` (only where the construction has none). It returns the base construction window with the depot's own tab plus a Retrofit tab, as the base Cleaning Plant adds its tab: the rank, the building's radius, vehicles and upkeep, and one card per tree with the value now and after the next level and a buy button with the price.
 
 The wrapper reference, capture key and buy event name are copied into the scripts that use them (keep the copies equal); the param keys live in levels.tl only.
 

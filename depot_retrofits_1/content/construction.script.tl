@@ -4,7 +4,7 @@
 -- the construction's upkeep. A building with no level params (placed before the mod, or new) is left as the original script
 -- made it.
 
--- Shared with mod.script.tl and levels_card.script.tl; keep the copies equal.
+-- Shared with mod.script.tl and retrofit_window.script.tl; keep the copies equal.
 local captureKey = "depotRetrofits"
 
 -- The wrapper runs for every preview while the player places a depot, so the calls without levels are logged only at first.

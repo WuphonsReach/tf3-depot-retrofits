@@ -66,7 +66,7 @@ A tree's maximum level equals the company rank.
 - **Price.** The build price is 6 × the upkeep the game charges for the building now, divided by what its current levels do to the upkeep. That gives today's build price, with the game's upkeep factor and inflation included, without reading the depot scripts' base cost.
 - **Charging.** The one-off price is booked as depot construction (journal entry, carrier from the building type). The extra upkeep is the building's own upkeep, raised in the rebuild, so it is charged with the normal upkeep.
 - **Rank.** The rank the company window shows as reached (claimed). Buying a level above it is refused.
-- **Where the player buys.** A "Retrofit" card in the window every depot and maintenance building opens, with each tree's level and a buy button showing the price.
+- **Where the player buys.** A Retrofit tab in the building's window, next to its depot tab (as Industry Upgrades adds an Upgrades tab to industries): one card per tree with the value now and after the next level, the upkeep it brings, and a buy button showing the price.
 
 ## Open points
 

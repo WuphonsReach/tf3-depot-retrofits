@@ -7,9 +7,12 @@
 
 local modVersion = "0.4-probe"
 
--- Shared with construction.script.tl and levels_card.script.tl; keep the copies equal.
+-- Shared with construction.script.tl and retrofit_window.script.tl; keep the copies equal.
 local wrapperRef = "depot_retrofits_1::/construction.script@update"
 local captureKey = "depotRetrofits"
+
+-- The building window with the Retrofit tab (retrofit_window.script.tl); set only where the construction has none of its own.
+local windowRef = "depot_retrofits_1::/retrofit_window.script@entityWindowFn"
 
 -- The game's date card goes up to the year 5000; a level param available from 9999 never shows in the build menu.
 local hiddenYear = 9999
@@ -38,6 +41,7 @@ end
 local record Definition
 	isIndustry : boolean
 	updateScript : ScriptHook
+	entityWindowScript : ScriptHook
 	configureHudIconsScript : ScriptHook
 	constructionTemplates : {Template}
 	edgeObject : table
@@ -158,7 +162,12 @@ local wrapConstruction = function(fileName : string, definition : Definition) : 
 		table.insert(definition.params, levelParam(tree))
 	end
 
-	say("wrap fileName=" .. name .. " marker=" .. marker .. " ref=" .. script.fileName .. " resolved=" .. resolved)
+	local window = definition.entityWindowScript
+	local windowSet = window == nil or type(window.fileName) ~= "string" or window.fileName == ""
+	if windowSet then definition.entityWindowScript = { fileName = windowRef, params = {} } end
+
+	say("wrap fileName=" .. name .. " marker=" .. marker .. " ref=" .. script.fileName .. " resolved=" .. resolved
+		.. " window=" .. (windowSet and "retrofit" or ("own:" .. tostring(window.fileName))))
 	return definition
 end
 
