@@ -40,6 +40,7 @@ end
 
 local record Definition
 	isIndustry : boolean
+	constructionType : string
 	updateScript : ScriptHook
 	entityWindowScript : ScriptHook
 	configureHudIconsScript : ScriptHook
@@ -83,8 +84,12 @@ local namesDepotHud = function(ref : ScriptHook) : boolean
 	return ref ~= nil and type(ref.fileName) == "string" and ref.fileName:find("configureDepotHudIconsFn", 1, true) ~= nil
 end
 
--- "hud" when the construction (or one of its templates) uses the base game's depot HUD icons, "path" when its file sits in a
--- depots folder (the Roundhouse mod's depot has no HUD marker), nil otherwise.
+-- The depot values of the engine's ConstructionType (api/tealdef/api/type.d.tl). Base depots do not set constructionType;
+-- mod depots often do, such as the Boathouse mod's maintenance building, which has neither of the other two markers.
+local depotTypes : {string : boolean} = { STREET_DEPOT = true, RAIL_DEPOT = true, WATER_DEPOT = true }
+
+-- "hud" when the construction (or one of its templates) uses the base game's depot HUD icons, "type" when it declares a depot
+-- constructionType, "path" when its file sits in a depots folder (the Roundhouse mod's depot has no HUD marker), nil otherwise.
 local depotMarker = function(fileName : string, definition : Definition) : string
 	if namesDepotHud(definition.configureHudIconsScript) then return "hud" end
 	if type(definition.constructionTemplates) == "table" then
@@ -92,6 +97,7 @@ local depotMarker = function(fileName : string, definition : Definition) : strin
 			if type(template) == "table" and namesDepotHud(template.configureHudIconsScript) then return "hud" end
 		end
 	end
+	if type(definition.constructionType) == "string" and depotTypes[definition.constructionType] then return "type" end
 	local lower = fileName:lower():gsub("\\", "/")
 	if lower:find("/depots/", 1, true) then return "path" end
 	return nil
@@ -125,7 +131,7 @@ local wrapConstruction = function(fileName : string, definition : Definition) : 
 	if not marker then
 		local lower = name:lower()
 		if lower:find("depot", 1, true) or lower:find("maint", 1, true) then
-			say("skip fileName=" .. name .. " reason=noMarker")
+			say("skip fileName=" .. name .. " reason=noMarker constructionType=" .. tostring(definition.constructionType))
 		end
 		return definition
 	end
