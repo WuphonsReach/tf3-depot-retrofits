@@ -11,7 +11,7 @@
 
 ## Which buildings
 
-All road, tram, rail and water depots and maintenance buildings, including ones built before the mod was added. Depots from other mods get the tab too when they use the game's depot icons or sit in a `depots/` folder.
+All road, tram, rail and water depots and maintenance buildings, including ones built before the mod was added. Depots from other mods get the tab too when they use the game's depot icons, are marked as a depot in their construction file, or sit in a `depots/` folder.
 
 A newly placed building starts at level 0 in every tree. The build menu has no level options.
 
