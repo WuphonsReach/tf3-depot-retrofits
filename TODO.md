@@ -13,7 +13,7 @@
 - [ ] Find out whether the game's own rebuilds keep the level params: electrifying a rail depot, the construction upgrade tool, a param change in the build window.
 - [ ] Decide the rank gate: fixed (max level = claimed rank), or an in-game setting that is on by default.
 - [ ] Check which finance rows the level charges land in (booked as depot construction).
-- [ ] Release: mod.io listing (description, screenshots), version text in `mod.script.tl`, README status, a `v*.*` tag (tags and releases are immutable).
+- [ ] Release: mod.io listing (screenshots; the text is in `_metadata/modinfo.json`; drop its "IN DEVELOPMENT" paragraph), version text in `mod.script.tl`, README status, a `v*.*` tag (tags and releases are immutable).
 
 ## Design
 
