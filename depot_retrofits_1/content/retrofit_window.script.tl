@@ -266,10 +266,14 @@ local treeCard = function(s : TabState, tree : string, gameCtx : GameContext) : 
 			spreadRow(text(effect(s, tree, level)), builtin.Component{}),
 		}, gameCtx)
 	end
-	local nextUpkeep : TreeNodeId = text("?")
+	-- Build only the node that is shown: a recipe called but left out of the tree costs the game log a "Preserved props"
+	-- warning on every redraw.
+	local nextUpkeep : TreeNodeId
 	if s.chargedUpkeep ~= nil then
 		local charged = s.chargedUpkeep / levels.upkeepFactor(s.levels) * levels.upkeepFactor(withLevel(s.levels, tree, level + 1))
 		nextUpkeep = iconText(upkeepIcon, perYear(charged + s.accumulated), "Upkeep after level " .. tostring(level + 1))
+	else
+		nextUpkeep = text("?")
 	end
 	return card(levels.names[tree], {
 		spreadRow(levelText, nextUpkeep),
