@@ -43,15 +43,17 @@ Levels cannot be sold or lowered.
 
 ## What levels cost
 
-Level prices follow the building's build price. Level 1 costs a tenth of it, and each level after that costs about a third more than the one before. Level 15 costs about 6.7 times the build price, and a full tree about 25 times.
+Level prices follow the building's build price. In the radius, vehicles, pollution and noise trees, level 1 costs 15% of it, and each level after that costs 15% more than the one before. Level 15 costs about the build price, and a full tree about 7 times it.
 
-Every tree has the same prices, and the order you buy in does not change them.
+The upkeep tree costs more, since it pays for itself: level 1 costs 25% of the build price, level 15 about 1.8 times it, and a full tree about 12 times it.
+
+The order you buy in does not change any price.
 
 ## Upkeep
 
-Each level in the radius, vehicles, pollution or noise tree adds a quarter of the building's normal upkeep. With all four of those trees at 15, the upkeep is 16 times the normal upkeep.
+Each level in the radius, vehicles, pollution or noise tree adds 15% of the building's normal upkeep. With all four of those trees at 15, the upkeep is 10 times the normal upkeep.
 
-The upkeep tree cuts the total by 5% per level, so a full upkeep tree leaves a quarter of it. On a building with the other four trees at 15, a full upkeep tree pays for itself in about 13 game years. The first upkeep levels pay back fastest.
+The upkeep tree cuts the total by 5% per level, so a full upkeep tree leaves a quarter of it. On a building with the other four trees at 15, a full upkeep tree pays for itself in about 9.5 game years. The first upkeep levels pay back fastest.
 
 ## Good to know
 

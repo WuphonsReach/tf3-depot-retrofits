@@ -30,6 +30,6 @@ global record DepotRetrofitsLevels
 
 	-- The building's build price at today's prices, from the upkeep the game charges for it now and its current levels.
 	buildPrice : function(chargedUpkeep : number, levels : {string : integer}) : number
-	-- The price of level n of any tree, rounded to whole money.
-	levelPrice : function(buildPrice : number, level : integer) : integer
+	-- The price of level n of a tree, rounded to whole money.
+	levelPrice : function(buildPrice : number, tree : string, level : integer) : integer
 end

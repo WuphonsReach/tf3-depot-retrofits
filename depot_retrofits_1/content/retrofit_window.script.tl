@@ -288,7 +288,7 @@ local logShown = function(s : TabState)
 	local prices : {string} = {}
 	for _, tree in ipairs(levels.trees) do
 		local level = s.levels[tree]
-		prices[#prices + 1] = level < levels.maxLevel and s.buildPrice and tostring(levels.levelPrice(s.buildPrice, level + 1)) or "-"
+		prices[#prices + 1] = level < levels.maxLevel and s.buildPrice and tostring(levels.levelPrice(s.buildPrice, tree, level + 1)) or "-"
 	end
 	say("window shown construction=" .. tostring(s.construction) .. " depot=" .. tostring(s.depot) .. " state=" .. s.key
 		.. " buildPrice=" .. tostring(s.buildPrice) .. " nextPrices=" .. table.concat(prices, "/"))
@@ -302,7 +302,7 @@ local buyButton = function(s : TabState, tree : string) : TreeNodeId
 	local nextLevel = level + 1
 	local label, tooltip : string, string
 	local enabled = false
-	local price = s.buildPrice and levels.levelPrice(s.buildPrice, nextLevel) or nil
+	local price = s.buildPrice and levels.levelPrice(s.buildPrice, tree, nextLevel) or nil
 	if price == nil then
 		label, tooltip = "?", "Price unknown"
 	elseif s.rank ~= nil and nextLevel > s.rank then
