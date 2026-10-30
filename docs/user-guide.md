@@ -6,7 +6,7 @@
 - **Where to buy.** Open the building's window and choose the Retrofit tab. Each level is bought on its own, for money.
 - **What it costs.** Each level costs more than the one before. Every level except the upkeep levels also raises the building's upkeep.
 - **Limit.** A tree's highest level is your company rank.
-- **One catch.** Buying a level rebuilds the building. The game then reassigns the vehicles it maintained, and some may move to another building in range.
+- **One catch.** Buying a level rebuilds the building. The game then reassigns the vehicles it maintained; some or all of them may go to another building in range.
 - **Status.** The mod is in development and not released yet.
 
 ## Which buildings
@@ -43,7 +43,7 @@ Levels cannot be sold or lowered.
 
 ## What levels cost
 
-Level prices follow the building's build price. In the radius, vehicles, pollution and noise trees, level 1 costs 15% of it, and each level after that costs 15% more than the one before. Level 15 costs about the build price, and a full tree about 7 times it.
+Level prices follow the building's build price: what it would cost to build today. In the radius, vehicles, pollution and noise trees, level 1 costs 15% of it, and each level after that costs 15% more than the one before. Level 15 costs about the build price, and a full tree about 7 times it.
 
 The upkeep tree costs more, since it pays for itself: level 1 costs 25% of the build price, level 15 about 1.8 times it, and a full tree about 12 times it.
 

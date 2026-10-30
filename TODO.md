@@ -3,7 +3,7 @@
 ## In short
 
 - **Where it stands.** 0.5 is on `main`: levels are stored, applied and bought in the Retrofit tab, and the game script only handles buys. It has not been released.
-- **Before a release.** An in-game test of the code review fixes (charging when the rebuild lands, the module wrapper's recorded base pool), then the release itself.
+- **Before a release.** An in-game test of the code review fixes (charging when the rebuild lands, the module wrapper's recorded base pool), new gallery screenshots with the current prices, then the release itself.
 
 ## Before a release
 
@@ -16,13 +16,14 @@
 - [ ] Test the code review fixes in game. Buys: each logs `buy sent` and then `buy charged` with the shown price, the balance falls by it, and a quick double click is still refused (stale or pending) with nothing charged. Roundhouse: add a stall to a levelled one and check the `module` line's `baseSource` (`recorded` means the game hands the modules the wrapper's own table; `inverted` is the fallback) and that the pool is the formula's. Also check that the chimney's pollution or noise is cut by those trees: the wrapper only scales the depot subconstruction's emissions.
 - [ ] Check which finance rows the level charges land in (booked as depot construction).
 - [ ] Confirm that the upkeep tree leaves the vehicles' running cost (the accumulated costs in the upkeep footer) alone, as designed: on two like buildings servicing similar vehicles, one with upkeep levels, the accumulated costs should grow at the same rate.
+- [ ] Retake the gallery `_metadata/1.jpg` to `3.jpg`: they show the old price ladder (the upkeep tree priced like the others), and 2.jpg an old buy tooltip. Use buildings at level 0, with only upkeep levels, or bought once since the 15% upkeep step; buildings levelled before it show prices 25% to 43% too high until rebuilt (docs/design/findings.md). Full 4K screenshots will do: crop the window for `tools/make_gallery.py` (same angles and slots as its docstring), and crop 2.jpg and 3.jpg to 16:9 at 1920x1080.
 - [ ] Release, following [docs/publishing.md](docs/publishing.md): the listing text in `_metadata/modinfo.json` (drop its "IN DEVELOPMENT" paragraph if it no longer applies), the CHANGELOG entry and `modVersion`, README status, the upload, a test of the published copy, then a `v*.*` tag and GitHub release (both immutable). After the first upload, commit `mod.io_fileid.txt` and note whether the gallery took `2.jpg` and `3.jpg`.
 
 ## Design
 
-- [ ] The upkeep tree's first-level share (0.25 now). It pays back in about 9.5 years with the other trees full; 0.26 gives 10 years, 0.39 gives 15.
+- [x] Decide the upkeep tree's first-level share: 0.25 (pays back in about 9.5 years with the other trees full).
 - [ ] Text sizes in the tab: everything is body size for now.
-- [ ] The listing could say that buying a level lets the game reassign the building's vehicles, sometimes to another building in range.
+- [x] The listing says that buying a level lets the game reassign the building's vehicles, some or all of them to another building in range.
 
 ## Small
 

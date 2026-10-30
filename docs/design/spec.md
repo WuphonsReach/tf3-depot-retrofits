@@ -4,8 +4,6 @@
 
 Depots and maintenance buildings get levels, bought one at a time in the building's own window. There are five level trees of 15 levels each, and a tree's highest level available is the company's claimed rank (the game has 15 ranks). Four trees (maintenance radius, vehicles maintained, pollution, noise) improve the building and raise its upkeep; their levels cost 0.15 × the build price at level 1, rising 15% a level. The upkeep tree cuts the total upkeep, so it starts higher, at 0.25 × the build price, and a full upkeep tree pays for itself in about 9.5 game years on a building with the other four trees at 15. Version 0.5 stores, applies and sells levels by rebuilding the construction with new parameters (see [findings.md](findings.md) for what the tests showed).
 
-Open points are listed at the bottom.
-
 ## Trees
 
 There are two kinds of tree:
@@ -77,7 +75,7 @@ Every base building costs 6 × its yearly base upkeep to build ([findings.md](fi
 | 30 | 5.5 × base | 4.1 × base | about 17 years |
 | 15 | 3.25 × base | 2.4 × base | about 29 years |
 
-The early levels pay back quickly and the late ones slowly: with the other trees full, level 1 saves 0.5 × base a year for 1.5 × base (3 years), level 15 the same 0.5 × base for 10.6 × base (21 years).
+The early levels pay back quickly and the late ones slowly: with the other trees full, level 1 saves 0.5 × base a year for 1.5 × base (3 years), level 15 the same 0.5 × base for 10.6 × base (21 years). The payback scales with the first-level share: 0.26 would give 10 years with the other trees full, 0.39 would give 15.
 
 ## Buying a level
 
@@ -95,7 +93,3 @@ A tree's maximum level equals the claimed company rank. It is fixed: there is no
 - **Charging.** The one-off price is booked as depot construction (journal entry, carrier from the building type) once the rebuild has landed; a rebuild that never lands is not charged. The extra upkeep is the building's own upkeep, raised in the rebuild, so it is charged with the normal upkeep.
 - **Rank.** The rank the company window shows as reached (claimed). Buying a level above it is refused.
 - **Where the player buys.** A Retrofit tab in the building's window, next to its depot tab (as Industry Upgrades adds an Upgrades tab to industries): one card per tree with what the next level changes, the upkeep after it, and a buy button showing the price; the building's upkeep shows once, in the game's own upkeep footer.
-
-## Open points
-
-- The upkeep tree's first-level share. Its payback scales with it: 0.26 gives 10 years at full levels, 0.39 gives 15.
