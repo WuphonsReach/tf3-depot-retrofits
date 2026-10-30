@@ -8,7 +8,7 @@
 -- The random levelling that tested the formulas across a whole save (probe 0.4) is in git history; its results are in
 -- docs/design/findings.md.
 
-local stateVersion = 5 -- a state from an older version (the probes used 1 to 4) is set aside, not continued
+local stateVersion = 6 -- a state from an older version (the probes used 1 to 4; 5 kept all five levels per pending buy) is set aside, not continued
 
 -- wrapperRef is copied in mod.script.tl, buyEvent in retrofit_window.script.tl; keep the copies equal.
 local wrapperRef = "depot_retrofits_1::/construction.script@update"
@@ -17,10 +17,12 @@ local buyEvent = "depotRetrofitsBuy"
 -- Clock units: a game day at calendar speed 1x is 4,000, a game year 1,461,000.
 local dayClock = 4000
 local buyCheckOffsets = { 200, dayClock }
--- A buy is charged when its rebuild lands (the stored levels are the ones bought); until then a second buy for the same building
--- is refused. A rebuild that has not landed after this long in game time is given up, uncharged. Game time stops while the game
--- is paused, so landing is the normal way out.
-local buyPendingClock = 400
+-- A buy is charged when its rebuild lands: the stored level in its tree is at least the one bought, so a later buy landing first
+-- also counts. Until then a second buy for the same building is refused. A rebuild that has not landed after a game day is given
+-- up, uncharged; at the fastest speed that is about a second, and game time stops while the game is paused.
+-- The pending buy keeps only its tree and level: in a run of quick buys, two recorded with all five levels were found holding
+-- the levels from before the buy, so they never matched and went uncharged (docs/design/findings.md).
+local buyPendingClock = dayClock
 
 local record Snapshot
 	pool : number
@@ -59,9 +61,10 @@ end
 
 local record Pending
 	construction : Engine.Entity
-	to : {string : integer}
+	tree : string
+	level : integer
 	untilT : number
-	price : integer -- charged when the rebuild lands; nil in a state saved before charging moved here (already charged)
+	price : integer -- charged when the rebuild lands
 	fileName : string
 	label : string
 end
@@ -267,8 +270,12 @@ local bookPrice = function(amount : integer, fileName : string) : string
 	return nil
 end
 
+local landed = function(p : Pending, stored : {string : integer}) : boolean
+	return stored ~= nil and (stored[p.tree] or 0) >= p.level
+end
+
 local stillPending = function(p : Pending, t : number) : boolean
-	return t < p.untilT and not sameLevels(storedLevels(p.construction), p.to)
+	return t < p.untilT and not landed(p, storedLevels(p.construction))
 end
 
 local isPending = function(retrofit : RetrofitState, construction : Engine.Entity, t : number) : boolean
@@ -308,8 +315,8 @@ local processBuy = function(retrofit : RetrofitState, buy : Buy, t : number) : s
 		.. " rank=" .. tostring(rank) .. " rankSource=" .. rankSource .. " from=" .. levels.describe(from) .. " to=" .. levels.describe(to)
 		.. " " .. describeSnapshot(before))
 	retrofit.pending = retrofit.pending or {}
-	table.insert(retrofit.pending, { construction = buy.construction, to = to, untilT = t + buyPendingClock, price = price,
-		fileName = con.fileName, label = label })
+	table.insert(retrofit.pending, { construction = buy.construction, tree = buy.tree, level = buy.from + 1,
+		untilT = t + buyPendingClock, price = price, fileName = con.fileName, label = label })
 	retrofit.watches = retrofit.watches or {}
 	table.insert(retrofit.watches, { construction = buy.construction, depot = depot, label = label,
 		startedAt = t, checksDone = 0, from = from, to = to, before = before })
@@ -341,7 +348,7 @@ local processPending = function(retrofit : RetrofitState, t : number) : boolean
 	local pending : {Pending} = {}
 	for _, p in ipairs(retrofit.pending or {}) do
 		local stored = storedLevels(p.construction)
-		if sameLevels(stored, p.to) then
+		if landed(p, stored) then
 			changed = true
 			if p.price ~= nil then
 				local balance = balanceOf()
@@ -352,7 +359,7 @@ local processPending = function(retrofit : RetrofitState, t : number) : boolean
 		elseif t >= p.untilT then
 			changed = true
 			say("buy notLanded construction=" .. tostring(p.construction) .. " bought=" .. tostring(p.label) .. " price=" .. tostring(p.price)
-				.. " stored=" .. levels.describe(stored) .. " expected=" .. levels.describe(p.to) .. " charged=false")
+				.. " stored=" .. levels.describe(stored) .. " expected=" .. tostring(p.tree) .. ">=" .. tostring(p.level) .. " charged=false")
 		else
 			pending[#pending + 1] = p
 		end
