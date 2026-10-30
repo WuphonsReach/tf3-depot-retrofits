@@ -2,7 +2,7 @@
 
 ## In short
 
-Depots and maintenance buildings get levels, bought one at a time in the building's own window. There are five level trees: maintenance radius, vehicles maintained, pollution, noise, and upkeep. Each tree has 15 levels, and a tree's highest level available is the company's current rank (the game has 15 ranks). Levels cost money. The first four trees raise the building's upkeep; the upkeep tree cuts it, and a full upkeep tree pays for itself in about 13 game years on a building with every other tree at 15. Version 0.5 stores, applies and sells levels by rebuilding the construction with new parameters (see [findings.md](findings.md) for what the tests showed).
+Depots and maintenance buildings get levels, bought one at a time in the building's own window. There are five level trees: maintenance radius, vehicles maintained, pollution, noise, and upkeep. Each tree has 15 levels, and a tree's highest level available is the company's claimed rank (the game has 15 ranks). Levels cost money. The first four trees raise the building's upkeep; the upkeep tree cuts it, and a full upkeep tree pays for itself in about 13 game years on a building with every other tree at 15. Version 0.5 stores, applies and sells levels by rebuilding the construction with new parameters (see [findings.md](findings.md) for what the tests showed).
 
 Open points are listed at the bottom.
 
@@ -60,18 +60,16 @@ The early levels pay back quickly and the late ones slowly: with the other trees
 
 ## Rank gate
 
-A tree's maximum level equals the company rank.
+A tree's maximum level equals the claimed company rank. It is fixed: there is no setting to turn it off.
 
 ## How it is built (0.5)
 
 - **Storing levels.** One construction param per tree, values 0 to 15, declared with an availability year of 9999. That keeps it out of the build menu even in a save that runs past the year 3000 (the game's date card goes up to 5000), and a rebuild stores it.
 - **Price.** The build price is 6 × the upkeep the game charges for the building now, divided by what its current levels do to the upkeep, rounded to $100 (the game's whole-dollar upkeep leaves a few dollars of noise). That gives today's build price, with the game's upkeep factor and inflation included, without reading the depot scripts' base cost.
-- **Charging.** The one-off price is booked as depot construction (journal entry, carrier from the building type). The extra upkeep is the building's own upkeep, raised in the rebuild, so it is charged with the normal upkeep.
+- **Charging.** The one-off price is booked as depot construction (journal entry, carrier from the building type) once the rebuild has landed; a rebuild that never lands is not charged. The extra upkeep is the building's own upkeep, raised in the rebuild, so it is charged with the normal upkeep.
 - **Rank.** The rank the company window shows as reached (claimed). Buying a level above it is refused.
 - **Where the player buys.** A Retrofit tab in the building's window, next to its depot tab (as Industry Upgrades adds an Upgrades tab to industries): one card per tree with what the next level changes, the upkeep after it, and a buy button showing the price; the building's upkeep shows once, in the game's own upkeep footer.
 
 ## Open points
 
-- Whether the game's own rebuilds of a construction (for example electrifying a rail depot) keep the level params.
 - Whether each tree gets its own cost basis. The upkeep tree's payback scales with its price: 0.79 × the ladder gives 10 years at full levels, 1.18 × gives 15.
-- Whether the rank gate is an in-game setting. The proposal is a setting that is on by default.

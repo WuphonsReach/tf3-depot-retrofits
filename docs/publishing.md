@@ -24,7 +24,7 @@
    - **Validation** should read "No Issues Found" (**Re-Validate** runs it again).
    - **Preview**: the cover. On the first upload click the slot (camera icon) and pick `0.jpg`; without a cover the card shows a "?".
    - **Gallery**: `1.jpg`, `2.jpg`, `3.jpg` in that order. See [Gallery](#gallery) before moving any.
-   - **PC** and **Console** both ticked gives the two files (Windows, Mac and Linux; Xbox Series X/S and PlayStation 5).
+   - Tick both **PC** and **Console** for the two files (Windows, Mac and Linux; Xbox Series X/S and PlayStation 5).
    - **Set Public** ticked. Unticked, the page is hidden from visitors.
    - **Update Metadata** ticked, so the page takes the name, summary, description and tags from `modinfo.json`.
    - **Changelog**: the version's "Release note" line. Left empty, the page shows "No release notes provided".

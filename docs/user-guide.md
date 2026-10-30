@@ -13,6 +13,8 @@
 
 All road, tram, rail and water depots and maintenance buildings, including ones built before the mod was added. Depots from other mods get the tab too when they use the game's depot icons, are marked as a depot in their construction file, or sit in a `depots/` folder.
 
+On a depot built from modules, such as the Roundhouse mod's, the levels also cover what the modules add: their vehicles and their upkeep.
+
 A newly placed building starts at level 0 in every tree. The build menu has no level options.
 
 ## Buying a level
@@ -23,7 +25,7 @@ The Retrofit tab sits next to the building's own tab. From top to bottom:
 - **One card per tree**: the tree's icon and a row of 15 boxes, one per level: white for a level bought, grey for one you can buy at your rank, dark for one that needs a higher rank (hover over the boxes to see the levels bought and how many your rank allows, for example "Level 4/7 (max 15)"). Then the upkeep after the next level, what the next level changes (for example "400 m -> 420 m"), and a buy button with the price.
 - **Upkeep footer**: the building's upkeep now, as in the building's own tab.
 
-The upkeep figures, in the cards and in the footer, include a running cost for the vehicles the building is servicing, which goes up and down as vehicles come and go. Buying a level rebuilds the building and clears it, so right after a buy the footer can read a little below the figure the card showed. The upkeep tree does not cut this running cost.
+The upkeep figures, in the cards and in the footer, include a running cost for the vehicles the building maintains, which goes up and down as vehicles come and go. Buying a level rebuilds the building and resets that cost to zero, so right after a buy the footer can read a little below the figure the card showed. The upkeep tree does not cut this running cost.
 
 The buy button shows "Rank N" and is greyed out when the next level needs a higher company rank. A tree at level 15 shows "Highest level".
 
@@ -55,4 +57,5 @@ The upkeep tree cuts the total by 5% per level, so a full upkeep tree leaves a q
 
 - **Vehicles move after a buy.** The game reassigns the building's vehicles within a game day. Each one may come back or go to another building in range. Lines are not affected.
 - **Levels are saved with the game.**
-- **Not checked yet.** Whether the game's own rebuilds keep the levels (for example electrifying a rail depot), and what happens to leveled buildings when the mod is removed from a save.
+- **The game's own rebuilds keep the levels**, for example electrifying a rail depot, the catenary tool on a tram depot, or adding or removing Roundhouse stalls.
+- **Not checked yet.** What happens to levelled buildings when the mod is removed from a save. Keep a backup of any save you play with the mod.
