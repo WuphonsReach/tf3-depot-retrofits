@@ -11,6 +11,10 @@ global record DepotRetrofitsLevels
 	read : function(params : {string : any}) : {string : integer}
 	-- Writes the levels into a params table, in the stored form (1-based index into "0".."15").
 	store : function(params : {string : any}, levels : {string : integer})
+	-- "radius/vehicles/pollution/noise/upkeep", as the log lines write levels; "nil" for nil.
+	describe : function(levels : {string : integer}) : string
+	-- A copy of the levels with one tree at another level.
+	withLevel : function(levels : {string : integer}, tree : string, level : integer) : {string : integer}
 	-- Sum of the radius, vehicles, pollution and noise levels (the ones that raise upkeep).
 	otherLevels : function(levels : {string : integer}) : integer
 

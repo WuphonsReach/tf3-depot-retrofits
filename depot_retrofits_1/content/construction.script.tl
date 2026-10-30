@@ -9,7 +9,7 @@
 -- modules' upkeep in here (params.modules carries their metadata), and updateModule wraps the update script of every module
 -- under a depots folder and re-levels what the module added to the pool, radius or upkeep.
 
--- Shared with mod.script.tl and retrofit_window.script.tl; keep the copies equal.
+-- Copied in mod.script.tl; keep the copies equal.
 local captureKey = "depotRetrofits"
 
 -- The wrapper runs for every preview while the player places a depot, so the calls without levels are logged only at first.
@@ -74,6 +74,11 @@ local type ModuleFn = function({string:any}, Result, any, any, any, any, {string
 
 local originals : {string : function} = {}
 local missing : {string : boolean} = {}
+-- The pool each depot subconstruction had before the levels, by result table and subconstruction index, so a module's wrapper
+-- can level what the module adds without working the base back out of the levelled pool. Weak keys: a result is dropped
+-- once the game is done with it. Used only when the game hands the modules the same table the construction's script returned
+-- (not verified); otherwise relevelModule falls back to levels.basePool.
+local basePools : {Result : {integer : number}} = setmetatable({}, { __mode = "k" })
 local plainLines = 0
 local levelledLines = 0
 local moduleLines = 0
@@ -102,13 +107,6 @@ local originalCaptureOf = function(capture : {string:any}) : {string:any}
 		if key ~= captureKey then originalCapture[key] = value end
 	end
 	return originalCapture
-end
-
--- "radius/vehicles/pollution/noise/upkeep".
-local describeLevels = function(values : {string : integer}) : string
-	local parts : {string} = {}
-	for _, tree in ipairs(levels.trees) do parts[#parts + 1] = tostring(values[tree]) end
-	return table.concat(parts, "/")
 end
 
 -- "noise/pollution" per emission state, comma separated.
@@ -161,12 +159,17 @@ local applyLevels = function(result : Result, params : {string:any}, own : Own) 
 	end
 	local noiseScale, pollutionScale = levels.emissionFactor(values.noise), levels.emissionFactor(values.pollution)
 	local found = 0
+	local pools : {integer : number} = {}
+	basePools[result] = pools
 	for index, sub in ipairs(result.subconstructions or {}) do
 		local depot = type(sub) == "table" and sub.depot or nil
 		if type(depot) == "table" then
 			found = found + 1
 			local poolBefore, radiusBefore = depot.maintenancePool, depot.catchmentArea and depot.catchmentArea.radius
-			local emissionsBefore = describeEmissions(sub)
+			-- Worked out only for a line that will be logged: this runs for every preview while a depot is placed.
+			local logThis = (levelled and levelledLines < maxLevelledLines) or (not levelled and plainLines < maxPlainLines)
+			local emissionsBefore = logThis and describeEmissions(sub) or nil
+			if type(poolBefore) == "number" then pools[index] = poolBefore end
 			if values.vehicles > 0 and type(poolBefore) == "number" then
 				depot.maintenancePool = levels.pool(poolBefore, values.vehicles)
 			end
@@ -180,14 +183,14 @@ local applyLevels = function(result : Result, params : {string:any}, own : Own) 
 					if type(state.pollution) == "number" then state.pollution = state.pollution * pollutionScale end
 				end
 			end
-			if (levelled and levelledLines < maxLevelledLines) or (not levelled and plainLines < maxPlainLines) then
+			if logThis then
 				if levelled then levelledLines = levelledLines + 1 else plainLines = plainLines + 1 end
 				say("wrapper ref=" .. tostring(own.ref) .. " owner=" .. tostring(own.owner) .. " sub=" .. tostring(index)
-					.. " levels=" .. describeLevels(values)
+					.. " levels=" .. levels.describe(values)
 					.. " poolBefore=" .. tostring(poolBefore) .. " poolAfter=" .. tostring(depot.maintenancePool)
 					.. " radiusBefore=" .. tostring(radiusBefore)
 					.. " radiusAfter=" .. tostring(depot.catchmentArea and depot.catchmentArea.radius)
-					.. " emissionsBefore=" .. emissionsBefore .. " emissionsAfter=" .. describeEmissions(sub)
+					.. " emissionsBefore=" .. tostring(emissionsBefore) .. " emissionsAfter=" .. describeEmissions(sub)
 					.. " upkeepBefore=" .. tostring(upkeepBefore) .. " upkeepAfter=" .. tostring(result.maintenanceCost)
 					.. " moduleUpkeep=" .. tostring(modulesUpkeep) .. " cost=" .. tostring(result.cost))
 			end
@@ -222,6 +225,7 @@ end
 local relevelModule = function(result : Result, values : {string : integer}, before : {integer : DepotSnapshot},
 		upkeepBefore : number, own : Own, slotId : any) : string
 	local changes : {string} = {}
+	local recorded = basePools[result]
 	for index, sub in ipairs(result.subconstructions or {}) do
 		local depot = type(sub) == "table" and sub.depot or nil
 		local snap = before[index]
@@ -230,11 +234,15 @@ local relevelModule = function(result : Result, values : {string : integer}, bef
 		elseif type(depot) == "table" then
 			local pool = depot.maintenancePool
 			if values.vehicles > 0 and type(pool) == "number" and type(snap.pool) == "number" and pool ~= snap.pool then
-				local base = levels.basePool(snap.pool, values.vehicles)
+				local base : number = recorded and recorded[index]
+				local source = "recorded"
+				if base == nil then base, source = levels.basePool(snap.pool, values.vehicles), "inverted" end
 				if base ~= nil then
-					depot.maintenancePool = levels.pool(base + (pool - snap.pool), values.vehicles)
-					changes[#changes + 1] = "sub=" .. tostring(index) .. " pool=" .. tostring(snap.pool) .. "+" .. tostring(pool - snap.pool)
-						.. "->" .. tostring(depot.maintenancePool)
+					local added = pool - snap.pool
+					depot.maintenancePool = levels.pool(base + added, values.vehicles)
+					if recorded ~= nil then recorded[index] = base + added end
+					changes[#changes + 1] = "sub=" .. tostring(index) .. " pool=" .. tostring(snap.pool) .. "+" .. tostring(added)
+						.. "->" .. tostring(depot.maintenancePool) .. " base=" .. tostring(base + added) .. " baseSource=" .. source
 				else
 					changes[#changes + 1] = "sub=" .. tostring(index) .. " poolUnknownBase=" .. tostring(snap.pool)
 				end
@@ -255,7 +263,7 @@ local relevelModule = function(result : Result, values : {string : integer}, bef
 	end
 	if #changes > 0 and moduleLines < maxModuleLines then
 		moduleLines = moduleLines + 1
-		say("module ref=" .. tostring(own.ref) .. " slot=" .. tostring(slotId) .. " levels=" .. describeLevels(values) .. " "
+		say("module ref=" .. tostring(own.ref) .. " slot=" .. tostring(slotId) .. " levels=" .. levels.describe(values) .. " "
 			.. table.concat(changes, " "))
 	end
 	return nil

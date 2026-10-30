@@ -1,23 +1,25 @@
 -- The game script: buying a level. The Retrofit tab in the building's window (retrofit_window.script.tl) sends a buy event;
 -- this script checks it (the construction runs our wrapper, the level the tab saw is still the stored one, below 15, within
--- the company rank, enough money), rebuilds the construction with the new level, books the price as depot construction, and
--- logs the building before, and after 1 game hour and 1 game day with the values the formulas in levels.tl predict. Log lines
--- start with "DEPOT_RETROFITS".
+-- the company rank, enough money) and rebuilds the construction with the new level. Once the rebuild has landed (the stored
+-- levels are the ones bought) it books the price as depot construction; a rebuild that never lands costs nothing. It logs the
+-- building before, and after 1 game hour and 1 game day with the values the formulas in levels.tl predict. Log lines start
+-- with "DEPOT_RETROFITS".
 --
 -- The random levelling that tested the formulas across a whole save (probe 0.4) is in git history; its results are in
 -- docs/design/findings.md.
 
 local stateVersion = 5 -- a state from an older version (the probes used 1 to 4) is set aside, not continued
 
--- Shared with mod.script.tl, construction.script.tl and retrofit_window.script.tl; keep the copies equal.
+-- wrapperRef is copied in mod.script.tl, buyEvent in retrofit_window.script.tl; keep the copies equal.
 local wrapperRef = "depot_retrofits_1::/construction.script@update"
 local buyEvent = "depotRetrofitsBuy"
 
 -- Clock units: a game day at calendar speed 1x is 4,000, a game year 1,461,000.
 local dayClock = 4000
 local buyCheckOffsets = { 200, dayClock }
--- A second buy for the same building is refused until the first rebuild has landed (the stored levels are the ones bought), or
--- for this long in game time when it never lands. Game time stops while the game is paused, so landing is the normal way out.
+-- A buy is charged when its rebuild lands (the stored levels are the ones bought); until then a second buy for the same building
+-- is refused. A rebuild that has not landed after this long in game time is given up, uncharged. Game time stops while the game
+-- is paused, so landing is the normal way out.
 local buyPendingClock = 400
 
 local record Snapshot
@@ -59,6 +61,9 @@ local record Pending
 	construction : Engine.Entity
 	to : {string : integer}
 	untilT : number
+	price : integer -- charged when the rebuild lands; nil in a state saved before charging moved here (already charged)
+	fileName : string
+	label : string
 end
 
 local record RetrofitState
@@ -74,6 +79,8 @@ end
 
 local levelsLoaded, levelsModule = pcall(ug_require, "depot_retrofits_1::/levels.tl")
 local levels = levelsLoaded and (levelsModule as DepotRetrofitsLevels) or nil
+-- Without it update does nothing (no buy is taken), so the reason goes to the log.
+if not levelsLoaded then say("gameScript levels unavailable error=" .. tostring(levelsModule)) end
 
 local progressionLoaded, progressionModule = pcall(ug_require, "::/game_mechanics/company/company_progression_util.tl")
 local progression = progressionLoaded and (progressionModule as CompanyProgressionUtil) or nil
@@ -177,14 +184,6 @@ local readSnapshot = function(depot : Engine.Entity, construction : Engine.Entit
 	return snap
 end
 
--- "radius/vehicles/pollution/noise/upkeep".
-local describeLevels = function(values : {string : integer}) : string
-	if values == nil then return "nil" end
-	local parts : {string} = {}
-	for _, tree in ipairs(levels.trees) do parts[#parts + 1] = tostring(values[tree]) end
-	return table.concat(parts, "/")
-end
-
 local sameLevels = function(a : {string : integer}, b : {string : integer}) : boolean
 	if a == nil or b == nil then return false end
 	for _, tree in ipairs(levels.trees) do
@@ -197,7 +196,7 @@ local describeSnapshot = function(s : Snapshot) : string
 	return "pool=" .. tostring(s.pool) .. " radius=" .. tostring(s.radius) .. " maintained=" .. tostring(s.maintained)
 		.. " upkeepScript=" .. tostring(s.upkeepScript) .. " upkeepCharged=" .. tostring(s.upkeepCharged)
 		.. " noisePower=" .. tostring(s.noisePower) .. " pollutionPower=" .. tostring(s.pollutionPower)
-		.. " stored=" .. describeLevels(s.levels)
+		.. " stored=" .. levels.describe(s.levels)
 end
 
 -- What the building should read after going from one set of levels to another, from what it read before.
@@ -299,21 +298,20 @@ local processBuy = function(retrofit : RetrofitState, buy : Buy, t : number) : s
 	local balance = balanceOf()
 	if balance ~= nil and balance < price then return "noMoney balance=" .. tostring(balance) .. " price=" .. tostring(price) end
 
-	local to : {string : integer} = {}
-	for _, tree in ipairs(levels.trees) do to[tree] = from[tree] end
-	to[buy.tree] = buy.from + 1
+	local to = levels.withLevel(from, buy.tree, buy.from + 1)
 	local before = readSnapshot(depot, buy.construction)
 	local ran, result = sendRebuild(buy.construction, to)
 	if not ran then return "rebuild " .. result end
-	local okCharge, chargeErr = pcall(bookPrice, price, con.fileName)
-	say("buy done construction=" .. tostring(buy.construction) .. " depot=" .. tostring(depot) .. " tree=" .. buy.tree
-		.. " level=" .. tostring(buy.from + 1) .. " price=" .. tostring(price) .. " charged=" .. tostring(okCharge)
-		.. " chargeError=" .. tostring(chargeErr) .. " balanceBefore=" .. tostring(balance) .. " rank=" .. tostring(rank)
-		.. " rankSource=" .. rankSource .. " from=" .. describeLevels(from) .. " to=" .. describeLevels(to) .. " " .. describeSnapshot(before))
+	local label = buy.tree .. tostring(buy.from + 1)
+	say("buy sent construction=" .. tostring(buy.construction) .. " depot=" .. tostring(depot) .. " tree=" .. buy.tree
+		.. " level=" .. tostring(buy.from + 1) .. " price=" .. tostring(price) .. " balanceBefore=" .. tostring(balance)
+		.. " rank=" .. tostring(rank) .. " rankSource=" .. rankSource .. " from=" .. levels.describe(from) .. " to=" .. levels.describe(to)
+		.. " " .. describeSnapshot(before))
 	retrofit.pending = retrofit.pending or {}
-	table.insert(retrofit.pending, { construction = buy.construction, to = to, untilT = t + buyPendingClock })
+	table.insert(retrofit.pending, { construction = buy.construction, to = to, untilT = t + buyPendingClock, price = price,
+		fileName = con.fileName, label = label })
 	retrofit.watches = retrofit.watches or {}
-	table.insert(retrofit.watches, { construction = buy.construction, depot = depot, label = buy.tree .. tostring(buy.from + 1),
+	table.insert(retrofit.watches, { construction = buy.construction, depot = depot, label = label,
 		startedAt = t, checksDone = 0, from = from, to = to, before = before })
 	return nil
 end
@@ -334,9 +332,30 @@ local processWatches = function(retrofit : RetrofitState, t : number) : boolean
 		if watch.checksDone < #buyCheckOffsets then kept[#kept + 1] = watch end
 	end
 	retrofit.watches = kept
+	return changed
+end
+
+-- Charges each buy whose rebuild has landed and gives up the ones that did not land in time; true when the list changed.
+local processPending = function(retrofit : RetrofitState, t : number) : boolean
+	local changed = false
 	local pending : {Pending} = {}
 	for _, p in ipairs(retrofit.pending or {}) do
-		if stillPending(p, t) then pending[#pending + 1] = p else changed = true end
+		local stored = storedLevels(p.construction)
+		if sameLevels(stored, p.to) then
+			changed = true
+			if p.price ~= nil then
+				local balance = balanceOf()
+				local okCharge, chargeErr = pcall(bookPrice, p.price, p.fileName)
+				say("buy charged construction=" .. tostring(p.construction) .. " bought=" .. tostring(p.label) .. " price=" .. tostring(p.price)
+					.. " charged=" .. tostring(okCharge) .. " chargeError=" .. tostring(chargeErr) .. " balanceBefore=" .. tostring(balance))
+			end
+		elseif t >= p.untilT then
+			changed = true
+			say("buy notLanded construction=" .. tostring(p.construction) .. " bought=" .. tostring(p.label) .. " price=" .. tostring(p.price)
+				.. " stored=" .. levels.describe(stored) .. " expected=" .. levels.describe(p.to) .. " charged=false")
+		else
+			pending[#pending + 1] = p
+		end
 	end
 	retrofit.pending = pending
 	return changed
@@ -376,6 +395,15 @@ local retrofitScript : GameScript<RetrofitState> = {
 				say("buy refused construction=" .. tostring(buy.construction) .. " tree=" .. tostring(buy.tree) .. " from=" .. tostring(buy.from)
 					.. " reason=" .. tostring(ok and refused or ("error " .. tostring(refused))))
 			end
+			state:set(retrofit)
+		end
+		local okPending, charged = pcall(processPending, retrofit, t)
+		if not okPending then
+			-- Dropped, so a failing charge is not retried (and possibly booked) on every update.
+			say("buy pendingError error=" .. tostring(charged) .. " dropped=" .. tostring(retrofit.pending and #retrofit.pending))
+			retrofit.pending = {}
+			state:set(retrofit)
+		elseif charged then
 			state:set(retrofit)
 		end
 		local okWatch, watched = pcall(processWatches, retrofit, t)
