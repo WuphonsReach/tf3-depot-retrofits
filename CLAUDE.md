@@ -29,7 +29,7 @@ python3 tools/make_preview.py [--version 0.5] [--keep-svg local/preview/cover.sv
 
 # Redraw the gallery's 1.jpg: hand-cropped screenshots of the building window, laid as a pile of cards on the cover's background
 python3 tools/make_gallery.py depot_retrofits_1/_metadata/1.jpg CARD.png[:angle[:dy[:slot]]] ...   # the docstring has the command for the current image
-# 2.jpg and 3.jpg are game screenshots cropped to 16:9 and scaled to 1920x1080 (the listing's thumbnails are cropped to 16:9). The layout is Industry Upgrades': 0 is the cover, 1 to N the gallery in file-name order, no workshop_preview.jpg (docs/publishing.md)
+# 2.jpg to 4.jpg are game screenshots cropped to 16:9 and scaled to 1920x1080 (the listing's thumbnails are cropped to 16:9). The layout is Industry Upgrades': 0 is the cover, 1 to N the gallery in file-name order, no workshop_preview.jpg (docs/publishing.md)
 ```
 
 Run `tl check` on each script you touch.
