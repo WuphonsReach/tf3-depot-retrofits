@@ -23,10 +23,11 @@ local levels : DepotRetrofitsLevels = {
 local radiusStep = 0.05
 local vehiclesStep = 0.10
 local emissionStep = 0.05
-local upkeepPerOtherLevel = 0.25
+local upkeepPerOtherLevel = 0.15
 local upkeepStep = 0.05
-local firstLevelShare = 0.10 -- level 1 costs this share of the build price
-local priceGrowth = 1.35 -- each further level costs this much more than the one before
+-- Level 1 costs this share of the build price. The upkeep tree starts higher, since it pays for itself.
+local firstLevelShare : {string : number} = { radius = 0.15, vehicles = 0.15, pollution = 0.15, noise = 0.15, upkeep = 0.25 }
+local priceGrowth = 1.15 -- each further level costs this much more than the one before
 local buildPricePerUpkeep = 6 -- every base depot and maintenance building costs 6 times its yearly upkeep to build
 
 local round = function(x : number) : integer
@@ -139,8 +140,8 @@ function levels.buildPrice(chargedUpkeep : number, values : {string : integer}) 
 	return 100 * round(buildPricePerUpkeep * chargedUpkeep / levels.upkeepFactor(values) / 100)
 end
 
-function levels.levelPrice(buildPrice : number, level : integer) : integer
-	return round(firstLevelShare * buildPrice * priceGrowth ^ (level - 1))
+function levels.levelPrice(buildPrice : number, tree : string, level : integer) : integer
+	return round(firstLevelShare[tree] * buildPrice * priceGrowth ^ (level - 1))
 end
 
 return levels

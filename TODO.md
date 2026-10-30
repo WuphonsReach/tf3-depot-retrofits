@@ -20,7 +20,7 @@
 
 ## Design
 
-- [ ] Whether each tree gets its own cost basis. The upkeep tree pays back in about 13 years at the current ladder; 0.79 × the ladder gives 10 years, 1.18 × gives 15.
+- [ ] The upkeep tree's first-level share (0.25 now). It pays back in about 9.5 years with the other trees full; 0.26 gives 10 years, 0.39 gives 15.
 - [ ] Text sizes in the tab: everything is body size for now.
 - [ ] The listing could say that buying a level lets the game reassign the building's vehicles, sometimes to another building in range.
 
