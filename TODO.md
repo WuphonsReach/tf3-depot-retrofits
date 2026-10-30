@@ -9,7 +9,8 @@
 
 - [x] Open the Retrofit tab on the Roundhouse mod's depot (works; its stalls' vehicles and upkeep were not levelled, see docs/design/findings.md).
 - [x] Test the modular depot changes on the Roundhouse (TF3 calls `loadModule`; stalls are re-levelled, upkeep covers them; see docs/design/findings.md).
-- [ ] Optional: a Roundhouse with 10 or more stalls at a high vehicles level, where +10% of the whole pool beats +1 a level.
+- [x] A Roundhouse with 10 or more stalls at a high vehicles level, where +10% of the whole pool beats +1 a level (28 stalls: pool 29 → 61 at vehicles 11).
+- [ ] Optional: the Modern Railway Depot mod's depot (modular, its modules are wrapped); in a save before 2015, turn on its "Available from 1900" setting.
 - [x] Find out whether the game's own rebuilds keep the level params: electrifying a rail depot, the catenary tool on a tram depot and module edits on the Roundhouse do; base depots have no param that can be changed after building.
 - [ ] Decide the rank gate: fixed (max level = claimed rank), or an in-game setting that is on by default.
 - [ ] Check which finance rows the level charges land in (booked as depot construction).
@@ -24,5 +25,4 @@
 
 ## Small
 
-- [ ] Check in game that the tab's upkeep figures now match the footer after every buy (they were $4 off after 2 of 10 buys at a scale of 4; the fix works from the whole-dollar upkeep before the levels, and replays all 66 logged buys exactly).
 - [ ] "gameScript loaded" is logged once per Lua state, about 14 lines per load.
