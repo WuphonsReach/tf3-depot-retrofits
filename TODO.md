@@ -19,8 +19,6 @@
 
 - [ ] Whether each tree gets its own cost basis. The upkeep tree pays back in about 13 years at the current ladder; 0.79 × the ladder gives 10 years, 1.18 × gives 15.
 - [ ] Text sizes in the tab: everything is body size for now.
-- [ ] The buy button's tooltip runs past the window's left edge: shorten it or split it.
-- [ ] Optional stock icons in front of the noise, pollution and vehicle values (`symbol_noise`, `symbol_pollution`, `symbol_tools`). The game has no radius icon.
 - [ ] The listing could say that buying a level lets the game reassign the building's vehicles, sometimes to another building in range.
 
 ## Small

@@ -20,7 +20,7 @@ A newly placed building starts at level 0 in every tree. The build menu has no l
 The Retrofit tab sits next to the building's own tab. From top to bottom:
 
 - **Summary**: your company rank, the building's radius, and its vehicles (maintained / maximum). If you have earned a higher rank but not claimed it yet, the Summary says so.
-- **One card per tree**: the current level (for example "Level 3/15"), the upkeep after the next level, what the next level changes (for example "400 m -> 420 m"), and a buy button with the price.
+- **One card per tree**: the tree's icon and a row of 15 boxes, one per level: white for a level bought, grey for one you can buy at your rank, dark for one that needs a higher rank (hover over the boxes to see the levels bought and how many your rank allows, for example "Level 4/7 (max 15)"). Then the upkeep after the next level, what the next level changes (for example "400 m -> 420 m"), and a buy button with the price.
 - **Upkeep footer**: the building's upkeep now, as in the building's own tab.
 
 The buy button shows "Rank N" and is greyed out when the next level needs a higher company rank. A tree at level 15 shows "Highest level".

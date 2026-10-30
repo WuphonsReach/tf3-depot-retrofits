@@ -19,6 +19,10 @@ GREEN, AMBER = "#6cc04a", "#f2b33d"
 BLUE, TEAL, VIOLET = "#4fa3e0", "#45c1a4", "#a58be6"
 INK = "#152031"
 
+# The background's gradient and glow, drawn by background(); tools/make_gallery.py lays its cards on the same background.
+BACKGROUND_DEFS = '''<linearGradient id="bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#22334b"/><stop offset="1" stop-color="#0e1521"/></linearGradient>
+  <radialGradient id="glow" cx="0.62" cy="0.78" r="0.55"><stop offset="0" stop-color="#3a5a7e" stop-opacity=".45"/><stop offset="1" stop-color="#3a5a7e" stop-opacity="0"/></radialGradient>'''
+
 
 def darker(color, k=0.55):
     r, g, b = (int(color[i:i + 2], 16) for i in (1, 3, 5))
@@ -176,9 +180,8 @@ def trees():
 def build(version=None):
     parts = [
         f'<svg xmlns="http://www.w3.org/2000/svg" width="{W}" height="{H}" viewBox="0 0 {W} {H}">',
-        '''<defs>
-  <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#22334b"/><stop offset="1" stop-color="#0e1521"/></linearGradient>
-  <radialGradient id="glow" cx="0.62" cy="0.78" r="0.55"><stop offset="0" stop-color="#3a5a7e" stop-opacity=".45"/><stop offset="1" stop-color="#3a5a7e" stop-opacity="0"/></radialGradient>
+        f'''<defs>
+  {BACKGROUND_DEFS}
   <filter id="shadow" x="-30%" y="-30%" width="160%" height="160%"><feDropShadow dx="0" dy="6" stdDeviation="7" flood-color="#000" flood-opacity=".45"/></filter>
 </defs>''',
         background(),
