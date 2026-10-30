@@ -1,9 +1,11 @@
 """Draw a gallery image for the mod's listing (1920x1080 JPG): screenshots of the building window laid as a loose pile of cards
 on the preview image's background (tools/make_preview.py), each a little off upright.
 
-Each screenshot is a hand-cropped shot of one window. The window is cut out along its light outline, the map around it
-removed, and the corners rounded; the corner with the close button is kept as shot, since the button stands out of the
-window. Cards keep their slant and position from the arguments, so a new set of screenshots can be laid out the same way.
+Each screenshot is a hand-cropped shot of one window. The window is cut out along its light outline with the window's own
+rounded corners. The close button stands out of the window's top-right corner: there the cut follows the window's outline
+row by row and adds the button, so the map between them goes too. Each card is rotated at full size and scaled down last,
+and the cut is drawn larger and scaled down, so its edges stay smooth. Cards keep their slant and position from the
+arguments, so a new set of screenshots can be laid out the same way.
 
 Usage: python3 tools/make_gallery.py OUT_FILE CARD.png[:angle[:dy[:slot]]] ...
 Cards are listed from the bottom of the pile to the top. angle is in degrees (positive tilts left), dy moves the card down in
@@ -25,8 +27,10 @@ import make_preview  # noqa: E402
 W, H = make_preview.W, make_preview.H
 CARD_H = 880
 SPACING = 560  # between card centres; a card is about 550 wide, so neighbours just overlap once tilted
-RADIUS = 22  # the window's rounded corners, in screenshot pixels
+RADIUS = 34  # the window's rounded corners, in screenshot pixels (its outline meets the edge about 33 pixels from a corner)
 CLOSE_CORNER = 120  # the top-right square that holds the window's close button, in screenshot pixels
+BUTTON_RADIUS = 15  # the close button's rounded corners
+SUPERSAMPLE = 4  # cut masks are drawn this many times larger and scaled down, for smooth edges
 
 
 def near_outline(p):
@@ -53,43 +57,57 @@ def window_box(im):
     return (left, top, w - right, h - bottom)
 
 
-def outside_window(im):
-    """A mask of the map left around the window.
+def smooth(size, draw):
+    """A cut mask of the given size, drawn SUPERSAMPLE times larger by draw(ImageDraw, scale) and scaled down."""
+    big = Image.new("L", (size[0] * SUPERSAMPLE, size[1] * SUPERSAMPLE), 0)
+    draw(ImageDraw.Draw(big), SUPERSAMPLE)
+    return big.resize(size, Image.LANCZOS)
 
-    The outline, thickened to close gaps at the rounded corners, is a wall. Every region on the image edge gets its own flood
-    fill; all but the largest (the window itself, which touches an edge where the screenshot cut through it) are map.
+
+def close_corner(im):
+    """The cut in the top-right square: the window up to its outline on each row, and the close button.
+
+    The window's outline bends in around the button, and the map shows in the gap. Each row keeps the window from the
+    square's left edge to the end of the first run of outline. The button is the flat blue region around a point above its
+    cross, taken as a rounded square a pixel inside that region's bounds.
     """
-    w, h = im.size
-    wall = Image.new("L", im.size, 0)
-    src, dst = im.load(), wall.load()
-    for y in range(h):
-        for x in range(w):
-            if near_outline(src[x, y]):
-                dst[x, y] = 255
-    work = wall.filter(ImageFilter.MaxFilter(5))
-    px = work.load()
-    label = 0
-    edge = [(x, 0) for x in range(w)] + [(x, h - 1) for x in range(w)] + [(0, y) for y in range(h)] + [(w - 1, y) for y in range(h)]
-    for xy in edge:
-        if px[xy] == 0 and label < 250:
-            label += 1
-            ImageDraw.floodfill(work, xy, label, thresh=0)
-    counts = work.histogram()
-    keep = max(range(1, label + 1), key=lambda k: counts[k]) if label else None
-    out = work.point(lambda v: 255 if 1 <= v <= label and v != keep else 0)
-    out = out.filter(ImageFilter.MaxFilter(5))  # also the map pixels under the thickened wall
-    out.paste(0, (w - CLOSE_CORNER, 0, w, CLOSE_CORNER))
-    return out
+    w = im.width
+    s = CLOSE_CORNER
+    px = im.load()
+    ends = []
+    for y in range(s):
+        x = next((x for x in range(w - s, w) if near_outline(px[x, y])), w - 1)
+        while x + 1 < w and near_outline(px[x + 1, y]):
+            x += 1
+        ends.append(x - (w - s) + 1)
+    flood = im.crop((w - s, 0, w, s)).convert("RGB")
+    ImageDraw.floodfill(flood, (s - 34, 8), (255, 0, 255), thresh=40)
+    button = Image.eval(flood, lambda v: 0).convert("L")
+    fpx, bpx = flood.load(), button.load()
+    for y in range(s):
+        for x in range(s):
+            if fpx[x, y] == (255, 0, 255):
+                bpx[x, y] = 255
+    left, top, right, bottom = button.getbbox()
+    left, top, right, bottom = left + 1, top + 1, right - 1, bottom - 1  # the flat blue stops short of the map's light rim
+
+    def draw(d, k):
+        d.polygon([(0, 0)] + [p for y, e in enumerate(ends) for p in ((e * k, y * k), (e * k, (y + 1) * k))] + [(0, s * k)], fill=255)
+        d.rounded_rectangle((left * k, top * k, right * k - 1, bottom * k - 1), BUTTON_RADIUS * k, fill=255)
+
+    return smooth((s, s), draw)
 
 
-def card(path):
+def card(path, angle):
+    """The window cut out, rotated by angle and scaled to CARD_H high (before the rotation)."""
     im = Image.open(path).convert("RGBA")
     im = im.crop(window_box(im))
-    mask = Image.new("L", im.size, 0)
-    ImageDraw.Draw(mask).rounded_rectangle((0, 0, im.width - 1, im.height - 1), RADIUS, fill=255)
-    mask.paste(0, mask=outside_window(im))
+    mask = smooth(im.size, lambda d, k: d.rounded_rectangle((0, 0, im.width * k - 1, im.height * k - 1), RADIUS * k, fill=255))
+    mask.paste(close_corner(im), (im.width - CLOSE_CORNER, 0))
     im.putalpha(mask)
-    return im.resize((round(im.width * CARD_H / im.height), CARD_H), Image.LANCZOS)
+    scale = CARD_H / im.height
+    im = im.rotate(angle, resample=Image.BICUBIC, expand=True)
+    return im.resize((round(im.width * scale), round(im.height * scale)), Image.LANCZOS)
 
 
 def background():
@@ -112,7 +130,7 @@ def main():
         angle = float(rest[0]) if len(rest) > 0 else 0.0
         dy = int(rest[1]) if len(rest) > 1 else 0
         slot = int(rest[2]) if len(rest) > 2 else i
-        c = card(path).rotate(angle, resample=Image.BICUBIC, expand=True)
+        c = card(path, angle)
         x = round(W / 2 + (slot - (len(specs) - 1) / 2) * SPACING) - c.width // 2
         y = (H - c.height) // 2 + dy
         # The preview's drop shadow (its "shadow" filter): 6 pixels down, blur 7, black at 45%.
