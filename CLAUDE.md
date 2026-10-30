@@ -24,13 +24,12 @@ tl check depot_retrofits_1/content/retrofit_window.script.tl
 # Check that _content.json lists every file under content/ (the game cannot load a file the list leaves out)
 python3 tools/check_content_list.py
 
-# Redraw the mod's preview image (depot_retrofits_1/_metadata/workshop_preview.jpg, 1920x1080; needs rsvg-convert and the Lato font)
-python3 tools/make_preview.py [--version 0.5] [--keep-svg local/preview/workshop_preview.svg]   # the version goes in the upper right corner, kept clear for it
-cp depot_retrofits_1/_metadata/workshop_preview.jpg depot_retrofits_1/_metadata/0.jpg   # 0.jpg is the cover the in-game uploader uses (byte-identical, as in Best Before); copy again after every redraw
+# Redraw the mod's cover (depot_retrofits_1/_metadata/0.jpg, the uploader's Preview slot, 1920x1080; needs rsvg-convert and the Lato font)
+python3 tools/make_preview.py [--version 0.5] [--keep-svg local/preview/cover.svg]   # the version goes in the upper right corner, kept clear for it
 
 # Redraw the gallery's 1.jpg: hand-cropped screenshots of the building window, laid as a pile of cards on the cover's background
 python3 tools/make_gallery.py depot_retrofits_1/_metadata/1.jpg CARD.png[:angle[:dy[:slot]]] ...   # the docstring has the command for the current image
-# 2.jpg and 3.jpg are game screenshots cropped to 16:9 and scaled to 1920x1080 (the listing's thumbnails are cropped to 16:9). Gallery images are numbered after the cover, as in Industry Upgrades' listing
+# 2.jpg and 3.jpg are game screenshots cropped to 16:9 and scaled to 1920x1080 (the listing's thumbnails are cropped to 16:9). The layout is Industry Upgrades': 0 is the cover, 1 to N the gallery in file-name order, no workshop_preview.jpg (docs/publishing.md)
 ```
 
 Run `tl check` on each script you touch.
@@ -44,6 +43,8 @@ The rulesets match Best Before's and have no bypass actors, so they bind the own
 - `main` and `pr-checks`: changes reach `main` only through a PR, and `pr-checks` requires the status checks `python-checks` and `teal-syntax`. The job names in `checks.yml` are the check names the ruleset matches: renaming a job means updating the ruleset (Settings > Rules) in the same change, or every PR will wait for a check that never reports.
 - `trunks`: `main` cannot be deleted or force-pushed.
 - `version-tags`: tags matching `v*.*` cannot be moved or deleted once pushed. Releases are immutable too, so check a tag and its release before publishing; a mistake means a new version, not a fix in place.
+
+Releases follow [docs/publishing.md](docs/publishing.md): upload only through the game's Mod Hub dialog, test the published copy with the staging link removed, then tag. Keep `modVersion` in `mod.script.tl` and the top entry of [CHANGELOG.md](CHANGELOG.md) in step (between releases `modVersion` reads the next number with `-dev`). After the first upload `_metadata/mod.io_fileid.txt` holds the mod id: commit it and never delete it, or the next upload creates a second mod. Images use Industry Upgrades' layout: `0.jpg` the cover, `1.jpg` onward the gallery in file-name order, no `workshop_preview.jpg`; moving a thumbnail in the dialog swaps the files on disk, so commit them as the dialog leaves them.
 
 ## Architecture (0.5)
 

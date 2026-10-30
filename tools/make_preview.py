@@ -4,8 +4,8 @@ A retrofitted depot with its maintenance radius drawn as rings (the stock radius
 buses around it, and the five level trees listed on the left. The upper right corner is kept clear for a version number.
 
 Usage: python3 tools/make_preview.py [OUT_FILE] [--version 0.5] [--keep-svg SVG_FILE]
---keep-svg also writes the SVG the image is rendered from (for example to local/preview/workshop_preview.svg); keep it out of depot_retrofits_1/.
-OUT_FILE defaults to depot_retrofits_1/_metadata/workshop_preview.jpg, where the game looks for a mod's preview.
+--keep-svg also writes the SVG the image is rendered from (for example to local/preview/cover.svg); keep it out of depot_retrofits_1/.
+OUT_FILE defaults to depot_retrofits_1/_metadata/0.jpg, the cover (the uploader's Preview slot); see docs/publishing.md.
 """
 import shutil
 import subprocess
@@ -208,7 +208,7 @@ def main():
         i = args.index("--keep-svg")
         keep_svg = Path(args[i + 1])
         del args[i:i + 2]
-    out = Path(args[0] if args else Path(__file__).resolve().parent.parent / "depot_retrofits_1/_metadata/workshop_preview.jpg")
+    out = Path(args[0] if args else Path(__file__).resolve().parent.parent / "depot_retrofits_1/_metadata/0.jpg")
     out.parent.mkdir(parents=True, exist_ok=True)
     from PIL import Image
     with tempfile.TemporaryDirectory() as tmp:

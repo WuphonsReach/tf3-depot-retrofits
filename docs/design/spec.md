@@ -41,6 +41,8 @@ Each level bought in the radius, vehicles, pollution or noise tree adds 25% of t
 
 Each upkeep level then takes 5% of that total off: the upkeep is (1 + 0.25 × other levels) × (1 − 0.05 × upkeep levels) × the base. A full upkeep tree leaves a quarter of the total.
 
+The upkeep tree cuts only the building's own upkeep, not the running cost of the vehicles it services (the accumulated costs the window's upkeep footer adds, which the game fills in itself; see [findings.md](findings.md)).
+
 Payback of the upkeep tree. Every base building costs 6 × its yearly base upkeep to build ([findings.md](findings.md)), so a full upkeep tree (25.5 × the build price) costs about 153 × the base upkeep, wherever the building is.
 
 | Other levels bought | Upkeep without the upkeep tree | Saved per year by a full upkeep tree | Payback of a full upkeep tree |
