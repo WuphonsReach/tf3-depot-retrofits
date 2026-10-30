@@ -2,6 +2,11 @@
 
 A Transport Fever 3 script mod, in development: depots and maintenance buildings get levels that widen their maintenance radius, raise the number of vehicles they maintain, cut their pollution and noise, and cut their upkeep.
 
+<p>
+  <img src="depot_retrofits_1/_metadata/0.jpg" alt="Depot Retrofits: level up your depots" width="49%">
+  <img src="depot_retrofits_1/_metadata/1.jpg" alt="The Retrofit tab of three buildings, one card per level tree" width="49%">
+</p>
+
 ## In short
 
 - **Status.** Not released yet. The mod (0.5) stores, applies and sells levels in a Retrofit tab in each depot's window; the tab's layout is still being reworked. The repo also holds the spec and the verified game facts.
