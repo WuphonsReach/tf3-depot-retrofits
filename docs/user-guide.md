@@ -23,6 +23,8 @@ The Retrofit tab sits next to the building's own tab. From top to bottom:
 - **One card per tree**: the tree's icon and a row of 15 boxes, one per level: white for a level bought, grey for one you can buy at your rank, dark for one that needs a higher rank (hover over the boxes to see the levels bought and how many your rank allows, for example "Level 4/7 (max 15)"). Then the upkeep after the next level, what the next level changes (for example "400 m -> 420 m"), and a buy button with the price.
 - **Upkeep footer**: the building's upkeep now, as in the building's own tab.
 
+The upkeep figures, in the cards and in the footer, include a running cost for the vehicles the building is servicing, which goes up and down as vehicles come and go. Buying a level rebuilds the building and clears it, so right after a buy the footer can read a little below the figure the card showed. The upkeep tree does not cut this running cost.
+
 The buy button shows "Rank N" and is greyed out when the next level needs a higher company rank. A tree at level 15 shows "Highest level".
 
 Levels cannot be sold or lowered.

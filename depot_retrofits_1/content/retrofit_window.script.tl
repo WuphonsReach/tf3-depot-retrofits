@@ -24,6 +24,8 @@ local record TabState
 	radius : number
 	maintained : integer
 	accumulated : number -- the MAINTENANCE_COST accumulated costs, which the game's upkeep footer adds to the upkeep
+	scriptUpkeep : number -- the MAINTENANCE_COST upkeep, the update script's value with the levels applied
+	upkeepScale : number -- what the footer multiplies scriptUpkeep by
 	key : string -- every field above as text; the tab redraws when it changes
 end
 
@@ -122,6 +124,21 @@ local firstDepot = function(construction : Engine.Entity) : Engine.Entity
 	return con and con.depots and con.depots[1] or nil
 end
 
+-- The factor the game's upkeep footer multiplies a construction's upkeep by (MaintenanceBar in
+-- gui/entity_window/entity_window_util.tl): the base config's infrastructureMaintenanceScale, times the year's cost multiplier
+-- for a construction whose costs follow the years.
+local footerScale = function(con : Engine.Component.Construction) : number
+	local baseConfig = api.res.getBaseConfig()
+	local scale = baseConfig.costs["infrastructureMaintenanceScale"] or 1
+	local desc = api.res.constructionRep.get(api.res.constructionRep.find(con.fileName))
+	if desc ~= nil and desc.costsYearProgression then
+		local gameTime = api.engine.getComponent(api.engine.util.getWorld(), api.type.ComponentType.GAME_TIME) as Engine.Component.GameTime
+		local date = api.engine.util.getCalendarDate(gameTime.gameTime)
+		scale = scale * api.engine.util.construction.getCostMultiplierForYear(baseConfig.treeCostYearMultipliers, date.year)
+	end
+	return scale
+end
+
 local readTab = function(construction : Engine.Entity) : TabState
 	local depot = firstDepot(construction)
 	local s : TabState = { depot = depot, construction = construction }
@@ -140,22 +157,26 @@ local readTab = function(construction : Engine.Entity) : TabState
 		local okList, list = pcall(api.engine.system.transportVehicleSystem.getVehiclesForMaintenanceStation, depot)
 		s.maintained = okList and type(list) == "table" and #list or nil
 	end
-	-- Summed the way the footer sums them (each entry rounded); 0 when unreadable.
-	local okAccumulated, accumulated = pcall(function() : number
+	-- The accumulated costs summed the way the footer sums them (each entry rounded), 0 when unreadable; and the upkeep.
+	local okCost, accumulated, scriptUpkeep = pcall(function() : number, number
 		local cost = api.engine.getComponent(construction, api.type.ComponentType.MAINTENANCE_COST) as Engine.Component.MaintenanceCost
 		local sum = 0
 		if cost ~= nil and cost.accumulatedCost ~= nil then
 			for _, value in pairs(cost.accumulatedCost) do sum = sum + math.floor(value + 0.5) end
 		end
-		return sum
+		return sum, cost and cost.maintenanceCost or nil
 	end)
-	s.accumulated = okAccumulated and accumulated or 0
+	s.accumulated = okCost and accumulated or 0
+	s.scriptUpkeep = okCost and scriptUpkeep or nil
+	local okScale, scale = pcall(footerScale, con)
+	s.upkeepScale = con ~= nil and okScale and scale or nil
 	s.buildPrice = s.chargedUpkeep and levels.buildPrice(s.chargedUpkeep, s.levels) or nil
 	local parts : {string} = {}
 	for _, tree in ipairs(levels.trees) do parts[#parts + 1] = tostring(s.levels[tree]) end
 	s.key = table.concat(parts, "/") .. " rank=" .. tostring(s.rank) .. "/" .. tostring(s.earnedRank)
 		.. " upkeep=" .. tostring(s.chargedUpkeep) .. " pool=" .. tostring(s.pool) .. " radius=" .. tostring(s.radius)
 		.. " maintained=" .. tostring(s.maintained) .. " accumulated=" .. tostring(s.accumulated)
+		.. " upkeepScript=" .. tostring(s.scriptUpkeep) .. " upkeepScale=" .. tostring(s.upkeepScale)
 	return s
 end
 
@@ -341,6 +362,19 @@ end
 -- One card per tree. First row: the level row at the left, the upkeep after the next level at the right.
 -- Second row: what the next level changes at the left, the buy button at the right. The upkeep counts what the game's upkeep
 -- footer counts.
+-- The upkeep the game will charge at other levels, rounded as the footer rounds it: the update script's upkeep at those levels
+-- (construction.script.tl rounds it to whole dollars) times the footer's scale. calcMaintenanceForSubconstruction drops the
+-- half dollar the footer rounds up (101,562 for 101,562.50), so it is only the fallback.
+local upkeepAfter = function(s : TabState, values : {string : integer}) : number
+	if s.scriptUpkeep ~= nil and s.upkeepScale ~= nil then
+		local scriptUpkeep = math.floor(s.scriptUpkeep / levels.upkeepFactor(s.levels) * levels.upkeepFactor(values) + 0.5)
+		return math.floor(scriptUpkeep * s.upkeepScale + 0.5)
+	elseif s.chargedUpkeep ~= nil then
+		return s.chargedUpkeep / levels.upkeepFactor(s.levels) * levels.upkeepFactor(values)
+	end
+	return nil
+end
+
 -- A tree card's two rows, 6 pixels apart so the upkeep figure does not touch the buy button below it.
 local twoRows = function(first : TreeNodeId, second : TreeNodeId) : {TreeNodeId}
 	local styles = getDrawnStyles()
@@ -360,8 +394,8 @@ local treeCard = function(s : TabState, tree : string, gameCtx : GameContext) : 
 	-- Build only the node that is shown: a recipe called but left out of the tree costs the game log a "Preserved props"
 	-- warning on every redraw.
 	local nextUpkeep : TreeNodeId
-	if s.chargedUpkeep ~= nil then
-		local charged = s.chargedUpkeep / levels.upkeepFactor(s.levels) * levels.upkeepFactor(withLevel(s.levels, tree, level + 1))
+	local charged = upkeepAfter(s, withLevel(s.levels, tree, level + 1))
+	if charged ~= nil then
 		nextUpkeep = iconText(upkeepIcon, perYear(charged + s.accumulated), "Upkeep after level " .. tostring(level + 1))
 	else
 		nextUpkeep = text("?")
