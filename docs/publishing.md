@@ -23,7 +23,7 @@
 2. **Upload.** Start the game, open **Mod Hub**, then **My Mods**, and click the mod's card. In the dialog:
    - **Validation** should read "No Issues Found" (**Re-Validate** runs it again).
    - **Preview**: the cover. On the first upload click the slot (camera icon) and pick `0.jpg`; without a cover the card shows a "?".
-   - **Gallery**: `1.jpg`, `2.jpg`, `3.jpg` in that order. See [Gallery](#gallery) before moving any.
+   - **Gallery**: `1.jpg`, `2.jpg`, `3.jpg`, `4.jpg` in that order. See [Gallery](#gallery) before moving any.
    - Tick both **PC** and **Console** for the two files (Windows, Mac and Linux; Xbox Series X/S and PlayStation 5).
    - **Set Public** ticked. Unticked, the page is hidden from visitors.
    - **Update Metadata** ticked, so the page takes the name, summary, description and tags from `modinfo.json`.
@@ -41,7 +41,7 @@
 - **The order is the file names.** In Best Before's dialog the gallery showed its images sorted by name, and the page followed the dialog.
 - **Moving a thumbnail swaps the files.** Each thumbnail in the dialog has a small < (Move Left), > (Move Right) and bin over its top right corner. Moving one swaps the two files' contents on disk and writes nothing else. Commit the files as the dialog leaves them, or the next upload goes back to the old order.
 - **mod.io keeps old names.** A file uploaded under a name mod.io already holds is stored under a new name (`workshop_preview.1.jpg`) and the old one stays on its image server. Numbered files that never change name avoid that; to change an image, replace the file under the same number.
-- **Thumbnails are cropped to 16:9**, so every image is 1920x1080. `1.jpg` is drawn by `tools/make_gallery.py` (its docstring has the command); `2.jpg` and `3.jpg` are game screenshots cropped to 16:9.
+- **Thumbnails are cropped to 16:9**, so every image is 1920x1080. `1.jpg` is drawn by `tools/make_gallery.py` (its docstring has the command); `2.jpg` to `4.jpg` are game screenshots cropped to 16:9, so the shot must leave room above and below the window (a shot narrower than 16:9 loses the window's title or footer).
 
 ## Hub search and tiles
 

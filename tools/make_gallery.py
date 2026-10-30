@@ -10,7 +10,7 @@ Cards are listed from the bottom of the pile to the top. angle is in degrees (po
 pixels, slot is its place from the left (default: its place in the list). Needs rsvg-convert, for the background.
 
 The current listing's 1.jpg (three Retrofit tabs) was made with:
-python3 tools/make_gallery.py depot_retrofits_1/_metadata/1.jpg maintenance_building.png:2.5:16:0 road_depot.png:-2.5:22:2 ship_depot.png:-1:-4:1
+python3 tools/make_gallery.py depot_retrofits_1/_metadata/1.jpg maintenance_building.png:2.5:16:0 train_depot.png:-2.5:22:2 ship_depot.png:-1:-4:1
 """
 import subprocess
 import sys
