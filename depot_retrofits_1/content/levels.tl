@@ -50,6 +50,22 @@ function levels.store(params : {string : any}, values : {string : integer})
 	end
 end
 
+-- "radius/vehicles/pollution/noise/upkeep", the form every log line uses; "nil" for no levels.
+function levels.describe(values : {string : integer}) : string
+	if values == nil then return "nil" end
+	local parts : {string} = {}
+	for _, tree in ipairs(levels.trees) do parts[#parts + 1] = tostring(values[tree]) end
+	return table.concat(parts, "/")
+end
+
+-- A copy of the levels with one tree at another level.
+function levels.withLevel(values : {string : integer}, tree : string, level : integer) : {string : integer}
+	local result : {string : integer} = {}
+	for _, t in ipairs(levels.trees) do result[t] = values[t] end
+	result[tree] = level
+	return result
+end
+
 function levels.otherLevels(values : {string : integer}) : integer
 	return (values.radius or 0) + (values.vehicles or 0) + (values.pollution or 0) + (values.noise or 0)
 end

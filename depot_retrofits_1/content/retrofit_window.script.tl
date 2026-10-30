@@ -5,8 +5,8 @@
 -- event to the game script (retrofits.script.tl), which checks it, charges the price and rebuilds the building. Prices follow
 -- levels.tl from the upkeep the game charges for the building now. Log lines start with "DEPOT_RETROFITS".
 
--- Shared with mod.script.tl, construction.script.tl and retrofits.script.tl; keep the copies equal.
 local buyEventId = "DepotRetrofits"
+-- Copied in retrofits.script.tl; keep the copies equal.
 local buyEvent = "depotRetrofitsBuy"
 
 local maxShownLines = 60
@@ -97,7 +97,7 @@ local boxColors : {string : {number}} = {
 }
 local drawnStyles : {string : StyleSheet} = nil
 
-local buyTooltip = "Buy level. Building is rebuilt and its vehicles will auto-reassign."
+local buyTooltip = "Buy the next level. The building is rebuilt, and the game reassigns its vehicles."
 
 local shownLines = 0
 local shownKeys : {string : boolean} = {}
@@ -126,17 +126,33 @@ end
 
 -- The factor the game's upkeep footer multiplies a construction's upkeep by (MaintenanceBar in
 -- gui/entity_window/entity_window_util.tl): the base config's infrastructureMaintenanceScale, times the year's cost multiplier
--- for a construction whose costs follow the years.
+-- for a construction whose costs follow the years. The tab reads it on every step, so the parts that do not change within a
+-- year are kept: the scale, whether each construction file follows the years, and each year's multiplier.
+local maintenanceScale : number = nil
+local followsYears : {string : boolean} = {}
+local yearMultipliers : {integer : number} = {}
 local footerScale = function(con : Engine.Component.Construction) : number
-	local baseConfig = api.res.getBaseConfig()
-	local scale = baseConfig.costs["infrastructureMaintenanceScale"] or 1
-	local desc = api.res.constructionRep.get(api.res.constructionRep.find(con.fileName))
-	if desc ~= nil and desc.costsYearProgression then
-		local gameTime = api.engine.getComponent(api.engine.util.getWorld(), api.type.ComponentType.GAME_TIME) as Engine.Component.GameTime
-		local date = api.engine.util.getCalendarDate(gameTime.gameTime)
-		scale = scale * api.engine.util.construction.getCostMultiplierForYear(baseConfig.treeCostYearMultipliers, date.year)
+	local baseConfig : BaseConfig = nil
+	if maintenanceScale == nil then
+		baseConfig = api.res.getBaseConfig()
+		maintenanceScale = baseConfig.costs["infrastructureMaintenanceScale"] or 1
 	end
-	return scale
+	local follows = followsYears[con.fileName]
+	if follows == nil then
+		local desc = api.res.constructionRep.get(api.res.constructionRep.find(con.fileName))
+		follows = desc ~= nil and desc.costsYearProgression == true
+		followsYears[con.fileName] = follows
+	end
+	if not follows then return maintenanceScale end
+	local gameTime = api.engine.getComponent(api.engine.util.getWorld(), api.type.ComponentType.GAME_TIME) as Engine.Component.GameTime
+	local year = api.engine.util.getCalendarDate(gameTime.gameTime).year
+	local multiplier = yearMultipliers[year]
+	if multiplier == nil then
+		baseConfig = baseConfig or api.res.getBaseConfig()
+		multiplier = api.engine.util.construction.getCostMultiplierForYear(baseConfig.treeCostYearMultipliers, year)
+		yearMultipliers[year] = multiplier
+	end
+	return maintenanceScale * multiplier
 end
 
 local readTab = function(construction : Engine.Entity) : TabState
@@ -171,9 +187,7 @@ local readTab = function(construction : Engine.Entity) : TabState
 	local okScale, scale = pcall(footerScale, con)
 	s.upkeepScale = con ~= nil and okScale and scale or nil
 	s.buildPrice = s.chargedUpkeep and levels.buildPrice(s.chargedUpkeep, s.levels) or nil
-	local parts : {string} = {}
-	for _, tree in ipairs(levels.trees) do parts[#parts + 1] = tostring(s.levels[tree]) end
-	s.key = table.concat(parts, "/") .. " rank=" .. tostring(s.rank) .. "/" .. tostring(s.earnedRank)
+	s.key = levels.describe(s.levels) .. " rank=" .. tostring(s.rank) .. "/" .. tostring(s.earnedRank)
 		.. " upkeep=" .. tostring(s.chargedUpkeep) .. " pool=" .. tostring(s.pool) .. " radius=" .. tostring(s.radius)
 		.. " maintained=" .. tostring(s.maintained) .. " accumulated=" .. tostring(s.accumulated)
 		.. " upkeepScript=" .. tostring(s.scriptUpkeep) .. " upkeepScale=" .. tostring(s.upkeepScale)
@@ -243,13 +257,6 @@ end
 
 local perYear = function(amount : number) : string
 	return money(amount) .. "/" .. _("Year")
-end
-
-local withLevel = function(values : {string : integer}, tree : string, level : integer) : {string : integer}
-	local result : {string : integer} = {}
-	for _, t in ipairs(levels.trees) do result[t] = values[t] end
-	result[tree] = level
-	return result
 end
 
 -- What the tree's value is at a level, from what the building reads now.
@@ -398,7 +405,7 @@ local treeCard = function(s : TabState, tree : string, gameCtx : GameContext) : 
 	-- Build only the node that is shown: a recipe called but left out of the tree costs the game log a "Preserved props"
 	-- warning on every redraw.
 	local nextUpkeep : TreeNodeId
-	local charged = upkeepAfter(s, withLevel(s.levels, tree, level + 1))
+	local charged = upkeepAfter(s, levels.withLevel(s.levels, tree, level + 1))
 	if charged ~= nil then
 		nextUpkeep = iconText(upkeepIcon, perYear(charged + s.accumulated), "Upkeep after level " .. tostring(level + 1))
 	else
@@ -414,7 +421,7 @@ end
 -- (gui/entity_window/maintenance_station/maintenance_station.tl).
 local tabBody = function(s : TabState, gameCtx : GameContext) : TreeNodeId
 	local rankNote = (s.earnedRank and s.rank and s.earnedRank > s.rank)
-		and ("rank " .. tostring(s.earnedRank) .. " earned, claim it to buy higher") or ""
+		and ("Rank " .. tostring(s.earnedRank) .. " earned: claim it to buy higher levels") or ""
 	local cards : {TreeNodeId} = {
 		card("Summary", {
 			summaryRow("Company rank " .. tostring(s.rank or "?"), rankNote),

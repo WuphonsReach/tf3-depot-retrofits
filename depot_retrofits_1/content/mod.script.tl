@@ -9,7 +9,7 @@
 
 local modVersion = "0.5"
 
--- Shared with construction.script.tl and retrofit_window.script.tl; keep the copies equal.
+-- wrapperRef is copied in retrofits.script.tl, captureKey in construction.script.tl; keep the copies equal.
 local wrapperRef = "depot_retrofits_1::/construction.script@update"
 local captureKey = "depotRetrofits"
 
