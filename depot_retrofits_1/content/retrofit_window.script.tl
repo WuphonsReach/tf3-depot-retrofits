@@ -63,15 +63,39 @@ local levels = loadModule("depot_retrofits_1::/levels.tl") as DepotRetrofitsLeve
 local progression = loadModule("::/game_mechanics/company/company_progression_util.tl") as CompanyProgressionUtil
 -- Optional: without it the tab has no scroll container and no upkeep footer.
 local entityWindowUtil = loadModule("::/gui/entity_window/entity_window_util.tl") as EntityWindowUtil
+-- Optional: without it each card shows its level as text instead of a row of marks.
+local styleutil = loadModule("::/gui/main/styleutil.tl") as StyleUtil
 local ready = react ~= nil and builtin ~= nil and engineReact ~= nil and contentCard ~= nil and levels ~= nil
 say("window loaded ready=" .. tostring(ready) .. " constructionWindow=" .. tostring(makeEntityWindow ~= nil)
-	.. " progression=" .. tostring(progression ~= nil) .. " entityWindowUtil=" .. tostring(entityWindowUtil ~= nil))
+	.. " progression=" .. tostring(progression ~= nil) .. " entityWindowUtil=" .. tostring(entityWindowUtil ~= nil)
+	.. " styleutil=" .. tostring(styleutil ~= nil))
 
--- Stock icons: the upkeep symbol of the game's own upkeep footer (gui/entity_window/entity_window_util.tl, MaintenanceBar), and
--- the flat-then-rising arrow of the vehicle window's "Send to Line" button (gui/entity_window/vehicle/vehicle.tl).
+-- Stock icons: the upkeep symbol of the game's own upkeep footer (gui/entity_window/entity_window_util.tl, MaintenanceBar), the
+-- shopping cart of the vehicle store's buy button (gui/line_vehicle_mgmt/vehicle_store_window.tl), and in front of each
+-- tree's level the symbol of what it changes: the depot tab's pool-usage tools (entity_window_util.tl), the vehicle window's
+-- pollution and noise (gui/entity_window/vehicle/vehicle.tl) and the upkeep symbol. The game has no radius icon; the line
+-- manager's standard-priority dot stands in for the circle the game draws on the map.
 local upkeepIcon = "::/gui/entity_window/icons/symbol_dollar_gear.tga"
-local buyIcon = "::/gui/entity_window/icons/symbol_arrow_up.tga"
-local rebuildNote = "Buying a level rebuilds the building; the game then reassigns the vehicles it maintained."
+local buyIcon = "::/gui/line_vehicle_mgmt/icons/symbol_shopping_cart.tga"
+local treeIcons : {string : string} = {
+	radius = "::/gui/entity_window/icons/prio_standard.tga",
+	vehicles = "::/gui/entity_window/icons/symbol_tools.tga",
+	pollution = "::/gui/entity_window/icons/symbol_pollution.tga",
+	noise = "::/gui/entity_window/icons/symbol_noise.tga",
+	upkeep = upkeepIcon,
+}
+
+-- The level row: one box per level, drawn as the map layers draw their legend swatches (gui/layers/layer_terrain.tl). White for
+-- a level bought and grey for one the company rank allows (the game's NeutralLightest and NeutralMedium,
+-- gui/main/default_colors.gres.lua); above the rank a grey just lighter than the card (#282f36), so those boxes recede.
+local boxColors : {string : {number}} = {
+	bought = { 1, 1, 1, 1 },
+	open = { 0.502, 0.502, 0.502, 1 },
+	locked = { 0.251, 0.251, 0.251, 1 },
+}
+local drawnStyles : {string : StyleSheet} = nil
+
+local buyTooltip = "Buy level. Building is rebuilt and its vehicles will auto-reassign."
 
 local shownLines = 0
 local shownKeys : {string : boolean} = {}
@@ -153,6 +177,49 @@ local iconText = function(path : string, value : string, tooltip? : string) : Tr
 	return builtin.BoxLayout{ orientation = builtin.type.Orientation.Horizontal, children = { icon(path, tooltip), text(value) } }
 end
 
+-- The sized pieces the tab draws (the level boxes, the gaps between them, the height of a summary row, the gap between a tree
+-- card's rows), built once on the first
+-- draw. An empty table after a failure, so a failure is logged once and the tab falls back to text and default spacing.
+local getDrawnStyles = function() : {string : StyleSheet}
+	if drawnStyles == nil and styleutil ~= nil then
+		local ok, styles = pcall(function() : {string : StyleSheet}
+			local result : {string : StyleSheet} = {
+				gap = styleutil.makeStyle{ size = { 3, 16 } },
+				rowHeight = styleutil.makeStyle{ size = { 0, 24 } },
+				rowGap = styleutil.makeStyle{ size = { 0, 6 } },
+			}
+			for state, color in pairs(boxColors) do
+				result[state] = styleutil.makeStyle{ backgroundColor = color, size = { 9, 16 } }
+			end
+			return result
+		end)
+		if not ok then say("window drawnStylesFailed error=" .. tostring(styles)) end
+		drawnStyles = ok and styles or {}
+	end
+	return drawnStyles ~= nil and drawnStyles.gap ~= nil and drawnStyles or nil
+end
+
+-- The tree's symbol, then the boxes; the tooltip gives the level as a number.
+local levelRow = function(s : TabState, tree : string) : TreeNodeId
+	local level = s.levels[tree]
+	-- The level over the highest the company rank allows now, "Level 4/7 (max 15)"; the 15 shows only while the rank is lower.
+	local limit = s.rank ~= nil and math.min(s.rank, levels.maxLevel) or levels.maxLevel
+	local label = "Level " .. tostring(level) .. "/" .. tostring(limit)
+		.. (limit < levels.maxLevel and (" (max " .. tostring(levels.maxLevel) .. ")") or "")
+	local styles = getDrawnStyles()
+	if styles == nil then return iconText(treeIcons[tree], label) end
+	local children : {TreeNodeId} = { icon(treeIcons[tree]) }
+	for n = 1, levels.maxLevel do
+		local style = n <= level and styles.bought or (s.rank ~= nil and n > s.rank) and styles.locked or styles.open
+		children[#children + 1] = builtin.Component{ meta = { styleSheet = styles.gap } }
+		children[#children + 1] = builtin.Component{ meta = { styleSheet = style } }
+	end
+	return builtin.Component{
+		meta = { tooltip = label },
+		layout = builtin.BoxLayout{ orientation = builtin.type.Orientation.Horizontal, children = children },
+	}
+end
+
 local perYear = function(amount : number) : string
 	return money(amount) .. "/" .. _("Year")
 end
@@ -199,7 +266,7 @@ local logShown = function(s : TabState)
 		.. " buildPrice=" .. tostring(s.buildPrice) .. " nextPrices=" .. table.concat(prices, "/"))
 end
 
--- The stock rising arrow and the price; the reason a level cannot be bought yet replaces the price, and the tooltip says more.
+-- The stock shopping cart and the price; the reason a level cannot be bought yet replaces the price, and the tooltip says more.
 -- No "buying" state: the rebuild lands within a second, paused or not, and the tab redraws with the new level. A second click
 -- before that sends the old level, which the game script refuses as stale, so nothing is charged twice.
 local buyButton = function(s : TabState, tree : string) : TreeNodeId
@@ -213,7 +280,7 @@ local buyButton = function(s : TabState, tree : string) : TreeNodeId
 	elseif s.rank ~= nil and nextLevel > s.rank then
 		label, tooltip = "Rank " .. tostring(nextLevel), "Needs company rank " .. tostring(nextLevel)
 	else
-		label, tooltip = money(price), "Buy level " .. tostring(nextLevel) .. ". " .. rebuildNote
+		label, tooltip = money(price), buyTooltip
 		enabled = true
 	end
 	return builtin.Button{
@@ -243,6 +310,22 @@ local spreadRow = function(left : TreeNodeId, right : TreeNodeId) : TreeNodeId
 	}
 end
 
+-- A summary row, as far apart as the tree cards' rows (24 pixels, set there by the icons and the buy buttons): an empty piece
+-- of that height at the left edge holds the row open.
+local summaryRow = function(left : string, right : string) : TreeNodeId
+	local styles = getDrawnStyles()
+	if styles == nil then return spreadRow(text(left), text(right)) end
+	return builtin.BoxLayout{
+		orientation = builtin.type.Orientation.Horizontal,
+		children = {
+			builtin.Component{ meta = { styleSheet = styles.rowHeight } },
+			text(left),
+			builtin.Component{ meta = { class = "horizontal-spacer" } },
+			text(right),
+		},
+	}
+end
+
 local card = function(title : string, rows : {TreeNodeId}, gameCtx : GameContext) : TreeNodeId
 	return contentCard.ContentCard{
 		title = title,
@@ -255,16 +338,24 @@ local card = function(title : string, rows : {TreeNodeId}, gameCtx : GameContext
 	}
 end
 
--- One card per tree. First row: the level at the left, the upkeep after the next level at the right. Second row: what the next
--- level changes at the left, the buy button at the right. The upkeep counts what the game's upkeep footer counts.
+-- One card per tree. First row: the level row at the left, the upkeep after the next level at the right.
+-- Second row: what the next level changes at the left, the buy button at the right. The upkeep counts what the game's upkeep
+-- footer counts.
+-- A tree card's two rows, 6 pixels apart so the upkeep figure does not touch the buy button below it.
+local twoRows = function(first : TreeNodeId, second : TreeNodeId) : {TreeNodeId}
+	local styles = getDrawnStyles()
+	if styles == nil then return { first, second } end
+	return { first, builtin.Component{ meta = { styleSheet = styles.rowGap } }, second }
+end
+
 local treeCard = function(s : TabState, tree : string, gameCtx : GameContext) : TreeNodeId
 	local level = s.levels[tree]
-	local levelText = text("Level " .. tostring(level) .. "/" .. tostring(levels.maxLevel))
+	local levelText = levelRow(s, tree)
 	if level >= levels.maxLevel then
-		return card(levels.names[tree], {
+		return card(levels.names[tree], twoRows(
 			spreadRow(levelText, text("Highest level")),
-			spreadRow(text(effect(s, tree, level)), builtin.Component{}),
-		}, gameCtx)
+			spreadRow(text(effect(s, tree, level)), builtin.Component{})
+		), gameCtx)
 	end
 	-- Build only the node that is shown: a recipe called but left out of the tree costs the game log a "Preserved props"
 	-- warning on every redraw.
@@ -275,10 +366,10 @@ local treeCard = function(s : TabState, tree : string, gameCtx : GameContext) : 
 	else
 		nextUpkeep = text("?")
 	end
-	return card(levels.names[tree], {
+	return card(levels.names[tree], twoRows(
 		spreadRow(levelText, nextUpkeep),
-		spreadRow(text(effect(s, tree, level, level + 1)), buyButton(s, tree)),
-	}, gameCtx)
+		spreadRow(text(effect(s, tree, level, level + 1)), buyButton(s, tree))
+	), gameCtx)
 end
 
 -- The cards scroll and the game's own upkeep footer sits below them, as in the depot's tab
@@ -288,9 +379,9 @@ local tabBody = function(s : TabState, gameCtx : GameContext) : TreeNodeId
 		and ("rank " .. tostring(s.earnedRank) .. " earned, claim it to buy higher") or ""
 	local cards : {TreeNodeId} = {
 		card("Summary", {
-			spreadRow(text("Company rank " .. tostring(s.rank or "?")), text(rankNote)),
-			spreadRow(text("Radius"), text(s.radius and string.format("%d m", math.floor(s.radius + 0.5)) or "?")),
-			spreadRow(text("Vehicles"), text(tostring(s.maintained or "?") .. "/" .. tostring(s.pool or "?"))),
+			summaryRow("Company rank " .. tostring(s.rank or "?"), rankNote),
+			summaryRow("Radius", s.radius and string.format("%d m", math.floor(s.radius + 0.5)) or "?"),
+			summaryRow("Vehicles", tostring(s.maintained or "?") .. "/" .. tostring(s.pool or "?")),
 		}, gameCtx),
 	}
 	for _, tree in ipairs(levels.trees) do cards[#cards + 1] = treeCard(s, tree, gameCtx) end
