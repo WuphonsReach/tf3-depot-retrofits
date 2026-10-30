@@ -3,13 +3,15 @@
 ## In short
 
 - **Where it stands.** 0.5 is on `main`: levels are stored, applied and bought in the Retrofit tab, and the game script only handles buys. It has not been released.
-- **Before a release.** The tab on the Roundhouse mod's depot, a decision on the rank gate, and the mod.io listing.
-- **Unknown.** Whether the game's own rebuilds keep the level params.
+- **Before a release.** A decision on the rank gate, and the mod.io listing.
 
 ## Before a release
 
-- [ ] Open the Retrofit tab on the Roundhouse mod's depot, the one building type not yet seen in game (buildable from 1920; it is wrapped by the `depots/` folder rule, since it uses its own icon and its `constructionType` line is commented out).
-- [ ] Find out whether the game's own rebuilds keep the level params: electrifying a rail depot, the construction upgrade tool, a param change in the build window.
+- [x] Open the Retrofit tab on the Roundhouse mod's depot (works; its stalls' vehicles and upkeep were not levelled, see docs/design/findings.md).
+- [x] Test the modular depot changes on the Roundhouse (TF3 calls `loadModule`; stalls are re-levelled, upkeep covers them; see docs/design/findings.md).
+- [x] A Roundhouse with 10 or more stalls at a high vehicles level, where +10% of the whole pool beats +1 a level (28 stalls: pool 29 → 61 at vehicles 11).
+- [ ] Optional: the Modern Railway Depot mod's depot (modular, its modules are wrapped); in a save before 2015, turn on its "Available from 1900" setting.
+- [x] Find out whether the game's own rebuilds keep the level params: electrifying a rail depot, the catenary tool on a tram depot and module edits on the Roundhouse do; base depots have no param that can be changed after building.
 - [ ] Decide the rank gate: fixed (max level = claimed rank), or an in-game setting that is on by default.
 - [ ] Check which finance rows the level charges land in (booked as depot construction).
 - [ ] Confirm that the upkeep tree leaves the vehicles' running cost (the accumulated costs in the upkeep footer) alone, as designed: on two like buildings servicing similar vehicles, one with upkeep levels, the accumulated costs should grow at the same rate.

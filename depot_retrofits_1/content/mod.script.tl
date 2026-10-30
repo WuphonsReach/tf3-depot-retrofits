@@ -1,5 +1,7 @@
 -- runFn registers a loadConstruction modifier that wraps the update script of every construction that builds a depot or a
 -- maintenance building. The wrapper (construction.script.tl) runs the original script and applies the building's levels.
+-- A loadModule modifier wraps the update script of every module under a depots folder the same way, so the levels also count
+-- what a modular depot's modules add (the Roundhouse mod's stalls each add a vehicle).
 -- Each wrapped construction declares one param per level tree (keys in levels.tl), with an availability year past the end of
 -- the calendar, which keeps them out of the build menu: a new building starts at level 0, and the game script stores levels
 -- with a rebuild. Each wrapped construction keeps its own params and the original script's reference in its updateScript
@@ -10,6 +12,8 @@ local modVersion = "0.5"
 -- Shared with construction.script.tl and retrofit_window.script.tl; keep the copies equal.
 local wrapperRef = "depot_retrofits_1::/construction.script@update"
 local captureKey = "depotRetrofits"
+
+local moduleWrapperRef = "depot_retrofits_1::/construction.script@updateModule"
 
 -- The building window with the Retrofit tab (retrofit_window.script.tl); set only where the construction has none of its own.
 local windowRef = "depot_retrofits_1::/retrofit_window.script@entityWindowFn"
@@ -47,6 +51,11 @@ local record Definition
 	constructionTemplates : {Template}
 	edgeObject : table
 	params : {ParamDef}
+end
+
+local record ModuleDefinition
+	updateScript : ScriptHook
+	metadata : {string:any}
 end
 
 local record DepotRetrofitsMod
@@ -177,6 +186,38 @@ local wrapConstruction = function(fileName : string, definition : Definition) : 
 	return definition
 end
 
+-- Modules are told apart by their folder only: the Roundhouse mod's sit beside its depot under depots/, and a station's modules
+-- are left alone. The wrapper levels a module only inside a construction that has levels, so a module used elsewhere is
+-- unchanged.
+local wrapModule = function(fileName : string, definition : ModuleDefinition) : ModuleDefinition
+	if type(definition) ~= "table" then return definition end
+	local name = type(fileName) == "string" and fileName or ""
+	if not (name:lower():gsub("\\", "/")):find("/depots/", 1, true) then return definition end
+	local script = definition.updateScript
+	if script == nil or type(script.fileName) ~= "string" or script.fileName == "" then
+		say("skipModule fileName=" .. name .. " reason=noUpdateScript")
+		return definition
+	end
+	if script.fileName == moduleWrapperRef or (type(script.params) == "table" and script.params[captureKey] ~= nil) then
+		say("skipModule fileName=" .. name .. " reason=alreadyWrapped")
+		return definition
+	end
+	local resolved = resolveRef(script.fileName, name)
+	if not resolved then
+		say("skipModule fileName=" .. name .. " reason=unresolvable ref=" .. script.fileName)
+		return definition
+	end
+	local capture : {string:any} = {}
+	if type(script.params) == "table" then
+		for key, value in pairs(script.params) do capture[key] = value end
+	end
+	capture[captureKey] = { fileName = resolved, ref = script.fileName, owner = name }
+	definition.updateScript = { fileName = moduleWrapperRef, params = capture }
+	local upkeep = type(definition.metadata) == "table" and definition.metadata.maintenanceCost or nil
+	say("wrapModule fileName=" .. name .. " ref=" .. script.fileName .. " resolved=" .. resolved .. " upkeep=" .. tostring(upkeep))
+	return definition
+end
+
 local mod : DepotRetrofitsMod = {
 	runFn = function(_captureParams : table, _settings : table, _allModParams : {string : {string : integer}})
 		say("version " .. modVersion .. " levels=" .. tostring(levelsLoaded) .. (levelsLoaded and "" or (" error=" .. tostring(levelsModule))))
@@ -187,6 +228,15 @@ local mod : DepotRetrofitsMod = {
 			say("wrapError fileName=" .. tostring(fileName) .. " error=" .. tostring(result))
 			return definition
 		end)
+		-- Guarded: "loadModule" is the name TF2 used; the base game registers no module modifier, so whether TF3 calls it shows
+		-- only as wrapModule lines in the log.
+		local registered, registerError = pcall(addModifier, "loadModule", function(fileName : string, definition : ModuleDefinition) : ModuleDefinition
+			local ok, result = pcall(wrapModule, fileName, definition)
+			if ok then return result as ModuleDefinition end
+			say("wrapModuleError fileName=" .. tostring(fileName) .. " error=" .. tostring(result))
+			return definition
+		end)
+		if not registered then say("loadModule unavailable error=" .. tostring(registerError)) end
 	end,
 }
 
