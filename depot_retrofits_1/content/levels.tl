@@ -59,11 +59,12 @@ function levels.pool(basePool : number, level : integer) : integer
 	return math.max(round(basePool * (1 + vehiclesStep * level)), round(basePool) + level)
 end
 
--- The base pool behind a pool built at a vehicles level (the smallest that gives it); nil when none does.
+-- The base pool behind a pool built at a vehicles level; nil when none gives it. The pool grows with the base, so at most one
+-- does. The base can be 0: a modular depot whose vehicles all come from its modules has none before them.
 function levels.basePool(pool : number, level : integer) : integer
 	if pool == nil then return nil end
 	if level == 0 then return round(pool) end
-	for base = 1, math.floor(pool) do
+	for base = 0, math.floor(pool) do
 		if levels.pool(base, level) == pool then return base end
 	end
 	return nil
@@ -79,6 +80,41 @@ end
 
 function levels.upkeepFactor(values : {string : integer}) : number
 	return (1 + upkeepPerOtherLevel * levels.otherLevels(values)) * (1 - upkeepStep * (values.upkeep or 0))
+end
+
+-- The update script's upkeep at some levels, rounded to whole dollars as construction.script.tl stores it. Every script that
+-- works out an upkeep goes through here, so the floating-point product is the same everywhere (60,850 × 2.85 is 173,422.4999…).
+function levels.levelledUpkeep(baseUpkeep : number, values : {string : integer}) : integer
+	return round(baseUpkeep * levels.upkeepFactor(values))
+end
+
+local trailingZeros = function(n : integer) : integer
+	if n == 0 then return 99 end
+	local count = 0
+	while n % 10 == 0 do
+		n = math.floor(n / 10)
+		count = count + 1
+	end
+	return count
+end
+
+-- The whole-dollar upkeep before the levels behind a stored upkeep; nil when none gives it. Below a factor of 1 (upkeep levels
+-- with few others) two or more do, as 0.95 × 60,050 and 0.95 × 60,051 both round to 57,048: the roundest is taken, since every
+-- base depot's upkeep and every Roundhouse module's is a multiple of $50.
+function levels.baseUpkeep(scriptUpkeep : number, values : {string : integer}) : integer
+	if scriptUpkeep == nil then return nil end
+	local guess = scriptUpkeep / levels.upkeepFactor(values)
+	local best : integer = nil
+	local bestZeros, bestDistance = -1, math.huge
+	for base = math.max(0, math.floor(guess) - 4), math.ceil(guess) + 4 do
+		if levels.levelledUpkeep(base, values) == scriptUpkeep then
+			local zeros, distance = trailingZeros(base), math.abs(base - guess)
+			if zeros > bestZeros or (zeros == bestZeros and distance < bestDistance) then
+				best, bestZeros, bestDistance = base, zeros, distance
+			end
+		end
+	end
+	return best
 end
 
 -- Rounded to $100: the game charges a whole-dollar upkeep, so undoing the levels' factor leaves up to about $12 of noise (at upkeep

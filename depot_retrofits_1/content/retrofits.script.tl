@@ -209,7 +209,9 @@ local expectedAfter = function(before : Snapshot, from : {string : integer}, to 
 		e.radius = before.radius / levels.radius(1, from.radius) * levels.radius(1, to.radius)
 	end
 	local ratio = levels.upkeepFactor(to) / levels.upkeepFactor(from)
-	e.upkeepScript = before.upkeepScript and math.floor(before.upkeepScript * ratio + 0.5) or nil
+	local baseUpkeep = levels.baseUpkeep(before.upkeepScript, from)
+	e.upkeepScript = baseUpkeep and levels.levelledUpkeep(baseUpkeep, to)
+		or (before.upkeepScript and math.floor(before.upkeepScript * ratio + 0.5) or nil)
 	e.upkeepCharged = before.upkeepCharged and before.upkeepCharged * ratio or nil
 	return e
 end

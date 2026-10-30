@@ -19,6 +19,10 @@ global record DepotRetrofitsLevels
 	radius : function(baseRadius : number, level : integer) : number
 	emissionFactor : function(level : integer) : number
 	upkeepFactor : function(levels : {string : integer}) : number
+	-- The update script's upkeep at some levels, in whole dollars, from the upkeep before any level.
+	levelledUpkeep : function(baseUpkeep : number, levels : {string : integer}) : integer
+	-- The whole-dollar upkeep before the levels behind a stored upkeep (the roundest when several give it); nil when none does.
+	baseUpkeep : function(scriptUpkeep : number, levels : {string : integer}) : integer
 
 	-- The building's build price at today's prices, from the upkeep the game charges for it now and its current levels.
 	buildPrice : function(chargedUpkeep : number, levels : {string : integer}) : number

@@ -363,11 +363,15 @@ end
 -- Second row: what the next level changes at the left, the buy button at the right. The upkeep counts what the game's upkeep
 -- footer counts.
 -- The upkeep the game will charge at other levels, rounded as the footer rounds it: the update script's upkeep at those levels
--- (construction.script.tl rounds it to whole dollars) times the footer's scale. calcMaintenanceForSubconstruction drops the
--- half dollar the footer rounds up (101,562 for 101,562.50), so it is only the fallback.
+-- (construction.script.tl rounds it to whole dollars) times the footer's scale. That upkeep is worked out the wrapper's way,
+-- from the whole-dollar upkeep before the levels: scaling the stored upkeep by the ratio of the factors carries its rounding
+-- along and was off by $1 before the scale. calcMaintenanceForSubconstruction drops the half dollar the footer rounds up
+-- (101,562 for 101,562.50), so it is only the fallback.
 local upkeepAfter = function(s : TabState, values : {string : integer}) : number
 	if s.scriptUpkeep ~= nil and s.upkeepScale ~= nil then
-		local scriptUpkeep = math.floor(s.scriptUpkeep / levels.upkeepFactor(s.levels) * levels.upkeepFactor(values) + 0.5)
+		local base = levels.baseUpkeep(s.scriptUpkeep, s.levels)
+		local scriptUpkeep = base ~= nil and levels.levelledUpkeep(base, values)
+			or math.floor(s.scriptUpkeep / levels.upkeepFactor(s.levels) * levels.upkeepFactor(values) + 0.5)
 		return math.floor(scriptUpkeep * s.upkeepScale + 0.5)
 	elseif s.chargedUpkeep ~= nil then
 		return s.chargedUpkeep / levels.upkeepFactor(s.levels) * levels.upkeepFactor(values)
