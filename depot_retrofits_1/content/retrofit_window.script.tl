@@ -341,8 +341,9 @@ local logShown = function(s : TabState)
 		.. " buildPrice=" .. tostring(s.buildPrice) .. " nextPrices=" .. table.concat(prices, "/"))
 end
 
--- The stock shopping cart and the price; a rank too low (or unknown) replaces the price, and the tooltip says more. Short of
--- money the price stays and the button is greyed out, as the game script refuses the buy.
+-- The stock shopping cart and the price; a rank too low (or unknown) replaces the price. Short of money the price stays and the
+-- button is greyed out, as the game script refuses the buy. The game shows no tooltip on a disabled button, so only an enabled
+-- button's tooltip is ever seen (docs/design/findings.md).
 -- No "buying" state: the rebuild lands within a second, paused or not, and the tab redraws with the new level. A second click
 -- before that sends the old level, which the game script refuses as stale, so nothing is charged twice.
 local buyButton = function(s : TabState, tree : string) : TreeNodeId
