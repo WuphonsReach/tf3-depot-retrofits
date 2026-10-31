@@ -88,12 +88,12 @@ The early levels pay back quickly and the late ones slowly: with the other trees
 
 ## Rank gate
 
-A tree's maximum level equals the claimed company rank. It is fixed: there is no setting to turn it off.
+A tree's maximum level equals the claimed company rank. It is fixed: there is no setting to turn it off. When the rank cannot be read, no level can be bought.
 
 ## How it is built (0.5)
 
 - **Storing levels.** One construction param per tree, values 0 to 15, declared with an availability year of 9999. That keeps it out of the build menu even in a save that runs past the year 3000 (the game's date card goes up to 5000), and a rebuild stores it.
 - **Price.** The build price is 6 × the upkeep the game charges for the building now, divided by what its current levels do to the upkeep, rounded to $100 (the game's whole-dollar upkeep leaves a few dollars of noise). That gives today's build price, with the game's upkeep factor and inflation included, without reading the depot scripts' base cost.
-- **Charging.** The one-off price is booked as depot construction (journal entry, carrier from the building type) once the rebuild has landed; a rebuild that never lands is not charged. The extra upkeep is the building's own upkeep, raised in the rebuild, so it is charged with the normal upkeep.
-- **Rank.** The rank the company window shows as reached (claimed). Buying a level above it is refused.
+- **Charging.** The one-off price is booked as depot construction (journal entry, carrier from the depot) once the rebuild has landed; a rebuild that never lands is not charged. The extra upkeep is the building's own upkeep, raised in the rebuild, so it is charged with the normal upkeep.
+- **Rank.** The rank the company window shows as reached (claimed), read through the base game's company progression script, or from the state it reads when that script cannot be loaded. Buying a level above it is refused, and so is every buy while neither read works.
 - **Where the player buys.** A Retrofit tab in the building's window, next to its depot tab (as Industry Upgrades adds an Upgrades tab to industries): one card per tree with what the next level changes, the upkeep after it, and a buy button showing the price; the building's upkeep shows once, in the game's own upkeep footer.

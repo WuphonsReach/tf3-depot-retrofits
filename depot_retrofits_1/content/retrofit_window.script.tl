@@ -16,10 +16,12 @@ local record TabState
 	construction : Engine.Entity
 	depot : Engine.Entity
 	levels : {string : integer}
-	rank : integer
+	rank : integer -- nil when unknown: then no level can be bought
 	earnedRank : integer
+	rankSource : string
 	chargedUpkeep : number
 	buildPrice : number
+	affordable : {string : boolean} -- per tree, whether the balance covers the next level; nil when unreadable
 	pool : number
 	radius : number
 	maintained : integer
@@ -66,14 +68,15 @@ local builtin = loadModule("::/gui/main/builtin.lua") as Builtin
 local engineReact = loadModule("::/gui/main/engine_react_util.tl") as EngineReactUtil
 local contentCard = loadModule("::/gui/main/content_card.tl") as ContentCard
 local levels = loadModule("depot_retrofits_1::/levels.tl") as DepotRetrofitsLevels
-local progression = loadModule("::/game_mechanics/company/company_progression_util.tl") as CompanyProgressionUtil
+-- Without it the rank is unknown and every buy button is greyed out, as the game script refuses every buy then.
+local companyRank = loadModule("depot_retrofits_1::/company_rank.tl") as DepotRetrofitsRank
 -- Optional: without it the tab has no scroll container and no upkeep footer.
 local entityWindowUtil = loadModule("::/gui/entity_window/entity_window_util.tl") as EntityWindowUtil
 -- Optional: without it each card shows its level as text instead of a row of marks.
 local styleutil = loadModule("::/gui/main/styleutil.tl") as StyleUtil
 local ready = react ~= nil and builtin ~= nil and engineReact ~= nil and contentCard ~= nil and levels ~= nil
 say("window loaded ready=" .. tostring(ready) .. " constructionWindow=" .. tostring(makeEntityWindow ~= nil)
-	.. " progression=" .. tostring(progression ~= nil) .. " entityWindowUtil=" .. tostring(entityWindowUtil ~= nil)
+	.. " companyRank=" .. tostring(companyRank ~= nil) .. " entityWindowUtil=" .. tostring(entityWindowUtil ~= nil)
 	.. " styleutil=" .. tostring(styleutil ~= nil))
 
 -- Stock icons: the upkeep symbol of the game's own upkeep footer (gui/entity_window/entity_window_util.tl, MaintenanceBar), the
@@ -187,9 +190,10 @@ local readTab = function(construction : Engine.Entity) : TabState
 	local s : TabState = { depot = depot, construction = construction }
 	local con = api.engine.getComponent(construction, api.type.ComponentType.CONSTRUCTION) as Engine.Component.Construction
 	s.levels = levels.read(con and constructionParams(con) or {})
-	if progression ~= nil then
-		local ok, company = pcall(progression.getCompanyProgressionState, api.engine.util.getPlayer())
-		if ok and company ~= nil then s.rank, s.earnedRank = company.level, company.potentialLevel end
+	if companyRank ~= nil then
+		s.rank, s.earnedRank, s.rankSource = companyRank.read(api.engine.util.getPlayer())
+	else
+		s.rankSource = "unknown moduleUnavailable"
 	end
 	if depot ~= nil then
 		local okUpkeep, charged = pcall(api.engine.util.maintenance.calcMaintenanceForSubconstruction, depot)
@@ -214,7 +218,21 @@ local readTab = function(construction : Engine.Entity) : TabState
 	local okScale, scale = pcall(footerScale, con)
 	s.upkeepScale = con ~= nil and okScale and scale or nil
 	s.buildPrice = s.chargedUpkeep and levels.buildPrice(s.chargedUpkeep, s.levels) or nil
+	-- Kept as one yes/no per tree, not the balance itself, so the tab redraws only when one of them changes.
+	local okBalance, balance = pcall(api.engine.util.finance.getPlayersBalance, api.engine.util.getPlayer())
+	local afford = "?"
+	if okBalance and tonumber(balance) ~= nil and s.buildPrice ~= nil then
+		s.affordable = {}
+		local marks : {string} = {}
+		for _, tree in ipairs(levels.trees) do
+			local level = s.levels[tree]
+			s.affordable[tree] = level >= levels.maxLevel or tonumber(balance) >= levels.levelPrice(s.buildPrice, tree, level + 1)
+			marks[#marks + 1] = s.affordable[tree] and "y" or "n"
+		end
+		afford = table.concat(marks)
+	end
 	s.key = levels.describe(s.levels) .. " rank=" .. tostring(s.rank) .. "/" .. tostring(s.earnedRank)
+		.. " rankSource=" .. tostring(s.rankSource) .. " affordable=" .. afford
 		.. " upkeep=" .. tostring(s.chargedUpkeep) .. " pool=" .. tostring(s.pool) .. " radius=" .. tostring(s.radius)
 		.. " maintained=" .. tostring(s.maintained) .. " accumulated=" .. tostring(s.accumulated)
 		.. " upkeepScript=" .. tostring(s.scriptUpkeep) .. " upkeepScale=" .. tostring(s.upkeepScale)
@@ -265,14 +283,15 @@ end
 local levelRow = function(s : TabState, tree : string) : TreeNodeId
 	local level = s.levels[tree]
 	-- The level over the highest the company rank allows now, "Level 4/7 (max 15)"; the 15 shows only while the rank is lower.
-	local limit = s.rank ~= nil and math.min(s.rank, levels.maxLevel) or levels.maxLevel
-	local label = "Level " .. tostring(level) .. "/" .. tostring(limit)
-		.. (limit < levels.maxLevel and (" (max " .. tostring(levels.maxLevel) .. ")") or "")
+	-- With the rank unknown, "Level 4/? (max 15)", and every level not bought is drawn as locked.
+	local limit = s.rank ~= nil and math.min(s.rank, levels.maxLevel) or nil
+	local label = "Level " .. tostring(level) .. "/" .. (limit and tostring(limit) or "?")
+		.. ((limit == nil or limit < levels.maxLevel) and (" (max " .. tostring(levels.maxLevel) .. ")") or "")
 	local styles = getDrawnStyles()
 	if styles == nil then return iconText(treeIcons[tree], label) end
 	local children : {TreeNodeId} = { icon(treeIcons[tree]) }
 	for n = 1, levels.maxLevel do
-		local style = n <= level and styles.bought or (s.rank ~= nil and n > s.rank) and styles.locked or styles.open
+		local style = n <= level and styles.bought or (s.rank == nil or n > s.rank) and styles.locked or styles.open
 		children[#children + 1] = builtin.Component{ meta = { styleSheet = styles.gap } }
 		children[#children + 1] = builtin.Component{ meta = { styleSheet = style } }
 	end
@@ -322,7 +341,8 @@ local logShown = function(s : TabState)
 		.. " buildPrice=" .. tostring(s.buildPrice) .. " nextPrices=" .. table.concat(prices, "/"))
 end
 
--- The stock shopping cart and the price; the reason a level cannot be bought yet replaces the price, and the tooltip says more.
+-- The stock shopping cart and the price; a rank too low (or unknown) replaces the price, and the tooltip says more. Short of
+-- money the price stays and the button is greyed out, as the game script refuses the buy.
 -- No "buying" state: the rebuild lands within a second, paused or not, and the tab redraws with the new level. A second click
 -- before that sends the old level, which the game script refuses as stale, so nothing is charged twice.
 local buyButton = function(s : TabState, tree : string) : TreeNodeId
@@ -333,8 +353,12 @@ local buyButton = function(s : TabState, tree : string) : TreeNodeId
 	local price = s.buildPrice and levels.levelPrice(s.buildPrice, tree, nextLevel) or nil
 	if price == nil then
 		label, tooltip = "?", "Price unknown"
-	elseif s.rank ~= nil and nextLevel > s.rank then
+	elseif s.rank == nil then
+		label, tooltip = "Rank ?", "The company rank could not be read, so no level can be bought (see the game log)"
+	elseif nextLevel > s.rank then
 		label, tooltip = "Rank " .. tostring(nextLevel), "Needs company rank " .. tostring(nextLevel)
+	elseif s.affordable ~= nil and not s.affordable[tree] then
+		label, tooltip = money(price), "Not enough money"
 	else
 		label, tooltip = money(price), buyTooltip
 		enabled = true

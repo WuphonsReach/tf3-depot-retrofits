@@ -31,3 +31,10 @@ global record DepotRetrofitsLevels
 	-- The price of level n of a tree, rounded to whole money.
 	levelPrice : function(buildPrice : number, tree : string, level : integer) : integer
 end
+
+-- The type of the company rank module (depot_retrofits_1/content/company_rank.tl).
+global record DepotRetrofitsRank
+	-- The claimed rank, the earned rank and where they were read ("util", "state ..."); nil, nil and "unknown ..." when neither
+	-- read works.
+	read : function(player : Engine.Entity) : integer, integer, string
+end

@@ -14,7 +14,7 @@
 ## Releasing a version
 
 1. **In the repo, on a release branch.**
-   - The description in `modinfo.json` follows [user-guide.md](user-guide.md): change both together. Drop the "IN DEVELOPMENT" paragraph for a first public release, if it no longer applies.
+   - The description in `modinfo.json` follows [user-guide.md](user-guide.md): change both together.
    - Run `python3 tools/check_content_list.py`, `python3 tools/check_repo.py --strict` (`settings.tl` ships `logLevel = "summary"`) and `tl check` on every script.
    - Set `modVersion` in `mod.script.tl` to the release number (between releases it reads the next number with `-dev`, for example `0.6-dev`).
    - In [CHANGELOG.md](../CHANGELOG.md), give the "not released" entry its number and date, and check its "Release note:" line, the one-liner for the uploader's Changelog field.
