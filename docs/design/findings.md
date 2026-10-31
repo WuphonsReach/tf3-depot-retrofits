@@ -6,6 +6,7 @@
 - **The method works, tested in game.** A rebuild keeps the construction and depot entity ids, keeps every vehicle's line, costs nothing, and applies all five values: pool, radius, noise, pollution (the emitter power follows the scaled values exactly) and upkeep. A game script can charge the level's price with a journal entry.
 - **The cost of a rebuild: vehicles are reshuffled.** Every rebuild, even one that changes nothing, clears the maintenance link of every vehicle the building maintained. Within a game day the game assigns each vehicle again, by its own choice: in the test the maintenance buildings got all their vehicles back, the depot none of its 10 (they went to a nearer maintenance building and stayed there for the whole year). No command sets a vehicle's maintenance station, so the mod cannot put them back. Over the following months, the larger pool and radius draw vehicles in: the rebuilt maintenance building grew from 9 to 13 vehicles, the rebuilt depot later took 6 from a neighbour.
 - **Pollution and noise.** The base game cannot green depots: the Industry Greenification tool only reaches industries. Depot emissions come from the same construction data, so the rebuild covers both trees. A larger pool also lowers emissions by itself, since the emission state follows vehicles in maintenance against the pool.
+- **The pollution map hardly shows a level.** The map and its cursor number show pollution in decibels, averaged over time: 12 steps of about 1.9 dB from 57 to 80 dB, with 12 meaning 80 dB or more. Cutting a building's pollution by 45% is −2.6 dB, about 1.4 steps where the building is the only source; a full tree (−75%) is −6 dB, about 3 steps. Passing vehicles are their own sources and keep their pollution. In game, three rail maintenance buildings taken to pollution level 9 each read one step lower beside the building within about 20 seconds (12 to 11), and one read 10 a minute later. How fast the average settles is not known yet; the buy checks now log the dB at the building, live and averaged, up to 30 game days after a buy.
 - **Saved with the game.** Loading a save does not rerun the construction scripts: the rebuilt buildings came back with their scaled values and level params, and the wrapper was not called. So a change to the level formulas reaches a levelled building only at its next rebuild. Until then it keeps the upkeep the old formula gave, and the tab, which works the build price out back from that upkeep with the new formula, shows its prices and upkeep figures wrong (25% to 43% too high after the upkeep step went from 25% to 15%; the eleventh load below). A buy corrects the building, since it rebuilds it, but that buy is charged the wrong price. The mod does not correct this: it would matter only if a released version changed the upkeep formulas.
 - **Keeping levels out of the build menu.** A level param declared with an availability year far in the future (`yearFrom` 3000) does not show in the build menu and is not passed when a depot is placed, yet a rebuild stores it and passes it to the update script. A param that is not declared at all behaves the same way. A declared param with a single value still shows in the menu. The mod declares 9999, since a long game can pass 3000; at 9999 the build menu showed no level options either, and a building placed by hand started at level 0 (probe 0.4).
 - **Levels at scale (probe 0.4).** 18 of the save's 24 buildings were given levels by rebuilding them (all five trees, levels 0 to 15); pool, radius, upkeep and stored levels matched the formulas for all 18 at every check up to a game month, and the emitter power followed the scaled emission states.
@@ -75,6 +76,15 @@ The rail depot's upkeep and cost are multiplied by its template's year coefficie
 - The Cleaning Plant (rank 10, uses machines) removes 10,000 pollution at full output.
 - A town's pollution rating averages samples over the town's whole area, so every depot inside the town border counts.
 
+## How the map shows pollution
+
+- The pollution layer (`gui/layers/layer_pollution.tl`) colours the ground from the emission grid's averaged value (`visualizationType` `DecibelAverage`) in `pollutionNumSteps` 12 steps between `pollutionLowerBoundDB` 57 and `pollutionUpperBoundDB` 80 (`game_mechanics/emission/emission_config.tl`). The noise layer does the same with 12 steps from 63 to 85 dB.
+- The number beside the cursor (`gui/main/game_tooltips.tl`) reads `emissionGridSystem.getInterpolatedEmission(position, true, type)`, the averaged value, converts it with `api.util.powerToDecibel` and maps it to the steps: a reading of n (1 to 11) is 57 + 1.92 n to 57 + 1.92 (n + 1) dB, 12 is 80 dB or more, 0 is below about 59 dB. `getInterpolatedEmission(position, false, type)` gives the live value.
+- So a cut in a building's pollution power moves the map by 10 log10 of the factor: level 1 (×0.95) −0.2 dB, level 5 (×0.75) −1.2 dB, level 9 (×0.55) −2.6 dB, level 15 (×0.25) −6.0 dB; at 1.92 dB a step that is 0.1, 0.7, 1.4 and 3.1 steps. That is the most it can move, beside a building that is the only source. Noise is on the same kind of scale.
+- The averaged grid follows a change slowly: the inner rings grow and shrink over many seconds as trains come and go.
+- A town's pollution rating (`town_util.getRatingPollution` in `game_mechanics/towns/town_util.tl`) sums the pollution over the town's area (at least 5 km²), converts the average to dB and maps 60 to 74 dB to a rating of 1 to 0. The town window splits a town's pollution by source, with "Depots" and "Maintenance Buildings" as their own rows (`town_util.getTownEmissionEmitters`, `game_mechanics/towns/town_react_util.tl`): a depot is a `VEHICLE_DEPOT` with in or out nodes, a maintenance building one without.
+- For scale: the Industry Greenification tool's 80% cut per eco level is −7 dB, about one full pollution tree.
+
 ## Other mods
 
 - **Industry Upgrades** (Stardorn) gives industries levels with the same method: a `loadConstruction` modifier wraps every industry's update script and declares hidden level params; buying a level rebuilds the construction from the game script. It has no licence, so this repo reuses the method only, never its code. It wraps only constructions marked as industries, so a depot wrapper does not overlap it.
@@ -85,6 +95,7 @@ The rail depot's upkeep and cost are multiplied by its template's year coefficie
 
 - Which finance rows the level charges land in. A probe's test charge booked as depot construction showed in the construction rows (below); a level's charge has not been looked for.
 - How the game picks the building a vehicle is assigned to.
+- How fast the emission grid's average follows a change, and how much of the pollution beside a busy depot comes from its vehicles rather than the building.
 
 ## Test results
 
@@ -193,3 +204,14 @@ One buy then rebuilt road maintenance 262882 (pollution 4 → 5). It was charged
 A twelfth load (same save, before that change) ran 144 buys on 20 buildings with quick clicks, the game at about one game day a second. 142 logged `buy sent` and then `buy charged` at the price the tab showed; none was charged twice; 59 repeated clicks were refused as stale. Right after each buy, 133 matched the formulas; the other 11 were each building's first buy since the 15% upkeep step, whose expected figure came from the old upkeep. Two buys landed and were logged `notLanded … charged=false` in the same second: building 201488 (pollution 2, $38,813, expected `0/0/1/0/0`, stored `0/0/2/0/0`) and building 64602 (upkeep 7, $173,480, expected `0/0/0/0/6`, stored `0/0/0/0/7`). Both expected levels were the building's levels before that buy, and both came in runs of several clicks a second on one building.
 
 A thirteenth load (same save, with a pending buy keeping only its tree and level) ran 74 quick clicks on three buildings at the fastest speed. 38 buys were sent and all 38 charged once, at the price the tab showed; the other 36 clicks were refused as stale; there was no `notLanded`. Each building gained as many levels as it was charged for (14, 14 and 10), and every buy matched the formulas right after it. The state from the version before was reset at load (`oldStateReset version=5`).
+
+The same session, played on to 12 January 1915 at rank 9, took three rail maintenance buildings with no vehicles to maintain from pollution 0 to 9: Salcombe (356612) and two at Peterlee (355409 and 295004). Each wrapper call logged emissions 20/50 → 20/27.5 idle and 40/100 → 40/55 full (noise/pollution), and the emitter read pollution 27.5 a game day later. With the pollution layer on, the cursor number beside each building read:
+
+| Building | Before the buys | After |
+|---|---|---|
+| Salcombe 356612 (bought 11:06:18–22 local time) | 12 at 11:05:58 | 11 at 11:06:35 |
+| Peterlee 355409 (11:07:01–05) | 12 at 11:06:47 | 11 at 11:07:17 |
+| Peterlee 295004 (11:08:02–06, one train passing before) | 12 at 11:07:48 | 11 at 11:08:28 and 11:08:43, 10 at 11:09:06 |
+| Track with no building (11:07:36) | 6 | |
+
+Since 12 means 80 dB or more, the readings before the buys only bound the drop from below; the cursor was not on the same spot in every shot, so each reading may be one step off. The drop fits the −2.6 dB of level 9 seen through the averaged grid.

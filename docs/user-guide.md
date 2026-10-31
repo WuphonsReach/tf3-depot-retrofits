@@ -58,6 +58,7 @@ The upkeep tree cuts the total by 5% per level, so a full upkeep tree leaves a q
 ## Good to know
 
 - **Vehicles move after a buy.** The game reassigns the building's vehicles within a game day. Each one may come back or go to another building in range. Lines are not affected.
+- **The pollution map moves only a little.** The pollution and noise trees cut the building's own pollution and noise; vehicles keep theirs. The map uses a decibel scale, so next to the building a full pollution tree (-75%) lowers it by about 3 of the map's 12 steps. The map also averages over time, so it takes a while to catch up. The town window's list of pollution sources shows depots and maintenance buildings on their own rows.
 - **Levels are saved with the game.**
 - **The game's own rebuilds keep the levels**, for example electrifying a rail depot, the catenary tool on a tram depot, or adding or removing Roundhouse stalls.
 - **Not checked yet.** What happens to levelled buildings when the mod is removed from a save. Keep a backup of any save you play with the mod.
