@@ -59,6 +59,10 @@ local say = function(text : string)
 	end
 end
 
+-- settings.tl's logLevel: "full" adds the before/after lines. Guarded: without the file the log stays at "summary".
+local settingsLoaded, settingsModule = pcall(ug_require, "depot_retrofits_1::/settings.tl")
+local logFull = settingsLoaded and type(settingsModule) == "table" and (settingsModule as {string:any}).logLevel == "full"
+
 local utilLoaded, utilModule = pcall(ug_require, "::/scripts/util.tl")
 local util = utilLoaded and (utilModule as Util) or nil
 if not utilLoaded then say("wrapper util unavailable error=" .. tostring(utilModule)) end
@@ -152,7 +156,7 @@ local applyLevels = function(result : Result, params : {string:any}, own : Own) 
 		-- upkeep levels, could go below.
 		local total = levels.levelledUpkeep(upkeepBefore + modulesUpkeep, values)
 		result.maintenanceCost = math.max(0, total - modulesUpkeep)
-		if total - modulesUpkeep < 0 then
+		if logFull and total - modulesUpkeep < 0 then
 			say("wrapper upkeepClamped ref=" .. tostring(own.ref) .. " upkeep=" .. tostring(upkeepBefore)
 				.. " moduleUpkeep=" .. tostring(modulesUpkeep) .. " total=" .. tostring(total))
 		end
@@ -167,7 +171,7 @@ local applyLevels = function(result : Result, params : {string:any}, own : Own) 
 			found = found + 1
 			local poolBefore, radiusBefore = depot.maintenancePool, depot.catchmentArea and depot.catchmentArea.radius
 			-- Worked out only for a line that will be logged: this runs for every preview while a depot is placed.
-			local logThis = (levelled and levelledLines < maxLevelledLines) or (not levelled and plainLines < maxPlainLines)
+			local logThis = logFull and ((levelled and levelledLines < maxLevelledLines) or (not levelled and plainLines < maxPlainLines))
 			local emissionsBefore = logThis and describeEmissions(sub) or nil
 			if type(poolBefore) == "number" then pools[index] = poolBefore end
 			if values.vehicles > 0 and type(poolBefore) == "number" then
@@ -261,7 +265,7 @@ local relevelModule = function(result : Result, values : {string : integer}, bef
 		changes[#changes + 1] = "upkeep=" .. tostring(upkeepBefore) .. "+" .. tostring(upkeep - upkeepBefore) .. "->"
 			.. tostring(result.maintenanceCost)
 	end
-	if #changes > 0 and moduleLines < maxModuleLines then
+	if logFull and #changes > 0 and moduleLines < maxModuleLines then
 		moduleLines = moduleLines + 1
 		say("module ref=" .. tostring(own.ref) .. " slot=" .. tostring(slotId) .. " levels=" .. levels.describe(values) .. " "
 			.. table.concat(changes, " "))

@@ -70,6 +70,10 @@ local say = function(text : string)
 	end
 end
 
+-- settings.tl's logLevel: "full" adds the wrap lines. Guarded: without the file the log stays at "summary".
+local settingsLoaded, settingsModule = pcall(ug_require, "depot_retrofits_1::/settings.tl")
+local logFull = settingsLoaded and type(settingsModule) == "table" and (settingsModule as {string:any}).logLevel == "full"
+
 -- Guarded: without the levels module nothing is wrapped, and the log says why.
 local levelsLoaded, levelsModule = pcall(ug_require, "depot_retrofits_1::/levels.tl")
 local levels = levelsLoaded and (levelsModule as DepotRetrofitsLevels) or nil
@@ -181,8 +185,10 @@ local wrapConstruction = function(fileName : string, definition : Definition) : 
 	local windowSet = window == nil or type(window.fileName) ~= "string" or window.fileName == ""
 	if windowSet then definition.entityWindowScript = { fileName = windowRef, params = {} } end
 
-	say("wrap fileName=" .. name .. " marker=" .. marker .. " ref=" .. script.fileName .. " resolved=" .. resolved
-		.. " window=" .. (windowSet and "retrofit" or ("own:" .. tostring(window.fileName))))
+	if logFull then
+		say("wrap fileName=" .. name .. " marker=" .. marker .. " ref=" .. script.fileName .. " resolved=" .. resolved
+			.. " window=" .. (windowSet and "retrofit" or ("own:" .. tostring(window.fileName))))
+	end
 	return definition
 end
 
@@ -213,14 +219,18 @@ local wrapModule = function(fileName : string, definition : ModuleDefinition) : 
 	end
 	capture[captureKey] = { fileName = resolved, ref = script.fileName, owner = name }
 	definition.updateScript = { fileName = moduleWrapperRef, params = capture }
-	local upkeep = type(definition.metadata) == "table" and definition.metadata.maintenanceCost or nil
-	say("wrapModule fileName=" .. name .. " ref=" .. script.fileName .. " resolved=" .. resolved .. " upkeep=" .. tostring(upkeep))
+	if logFull then
+		local upkeep = type(definition.metadata) == "table" and definition.metadata.maintenanceCost or nil
+		say("wrapModule fileName=" .. name .. " ref=" .. script.fileName .. " resolved=" .. resolved .. " upkeep=" .. tostring(upkeep))
+	end
 	return definition
 end
 
 local mod : DepotRetrofitsMod = {
 	runFn = function(_captureParams : table, _settings : table, _allModParams : {string : {string : integer}})
-		say("version " .. modVersion .. " levels=" .. tostring(levelsLoaded) .. (levelsLoaded and "" or (" error=" .. tostring(levelsModule))))
+		say("version " .. modVersion .. " logLevel=" .. (logFull and "full" or "summary") .. " levels=" .. tostring(levelsLoaded)
+			.. (levelsLoaded and "" or (" error=" .. tostring(levelsModule)))
+			.. (settingsLoaded and "" or (" settingsError=" .. tostring(settingsModule))))
 		if levels == nil then return end
 		addModifier("loadConstruction", function(fileName : string, definition : Definition) : Definition
 			local ok, result = pcall(wrapConstruction, fileName, definition)

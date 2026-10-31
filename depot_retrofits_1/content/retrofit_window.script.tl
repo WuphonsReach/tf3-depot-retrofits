@@ -46,6 +46,10 @@ local say = function(text : string)
 	end
 end
 
+-- settings.tl's logLevel: "full" adds the shown, open and buy lines. Guarded: without the file the log stays at "summary".
+local settingsLoaded, settingsModule = pcall(ug_require, "depot_retrofits_1::/settings.tl")
+local logFull = settingsLoaded and type(settingsModule) == "table" and (settingsModule as {string:any}).logLevel == "full"
+
 -- Every load guarded: without one of these the window opens without the Retrofit tab, and the log says why.
 local loadModule = function(path : string) : any
 	local ok, result = pcall(ug_require, path)
@@ -291,6 +295,7 @@ local effect = function(s : TabState, tree : string, level : integer, nextLevel?
 end
 
 local logShown = function(s : TabState)
+	if not logFull then return end
 	-- The accumulated costs grow every second while vehicles are serviced; a change there alone is not logged.
 	local logKey = tostring(s.construction) .. " " .. s.key:gsub(" accumulated=%S+", "")
 	if shownLines >= maxShownLines or shownKeys[logKey] then return end
@@ -332,8 +337,10 @@ local buyButton = function(s : TabState, tree : string) : TreeNodeId
 		} },
 		onClick = function()
 			if not enabled then return end
-			say("window buy construction=" .. tostring(s.construction) .. " tree=" .. tree .. " from=" .. tostring(level)
-				.. " shownPrice=" .. tostring(price))
+			if logFull then
+				say("window buy construction=" .. tostring(s.construction) .. " tree=" .. tree .. " from=" .. tostring(level)
+					.. " shownPrice=" .. tostring(price))
+			end
 			api.cmd.sendCommand(api.cmd.makeScriptingSendEventCmd("", buyEventId, buyEvent,
 				{ construction = s.construction, tree = tree, from = level }))
 		end,
@@ -522,7 +529,7 @@ window.entityWindowFn = function(_captureParams : any, entity : Engine.Entity, t
 	end
 	-- The game calls this many times while one window opens (about 60 in the first second), so log each building once.
 	local openKey = "open " .. tostring(entity) .. " " .. tostring(show)
-	if shownLines < maxShownLines and not shownKeys[openKey] then
+	if logFull and shownLines < maxShownLines and not shownKeys[openKey] then
 		shownKeys[openKey] = true
 		shownLines = shownLines + 1
 		say("window open construction=" .. tostring(entity) .. " depot=" .. tostring(depot) .. " retrofitTab=" .. tostring(show)

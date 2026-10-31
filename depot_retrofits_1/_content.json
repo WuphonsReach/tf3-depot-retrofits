@@ -6,6 +6,7 @@
         "mod.script.tl",
         "retrofits.gs.lua",
         "retrofits.script.tl",
-        "retrofit_window.script.tl"
+        "retrofit_window.script.tl",
+        "settings.tl"
     ]
 }

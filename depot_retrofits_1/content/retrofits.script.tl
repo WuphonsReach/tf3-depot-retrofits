@@ -1,10 +1,10 @@
 -- The game script: buying a level. The Retrofit tab in the building's window (retrofit_window.script.tl) sends a buy event;
 -- this script checks it (the construction runs our wrapper, the level the tab saw is still the stored one, below 15, within
 -- the company rank, enough money) and rebuilds the construction with the new level. Once the rebuild has landed (the stored
--- levels are the ones bought) it books the price as depot construction; a rebuild that never lands costs nothing. It logs the
--- building before, and after 1 game hour, 1 day, 7 days and 30 days with the values the formulas in levels.tl predict and the
--- pollution and noise in dB at the building (the later checks show the map's averaged pollution settling). Log lines start
--- with "DEPOT_RETROFITS".
+-- levels are the ones bought) it books the price as depot construction; a rebuild that never lands costs nothing. It logs each
+-- buy and its outcome; at logLevel "full" (settings.tl) also the building before, and after 1 game hour, 1 day, 7 days and
+-- 30 days with the values the formulas in levels.tl predict and the pollution and noise in dB at the building (the later checks
+-- show the map's averaged pollution settling). Log lines start with "DEPOT_RETROFITS".
 --
 -- The random levelling that tested the formulas across a whole save (probe 0.4) is in git history; its results are in
 -- docs/design/findings.md.
@@ -94,6 +94,11 @@ local levelsLoaded, levelsModule = pcall(ug_require, "depot_retrofits_1::/levels
 local levels = levelsLoaded and (levelsModule as DepotRetrofitsLevels) or nil
 -- Without it update does nothing (no buy is taken), so the reason goes to the log.
 if not levelsLoaded then say("gameScript levels unavailable error=" .. tostring(levelsModule)) end
+
+-- settings.tl's logLevel: "full" adds the snapshots and the checks after each buy, which are read only then, and the queued
+-- lines. Guarded: without the file the log stays at "summary".
+local settingsLoaded, settingsModule = pcall(ug_require, "depot_retrofits_1::/settings.tl")
+local logFull = settingsLoaded and type(settingsModule) == "table" and (settingsModule as {string:any}).logLevel == "full"
 
 local progressionLoaded, progressionModule = pcall(ug_require, "::/game_mechanics/company/company_progression_util.tl")
 local progression = progressionLoaded and (progressionModule as CompanyProgressionUtil) or nil
@@ -352,20 +357,22 @@ local processBuy = function(retrofit : RetrofitState, buy : Buy, t : number) : s
 	if balance ~= nil and balance < price then return "noMoney balance=" .. tostring(balance) .. " price=" .. tostring(price) end
 
 	local to = levels.withLevel(from, buy.tree, buy.from + 1)
-	local before = readSnapshot(depot, buy.construction)
+	local before = logFull and readSnapshot(depot, buy.construction) or nil
 	local ran, result = sendRebuild(buy.construction, to)
 	if not ran then return "rebuild " .. result end
 	local label = buy.tree .. tostring(buy.from + 1)
 	say("buy sent construction=" .. tostring(buy.construction) .. " depot=" .. tostring(depot) .. " tree=" .. buy.tree
 		.. " level=" .. tostring(buy.from + 1) .. " price=" .. tostring(price) .. " balanceBefore=" .. tostring(balance)
 		.. " rank=" .. tostring(rank) .. " rankSource=" .. rankSource .. " from=" .. levels.describe(from) .. " to=" .. levels.describe(to)
-		.. " " .. describeSnapshot(before))
+		.. (before ~= nil and (" " .. describeSnapshot(before)) or ""))
 	retrofit.pending = retrofit.pending or {}
 	table.insert(retrofit.pending, { construction = buy.construction, tree = buy.tree, level = buy.from + 1,
 		untilT = t + buyPendingClock, price = price, fileName = con.fileName, label = label })
-	retrofit.watches = retrofit.watches or {}
-	table.insert(retrofit.watches, { construction = buy.construction, depot = depot, label = label,
-		startedAt = t, checksDone = 0, from = from, to = to, before = before })
+	if before ~= nil then
+		retrofit.watches = retrofit.watches or {}
+		table.insert(retrofit.watches, { construction = buy.construction, depot = depot, label = label,
+			startedAt = t, checksDone = 0, from = from, to = to, before = before })
+	end
 	return nil
 end
 
@@ -482,8 +489,10 @@ local retrofitScript : GameScript<RetrofitState> = {
 		retrofit.buys = retrofit.buys or {}
 		table.insert(retrofit.buys, buy)
 		state:set(retrofit)
-		say("buy queued src=" .. tostring(src) .. " id=" .. tostring(id) .. " construction=" .. tostring(buy.construction)
-			.. " tree=" .. buy.tree .. " from=" .. tostring(buy.from) .. " queued=" .. tostring(#retrofit.buys))
+		if logFull then
+			say("buy queued src=" .. tostring(src) .. " id=" .. tostring(id) .. " construction=" .. tostring(buy.construction)
+				.. " tree=" .. buy.tree .. " from=" .. tostring(buy.from) .. " queued=" .. tostring(#retrofit.buys))
+		end
 	end,
 }
 

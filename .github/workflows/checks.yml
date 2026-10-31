@@ -20,6 +20,9 @@ jobs:
           python-version: "3.14"
       - name: Every file under content/ is in _content.json
         run: python3 tools/check_content_list.py
+      # Locally a test logLevel is only a warning; here it fails, so it cannot reach main.
+      - name: settings.tl ships logLevel "summary"
+        run: python3 tools/check_repo.py --strict
       - name: Tools compile
         run: python3 -m py_compile tools/*.py
 
