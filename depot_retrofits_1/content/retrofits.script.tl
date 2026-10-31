@@ -2,7 +2,8 @@
 -- this script checks it (the construction runs our wrapper, the level the tab saw is still the stored one, below 15, within
 -- the company rank, enough money) and rebuilds the construction with the new level. Once the rebuild has landed (the stored
 -- levels are the ones bought) it books the price as depot construction; a rebuild that never lands costs nothing. It logs the
--- building before, and after 1 game hour and 1 game day with the values the formulas in levels.tl predict. Log lines start
+-- building before, and after 1 game hour, 1 day, 7 days and 30 days with the values the formulas in levels.tl predict and the
+-- pollution and noise in dB at the building (the later checks show the map's averaged pollution settling). Log lines start
 -- with "DEPOT_RETROFITS".
 --
 -- The random levelling that tested the formulas across a whole save (probe 0.4) is in git history; its results are in
@@ -16,7 +17,7 @@ local buyEvent = "depotRetrofitsBuy"
 
 -- Clock units: a game day at calendar speed 1x is 4,000, a game year 1,461,000.
 local dayClock = 4000
-local buyCheckOffsets = { 200, dayClock }
+local buyCheckOffsets = { 200, dayClock, 7 * dayClock, 30 * dayClock }
 -- A buy is charged when its rebuild lands: the stored level in its tree is at least the one bought, so a later buy landing first
 -- also counts. Until then a second buy for the same building is refused. A rebuild that has not landed after a game day is given
 -- up, uncharged; at the fastest speed that is about a second, and game time stops while the game is paused.
@@ -32,6 +33,15 @@ local record Snapshot
 	upkeepCharged : number -- calcMaintenanceForSubconstruction, what the game charges
 	noisePower : number
 	pollutionPower : number
+	-- The emission grid at the building in dB, live and averaged (the map and its cursor number show the averaged pollution)
+	pollutionDb : number
+	pollutionDbAverage : number
+	noiseDb : number
+	noiseDbAverage : number
+	-- The pollution grid's global wind (m/s); it blows the pollution field downwind, so a reading depends on it
+	windX : number
+	windY : number
+	emissionError : string
 	levels : {string : integer}
 end
 
@@ -167,6 +177,32 @@ local chargedUpkeepOf = function(depot : Engine.Entity) : number
 	return ok and tonumber(value) or nil
 end
 
+-- The grid's value in dB at a point, as the pollution layer's cursor number reads it (gui/main/game_tooltips.tl).
+local emissionDb = function(position : Vec3f, average : boolean, kind : Engine.Component.EmissionGrid.Type) : number
+	local power = api.engine.system.emissionGridSystem.getInterpolatedEmission(api.type.Vec2f.new(position.x, position.y), average, kind)
+	return api.util.powerToDecibel(power)
+end
+
+local readEmissionDb = function(snap : Snapshot, emitter : Engine.Component.EmissionEmitter)
+	if emitter == nil or emitter.position == nil then return end
+	local ok, err = pcall(function() : string
+		local pollution = api.type.EmissionGrid.Type.Pollution
+		local noise = api.type.EmissionGrid.Type.Noise
+		snap.pollutionDb = emissionDb(emitter.position, false, pollution)
+		snap.pollutionDbAverage = emissionDb(emitter.position, true, pollution)
+		snap.noiseDb = emissionDb(emitter.position, false, noise)
+		snap.noiseDbAverage = emissionDb(emitter.position, true, noise)
+		local grid = api.engine.getComponent(api.engine.system.emissionGridSystem.getEmissionGridEntity(false),
+			api.type.ComponentType.EMISSION_GRID) as Engine.Component.EmissionGrid
+		if grid ~= nil and grid.wind ~= nil then
+			snap.windX = grid.wind.x
+			snap.windY = grid.wind.y
+		end
+		return nil
+	end)
+	if not ok then snap.emissionError = tostring(err) end
+end
+
 local readSnapshot = function(depot : Engine.Entity, construction : Engine.Entity) : Snapshot
 	local snap : Snapshot = {}
 	if exists(depot) then
@@ -181,6 +217,7 @@ local readSnapshot = function(depot : Engine.Entity, construction : Engine.Entit
 		local emitter = api.engine.getComponent(depot, api.type.ComponentType.EMISSION_EMITTER) as Engine.Component.EmissionEmitter
 		snap.noisePower = emitter and emitter.noisePower
 		snap.pollutionPower = emitter and emitter.pollutionPower
+		readEmissionDb(snap, emitter)
 	end
 	snap.upkeepScript = exists(construction) and upkeepOf(construction) or nil
 	snap.levels = storedLevels(construction)
@@ -195,10 +232,19 @@ local sameLevels = function(a : {string : integer}, b : {string : integer}) : bo
 	return true
 end
 
+local formatDb = function(value : number) : string
+	return value ~= nil and string.format("%.2f", value) or "nil"
+end
+
 local describeSnapshot = function(s : Snapshot) : string
 	return "pool=" .. tostring(s.pool) .. " radius=" .. tostring(s.radius) .. " maintained=" .. tostring(s.maintained)
 		.. " upkeepScript=" .. tostring(s.upkeepScript) .. " upkeepCharged=" .. tostring(s.upkeepCharged)
 		.. " noisePower=" .. tostring(s.noisePower) .. " pollutionPower=" .. tostring(s.pollutionPower)
+		-- live/average
+		.. " pollutionDb=" .. formatDb(s.pollutionDb) .. "/" .. formatDb(s.pollutionDbAverage)
+		.. " noiseDb=" .. formatDb(s.noiseDb) .. "/" .. formatDb(s.noiseDbAverage)
+		.. " wind=" .. formatDb(s.windX) .. "," .. formatDb(s.windY)
+		.. (s.emissionError and (" emissionError=" .. s.emissionError) or "")
 		.. " stored=" .. levels.describe(s.levels)
 end
 
@@ -334,6 +380,7 @@ local processWatches = function(retrofit : RetrofitState, t : number) : boolean
 			local snap = readSnapshot(watch.depot, watch.construction)
 			say("buy after check=" .. tostring(n) .. " construction=" .. tostring(watch.construction) .. " bought=" .. watch.label
 				.. " balance=" .. tostring(balanceOf()) .. " " .. describeSnapshot(snap) .. " maintainedBefore=" .. tostring(watch.before.maintained)
+				.. " pollutionDbBefore=" .. formatDb(watch.before.pollutionDb) .. "/" .. formatDb(watch.before.pollutionDbAverage)
 				.. " " .. compare(snap, expectedAfter(watch.before, watch.from, watch.to), watch.to))
 		end
 		if watch.checksDone < #buyCheckOffsets then kept[#kept + 1] = watch end
