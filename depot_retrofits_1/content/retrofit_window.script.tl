@@ -102,8 +102,12 @@ local buyTooltip = "Buy the next level. The building is rebuilt, and the game re
 -- (docs/design/findings.md). A plain tooltip does not wrap (in game it ran as one line the width of the window), so the
 -- lines are broken by hand, as the base game does, each shorter than the buy button's tooltip.
 local effectTooltips : {string : string} = {
-	pollution = "Cuts the building's own pollution; vehicles keep theirs.\nThe map catches up over minutes; level 15 is about 3 of its 12 steps.",
-	noise = "Cuts the building's own noise; vehicles keep theirs.\nThe map catches up over minutes; level 15 is about 3 of its 12 steps.",
+	pollution = "Lowers this building's own pollution. Vehicle pollution is not changed.\n"
+		.. "The map uses a decibel scale: next to the building, -75% is about 3 of 12 steps.\n"
+		.. "The map takes a few minutes of play to show a change.",
+	noise = "Lowers this building's own noise. Vehicle noise is not changed.\n"
+		.. "The map uses a decibel scale: next to the building, -75% is about 3 of 12 steps.\n"
+		.. "The map takes a few minutes of play to show a change.",
 }
 
 local shownLines = 0
