@@ -38,6 +38,9 @@ local record Snapshot
 	pollutionDbAverage : number
 	noiseDb : number
 	noiseDbAverage : number
+	-- The pollution grid's global wind (m/s); it blows the pollution field downwind, so a reading depends on it
+	windX : number
+	windY : number
 	emissionError : string
 	levels : {string : integer}
 end
@@ -189,6 +192,12 @@ local readEmissionDb = function(snap : Snapshot, emitter : Engine.Component.Emis
 		snap.pollutionDbAverage = emissionDb(emitter.position, true, pollution)
 		snap.noiseDb = emissionDb(emitter.position, false, noise)
 		snap.noiseDbAverage = emissionDb(emitter.position, true, noise)
+		local grid = api.engine.getComponent(api.engine.system.emissionGridSystem.getEmissionGridEntity(false),
+			api.type.ComponentType.EMISSION_GRID) as Engine.Component.EmissionGrid
+		if grid ~= nil and grid.wind ~= nil then
+			snap.windX = grid.wind.x
+			snap.windY = grid.wind.y
+		end
 		return nil
 	end)
 	if not ok then snap.emissionError = tostring(err) end
@@ -234,6 +243,7 @@ local describeSnapshot = function(s : Snapshot) : string
 		-- live/average
 		.. " pollutionDb=" .. formatDb(s.pollutionDb) .. "/" .. formatDb(s.pollutionDbAverage)
 		.. " noiseDb=" .. formatDb(s.noiseDb) .. "/" .. formatDb(s.noiseDbAverage)
+		.. " wind=" .. formatDb(s.windX) .. "," .. formatDb(s.windY)
 		.. (s.emissionError and (" emissionError=" .. s.emissionError) or "")
 		.. " stored=" .. levels.describe(s.levels)
 end
