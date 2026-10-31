@@ -11,8 +11,8 @@ Usage: python3 tools/make_gallery.py OUT_FILE CARD.png[:angle[:dy[:slot]]] ...
 Cards are listed from the bottom of the pile to the top. angle is in degrees (positive tilts left), dy moves the card down in
 pixels, slot is its place from the left (default: its place in the list). Needs rsvg-convert, for the background.
 
-The current listing's 1.jpg (three Retrofit tabs) was made from the crops in tools/gallery/ with:
-python3 tools/make_gallery.py depot_retrofits_1/_metadata/1.jpg tools/gallery/maintenance_building.png:2.5:16:0 tools/gallery/train_depot.png:-2.5:22:2 tools/gallery/ship_depot.png:-1:-4:1
+The current listing's 2.jpg (three Retrofit tabs) was made from the crops in tools/gallery/ with:
+python3 tools/make_gallery.py depot_retrofits_1/_metadata/2.jpg tools/gallery/maintenance_building.png:2.5:16:0 tools/gallery/train_depot.png:-2.5:22:2 tools/gallery/ship_depot.png:-1:-4:1
 """
 import subprocess
 import sys
