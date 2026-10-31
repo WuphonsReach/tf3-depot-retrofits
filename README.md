@@ -4,12 +4,12 @@ A Transport Fever 3 script mod, in development: depots and maintenance buildings
 
 <p>
   <img src="depot_retrofits_1/_metadata/0.jpg" alt="Depot Retrofits: level up your depots" width="49%">
-  <img src="depot_retrofits_1/_metadata/1.jpg" alt="The Retrofit tab of three buildings, one card per level tree" width="49%">
+  <img src="depot_retrofits_1/_metadata/1.jpg" alt="The Retrofit tab of three buildings, one card per retrofit" width="49%">
 </p>
 
 ## In short
 
-- **Status.** Not released yet. The mod (0.5) stores, applies and sells levels in a Retrofit tab in each depot's window: one card per level tree, with a row of 15 boxes for the levels and a buy button. The repo also holds the spec and the verified game facts.
+- **Status.** Not released yet. The mod (0.5) stores, applies and sells levels in a Retrofit tab in each depot's window: one card per retrofit, with a row of 15 boxes for the levels and a buy button. The repo also holds the spec and the verified game facts.
 - **How it works.** The mod wraps each depot construction's update script and reads hidden level parameters from the construction. Buying a level rebuilds the construction with the new level, and the wrapper scales the pool, the radius, the emissions and the upkeep. The game has no command that changes these values on a standing building, so a rebuild is the only route.
 - **How sure.** The game facts are read from the game's own scripts. Another published mod uses the same rebuild method for industries.
 - **Tested.** In game, a rebuild keeps the building and its vehicles' lines and applies all five values. Levels given to 18 buildings matched the formulas for a game month, and buying a level in the Retrofit tab charged the shown price and applied it, up to the company rank. The catch: every rebuild unlinks the vehicles the building maintains, and the game reassigns them within a day, not always to the same building. See [docs/design/findings.md](docs/design/findings.md).
@@ -17,7 +17,7 @@ A Transport Fever 3 script mod, in development: depots and maintenance buildings
 ## Notes
 
 - [docs/user-guide.md](docs/user-guide.md): how to buy levels, what they do and what they cost.
-- [docs/design/spec.md](docs/design/spec.md): the level trees, prices, upkeep and rank gate.
+- [docs/design/spec.md](docs/design/spec.md): the five retrofits, prices, upkeep and rank gate.
 - [docs/design/findings.md](docs/design/findings.md): what is verified about depots in the base game and what a mod can change, with source files.
 - [docs/publishing.md](docs/publishing.md): how a version is uploaded to mod.io and released.
 - [CHANGELOG.md](CHANGELOG.md): what each version changed.
