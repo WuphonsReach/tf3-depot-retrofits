@@ -99,10 +99,11 @@ local drawnStyles : {string : StyleSheet} = nil
 
 local buyTooltip = "Buy the next level. The building is rebuilt, and the game reassigns its vehicles."
 -- On the line with the percentages: the map shows a level as a few decibels, averaged over minutes, so it barely moves
--- (docs/design/findings.md). Kept within the base game's longest tooltips, about 130 characters; tooltips wrap at 800 px.
+-- (docs/design/findings.md). A plain tooltip does not wrap (in game it ran as one line the width of the window), so the
+-- lines are broken by hand, as the base game does, each shorter than the buy button's tooltip.
 local effectTooltips : {string : string} = {
-	pollution = "Cuts the building's own pollution; vehicles keep theirs. The map catches up over minutes; level 15 is about 3 of its 12 steps.",
-	noise = "Cuts the building's own noise; vehicles keep theirs. The map catches up over minutes; level 15 is about 3 of its 12 steps.",
+	pollution = "Cuts the building's own pollution; vehicles keep theirs.\nThe map catches up over minutes; level 15 is about 3 of its 12 steps.",
+	noise = "Cuts the building's own noise; vehicles keep theirs.\nThe map catches up over minutes; level 15 is about 3 of its 12 steps.",
 }
 
 local shownLines = 0
