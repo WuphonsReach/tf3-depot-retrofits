@@ -2,7 +2,7 @@
 
 ## In short
 
-Depots and maintenance buildings get levels, bought one at a time in the building's own window. There are five level trees of 15 levels each, and a tree's highest level available is the company's claimed rank (the game has 15 ranks). Four trees (maintenance radius, vehicles maintained, pollution, noise) improve the building and raise its upkeep; their levels cost 0.15 × the build price at level 1, rising 15% a level. The upkeep tree cuts the total upkeep, so it starts higher, at 0.25 × the build price, and a full upkeep tree pays for itself in about 9.5 game years on a building with the other four trees at 15. Version 0.5 stores, applies and sells levels by rebuilding the construction with new parameters (see [findings.md](findings.md) for what the tests showed).
+Depots and maintenance buildings get levels, bought one at a time in the building's own window. There are five level trees of 15 levels each, and a tree's highest level available is the company's claimed rank (the game has 15 ranks). Four trees (maintenance radius, vehicles maintained, pollution, noise) improve the building and raise its upkeep. Radius and vehicles levels cost 0.15 × the build price at level 1 and add 15% of the base upkeep each; noise costs 0.12 and adds 10%, pollution 0.08 and 5%, since those two do not change what the building does, and a town's rating spreads pollution over its whole area. In every tree, each level costs 15% more than the one before. The upkeep tree cuts the total upkeep, so it starts higher, at 0.25 × the build price, and a full upkeep tree pays for itself in about 12 game years on a building with the other four trees at 15. Version 0.5 stores, applies and sells levels by rebuilding the construction with new parameters (see [findings.md](findings.md) for what the tests showed).
 
 ## Trees
 
@@ -11,7 +11,7 @@ There are two kinds of tree:
 - **Radius, vehicles, pollution and noise** improve the building, and each level raises its upkeep.
 - **Upkeep** cuts the building's total upkeep, so it pays for itself over time. Its levels cost more.
 
-Each tree has 15 levels, bought one at a time. Level *n* of a tree costs the tree's first-level share × the building's build price × 1.15^(*n*−1). Levels are paid in money only. A level's price does not depend on the building's other levels, so the order of purchase does not change what anything costs. All five trees at 15 cost about 40 × the build price.
+Each tree has 15 levels, bought one at a time. Level *n* of a tree costs the tree's first-level share × the building's build price × 1.15^(*n*−1). Levels are paid in money only. A level's price does not depend on the building's other levels, so the order of purchase does not change what anything costs. All five trees at 15 cost about 36 × the build price.
 
 ## Radius, vehicles, pollution and noise
 
@@ -33,17 +33,21 @@ Vehicles maintained at level *n* is the larger of the base pool × (1 + 0.1*n*),
 
 ### Price
 
-The first-level share is 0.15:
+The first-level share is 0.15 for radius and vehicles, 0.12 for noise and 0.08 for pollution:
 
 | Level | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15 |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| × build price | 0.15 | 0.17 | 0.20 | 0.23 | 0.26 | 0.30 | 0.35 | 0.40 | 0.46 | 0.53 | 0.61 | 0.70 | 0.80 | 0.92 | 1.06 |
+| Radius, vehicles (× build price) | 0.15 | 0.17 | 0.20 | 0.23 | 0.26 | 0.30 | 0.35 | 0.40 | 0.46 | 0.53 | 0.61 | 0.70 | 0.80 | 0.92 | 1.06 |
+| Noise | 0.12 | 0.14 | 0.16 | 0.18 | 0.21 | 0.24 | 0.28 | 0.32 | 0.37 | 0.42 | 0.49 | 0.56 | 0.64 | 0.74 | 0.85 |
+| Pollution | 0.08 | 0.09 | 0.11 | 0.12 | 0.14 | 0.16 | 0.19 | 0.21 | 0.24 | 0.28 | 0.32 | 0.37 | 0.43 | 0.49 | 0.57 |
 
-The first five levels of a tree cost about 1 × the build price, the first ten about 3 ×, a full tree about 7.1 ×, and all four trees about 29 ×.
+A full radius or vehicles tree costs about 7.1 × the build price, a full noise tree 5.7 ×, a full pollution tree 3.8 ×, and all four about 24 ×.
+
+Pollution and noise are cheaper because they do not change what the building does. A wider radius or a larger pool does: the building covers more vehicles, so fewer buildings are needed. Pollution is the cheapest: a town's pollution rating spreads the town's whole pollution over its area (at least 5 km²), so one building's cut barely moves it, and only many buildings together show a change (12 buildings at pollution 11 raised a town's rating by about 7 to 9 points; see [findings.md](findings.md)). Noise counts where people live and work, so a noise level near houses can matter on its own. Moving a building out of a town does not avoid this: its pollution only becomes another town's, and its vehicles tie it to where they run.
 
 ### Upkeep
 
-Each level adds 15% of the building's base upkeep, added up across the four trees. With all 60 levels, the upkeep is 10 × the base.
+Each level adds a share of the building's base upkeep, summed across the four trees: 15% for a radius or vehicles level, 10% for a noise level and 5% for a pollution level. With all 60 levels, the upkeep is 7.75 × the base.
 
 ## Upkeep
 
@@ -51,7 +55,7 @@ Each level adds 15% of the building's base upkeep, added up across the four tree
 |---|---|---|
 | the building's total upkeep, including what the other four trees add | -5% of the total | -75% |
 
-The upkeep is (1 + 0.15 × other levels) × (1 − 0.05 × upkeep levels) × the base, so a full upkeep tree leaves a quarter of the total. Upkeep levels add no upkeep of their own.
+The upkeep is (1 + 0.15 × (radius + vehicles levels) + 0.10 × noise levels + 0.05 × pollution levels) × (1 − 0.05 × upkeep levels) × the base, so a full upkeep tree leaves a quarter of the total. Upkeep levels add no upkeep of their own.
 
 The upkeep tree cuts only the building's own upkeep, not the running cost of the vehicles it services (the accumulated costs the window's upkeep footer adds, which the game fills in itself; see [findings.md](findings.md)).
 
@@ -71,11 +75,11 @@ Every base building costs 6 × its yearly base upkeep to build ([findings.md](fi
 
 | Other levels bought | Upkeep without the upkeep tree | Saved per year by a full upkeep tree | Payback of a full upkeep tree |
 |---|---|---|---|
-| 60 (all four trees at 15) | 10 × base | 7.5 × base | about 9.5 years |
-| 30 | 5.5 × base | 4.1 × base | about 17 years |
-| 15 | 3.25 × base | 2.4 × base | about 29 years |
+| All four trees at 15 | 7.75 × base | 5.8 × base | about 12 years |
+| Radius and vehicles at 15 | 5.5 × base | 4.1 × base | about 17 years |
+| Radius or vehicles alone at 15, or pollution and noise both at 15 | 3.25 × base | 2.4 × base | about 29 years |
 
-The early levels pay back quickly and the late ones slowly: with the other trees full, level 1 saves 0.5 × base a year for 1.5 × base (3 years), level 15 the same 0.5 × base for 10.6 × base (21 years). The payback scales with the first-level share: 0.26 would give 10 years with the other trees full, 0.39 would give 15.
+The early levels pay back quickly and the late ones slowly: with the other trees full, level 1 saves 0.39 × base a year for 1.5 × base (4 years), level 15 the same 0.39 × base for 10.6 × base (27 years). The payback scales with the first-level share: 0.20 would give 10 years with the other trees full, 0.31 would give 15.
 
 ## Buying a level
 

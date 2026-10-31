@@ -45,7 +45,9 @@ Each building has five retrofits, each with 15 levels:
 
 ## What levels cost
 
-Level prices follow the building's build price: what it would cost to build today. In the radius, vehicles, pollution and noise retrofits, level 1 costs 15% of it, and each level after that costs 15% more than the one before. Level 15 costs about the build price, and all 15 levels about 7 times it.
+Level prices follow the building's build price: what it would cost to build today. In the radius and vehicles retrofits, level 1 costs 15% of it, and each level after that costs 15% more than the one before. Level 15 costs about the build price, and all 15 levels about 7 times it.
+
+The noise retrofit costs a little less (level 1 at 12% of the build price, all 15 levels about 6 times it), and the pollution retrofit about half (level 1 at 8%, all 15 levels about 4 times it). They make the town happier but do not change what the building does, unlike a wider radius or more vehicles, which can mean fewer buildings. A town's pollution rating counts its whole area, so it takes many levelled buildings to show a change.
 
 The upkeep retrofit costs more, since it pays for itself: level 1 costs 25% of the build price, level 15 about 1.8 times it, and all 15 levels about 12 times it.
 
@@ -53,15 +55,15 @@ The order you buy in does not change any price.
 
 ## Upkeep
 
-Each level in the radius, vehicles, pollution or noise retrofit adds 15% of the building's normal upkeep. With all four of those retrofits at 15, the upkeep is 10 times the normal upkeep.
+Each level in the radius or vehicles retrofit adds 15% of the building's normal upkeep, each noise level 10% and each pollution level 5%. With all four of those retrofits at 15, the upkeep is about 8 times the normal upkeep.
 
-The upkeep retrofit cuts the total by 5% per level, so level 15 leaves a quarter of it. On a building with the other four retrofits at 15, a full upkeep retrofit pays for itself in about 9.5 game years. The first upkeep levels pay back fastest.
+The upkeep retrofit cuts the total by 5% per level, so level 15 leaves a quarter of it. On a building with the other four retrofits at 15, a full upkeep retrofit pays for itself in about 12 game years. The first upkeep levels pay back fastest.
 
 ## Good to know
 
 - **Vehicles move after a buy.** The game reassigns the building's vehicles within a game day. Each one may come back or go to another building in range. Lines are not affected.
 - **The pollution map moves only a little.** Pollution and noise levels lower only what the building itself gives off. Vehicles keep their own pollution and noise, which still add to the area. The pollution overlay map uses a decibel scale and averages over a few minutes of play, so at the full 75% reduction the pollution map shows only 2 to 3 steps less next to the building, out of its 12. Hover over the change line on the Pollution or Noise card for a reminder.
-- **The town window shows the effect best.** The Pollution Rating graph at the bottom of a town's pollution card follows the whole town's pollution; hover over a point to see its value. Expect a real but small change: stations and tracks often give off most of a town's pollution, and the mod does not change them. In a test, pollution level 11 on all 12 depots and maintenance buildings inside a town's borders raised the town's rating from about 41% to 50% over the next two years. The town stayed at Mediocre, and as its industries grew the rating slipped back to 47%. The 132 levels cost $43 million and raised the 12 buildings' upkeep by $3.2 million a year. In a smaller town, pollution level 9 on three buildings raised the rating from about 80% to 88%. The list of pollution sources above the graph shows depots and maintenance buildings on their own rows, but as shares of the town's total: they jump whenever an industry starts or stops producing, even when the depots do not change.
+- **The town window shows the effect best.** The Pollution Rating graph at the bottom of a town's pollution card follows the whole town's pollution; hover over a point to see its value. Expect a real but small change: stations and tracks often give off most of a town's pollution, and the mod does not change them. In a test, pollution level 11 on all 12 depots and maintenance buildings inside a town's borders raised the town's rating from about 41% to 50% over the next two years. The town stayed at Mediocre, and as its industries grew the rating slipped back to 47%. At today's prices those 132 levels cost about $23 million and add about $1.1 million a year to the 12 buildings' upkeep. In a smaller town, pollution level 9 on three buildings raised the rating from about 80% to 88%. The list of pollution sources above the graph shows depots and maintenance buildings on their own rows, but as shares of the town's total: they jump whenever an industry starts or stops producing, even when the depots do not change.
 
   ![The town's Pollution Rating graph from the 12-building test. Top: a point from before the levels were bought, at 41%, on a line that stayed flat for 20 years. Middle: 1976, at 50%. Bottom: 1978, back to 47%.](images/town-pollution-graph.png)
 - **Levels are saved with the game.**
