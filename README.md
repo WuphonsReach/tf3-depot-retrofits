@@ -4,7 +4,7 @@ A Transport Fever 3 script mod, in development: depots and maintenance buildings
 
 <p>
   <img src="depot_retrofits_1/_metadata/0.jpg" alt="Depot Retrofits: level up your depots" width="49%">
-  <img src="depot_retrofits_1/_metadata/1.jpg" alt="The Retrofit tab of three buildings, one card per retrofit" width="49%">
+  <img src="depot_retrofits_1/_metadata/2.jpg" alt="The Retrofit tab of three buildings, one card per retrofit" width="49%">
 </p>
 
 ## In short

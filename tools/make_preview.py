@@ -5,7 +5,8 @@ buses around it, and the five level trees listed on the left. The upper right co
 
 Usage: python3 tools/make_preview.py [OUT_FILE] [--version 0.5] [--keep-svg SVG_FILE]
 --keep-svg also writes the SVG the image is rendered from (for example to local/preview/cover.svg); keep it out of depot_retrofits_1/.
-OUT_FILE defaults to depot_retrofits_1/_metadata/0.jpg, the cover (the uploader's Preview slot); see docs/publishing.md.
+OUT_FILE defaults to depot_retrofits_1/_metadata/0.jpg, the cover (the uploader's Preview slot), and then also writes a copy to
+1.jpg, the first gallery image, so the cover opens the gallery too; see docs/publishing.md.
 """
 import shutil
 import subprocess
@@ -208,7 +209,8 @@ def main():
         i = args.index("--keep-svg")
         keep_svg = Path(args[i + 1])
         del args[i:i + 2]
-    out = Path(args[0] if args else Path(__file__).resolve().parent.parent / "depot_retrofits_1/_metadata/0.jpg")
+    metadata = Path(__file__).resolve().parent.parent / "depot_retrofits_1/_metadata"
+    out = Path(args[0]) if args else metadata / "0.jpg"
     out.parent.mkdir(parents=True, exist_ok=True)
     from PIL import Image
     with tempfile.TemporaryDirectory() as tmp:
@@ -220,6 +222,9 @@ def main():
         subprocess.run(["rsvg-convert", "-w", str(W), "-h", str(H), "-o", str(png), str(svg)], check=True)
         Image.open(png).convert("RGB").save(out, quality=92, optimize=True, progressive=True)
     print(out)
+    if not args:
+        shutil.copyfile(out, metadata / "1.jpg")
+        print(metadata / "1.jpg")
 
 
 if __name__ == "__main__":
