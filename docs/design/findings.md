@@ -97,7 +97,7 @@ The rail depot's upkeep and cost are multiplied by its template's year coefficie
 - Which finance rows the level charges land in. A probe's test charge booked as depot construction showed in the construction rows (below); a level's charge has not been looked for.
 - How the game picks the building a vehicle is assigned to.
 - How much of the pollution beside a busy depot comes from its vehicles rather than the building.
-- Whether the emission grid's average follows game time or the calendar: the measurement above ran on a save whose calendar is slowed (the date stayed 12 January 1915), and the averaging fitted game-clock units.
+- Whether the emission grid's average follows game time or the calendar. Most likely game time, as nearly every other mechanic does, and the averaging fitted game-clock units on a save whose calendar is slowed (the date stayed 12 January 1915); it has not been checked by comparing two calendar speeds.
 
 ## Test results
 
