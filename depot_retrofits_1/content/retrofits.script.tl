@@ -1,7 +1,8 @@
 -- The game script: buying a level. The Retrofit tab in the building's window (retrofit_window.script.tl) sends a buy event;
 -- this script checks it (the construction runs our wrapper, the level the tab saw is still the stored one, below 15, within
--- the company rank, enough money) and rebuilds the construction with the new level. Once the rebuild has landed (the stored
--- levels are the ones bought) it books the price as depot construction; a rebuild that never lands costs nothing. It logs each
+-- the company rank, enough money; a rank that cannot be read refuses the buy) and rebuilds the construction with the new
+-- level. Once the rebuild has landed (the stored levels are the ones bought) it books the price as depot construction under
+-- the depot's carrier; a rebuild that never lands costs nothing. It logs each
 -- buy and its outcome; at logLevel "full" (settings.tl) also the building before, and after 1 game hour, 1 day, 7 days and
 -- 30 days with the values the formulas in levels.tl predict and the pollution and noise in dB at the building (the later checks
 -- show the map's averaged pollution settling). Log lines start with "DEPOT_RETROFITS".
@@ -76,6 +77,7 @@ local record Pending
 	untilT : number
 	price : integer -- charged when the rebuild lands
 	fileName : string
+	carrier : string -- the finance row's carrier, "ROAD", "RAIL", "TRAM", "WATER" or "AIR"
 	label : string
 end
 
@@ -100,8 +102,9 @@ if not levelsLoaded then say("gameScript levels unavailable error=" .. tostring(
 local settingsLoaded, settingsModule = pcall(ug_require, "depot_retrofits_1::/settings.tl")
 local logFull = settingsLoaded and type(settingsModule) == "table" and (settingsModule as {string:any}).logLevel == "full"
 
-local progressionLoaded, progressionModule = pcall(ug_require, "::/game_mechanics/company/company_progression_util.tl")
-local progression = progressionLoaded and (progressionModule as CompanyProgressionUtil) or nil
+-- Without it the rank is unknown and every buy is refused.
+local rankLoaded, rankModule = pcall(ug_require, "depot_retrofits_1::/company_rank.tl")
+local companyRank = rankLoaded and (rankModule as DepotRetrofitsRank) or nil
 
 -- Module variables do not persist across saves; this only keeps the load line to one per session.
 local loadLogged = false
@@ -122,12 +125,10 @@ local balanceOf = function() : number
 	return ok and tonumber(value) or nil
 end
 
--- The claimed rank (what the company window shows as reached) and the earned rank; nil when unreadable.
+-- The claimed rank (what the company window shows as reached) and the earned rank; nil when unknown.
 local readRank = function() : integer, integer, string
-	if progression == nil then return nil, nil, "unavailable error=" .. tostring(progressionModule) end
-	local ok, company = pcall(progression.getCompanyProgressionState, api.engine.util.getPlayer())
-	if not ok or company == nil then return nil, nil, "unread error=" .. tostring(company) end
-	return company.level, company.potentialLevel, "ok"
+	if companyRank == nil then return nil, nil, "unknown moduleError=" .. tostring(rankModule) end
+	return companyRank.read(api.engine.util.getPlayer())
 end
 
 local describeRank = function() : string
@@ -315,22 +316,60 @@ local sendRebuild = function(construction : Engine.Entity, values : {string : in
 	return true, "sent"
 end
 
-local carrierFor = function(fileName : string) : JournalEntry.Carrier
+-- The carrier the construction's file names: "TRAM", "RAIL", "WATER" or "ROAD" (the base depots' folders).
+local pathCarrier = function(fileName : string) : string
 	local lower = (fileName or ""):lower()
-	if lower:find("tram", 1, true) then return api.type.JournalEntry.Carrier.TRAM end
-	if lower:find("/rail/", 1, true) then return api.type.JournalEntry.Carrier.RAIL end
-	if lower:find("/water/", 1, true) then return api.type.JournalEntry.Carrier.WATER end
-	return api.type.JournalEntry.Carrier.ROAD
+	if lower:find("tram", 1, true) then return "TRAM" end
+	if lower:find("/rail/", 1, true) then return "RAIL" end
+	if lower:find("/water/", 1, true) then return "WATER" end
+	return "ROAD"
+end
+
+-- In this order, so a depot whose modes give road and another carrier is booked under the other one.
+local carrierNames = { "RAIL", "WATER", "AIR", "TRAM", "ROAD" }
+
+-- The carriers of a depot's transport modes, the way the base depot list filters depots by carrier
+-- (areCarriersContainedInTransportModes in gui/statistics/statistics_react_util.tl, the categories in statistic_depots.tl).
+-- Its carrier field is not used: read against the same enum, it gave no carrier on any of 21 buildings (why was not logged).
+local depotCarrier = function(depot : Engine.Entity) : string
+	local vd = api.engine.getComponent(depot, api.type.ComponentType.VEHICLE_DEPOT) as Engine.Component.VehicleDepot
+	if vd == nil or vd.transportModes == nil then return nil end
+	local modes : {TransportMode} = {}
+	for mode, on in pairs(vd.transportModes) do
+		if on then modes[#modes + 1] = mode end
+	end
+	local carriers = api.engine.util.transport.transportModesToCarriers(modes)
+	for _, name in ipairs(carrierNames) do
+		for _, carrier in ipairs(carriers or {}) do
+			if carrier == api.type["enum"].Carrier[name] then return name end
+		end
+	end
+	return nil
+end
+
+-- The finance row's carrier and where it came from. The depot's decides, since mod depots sit outside the base folders (the
+-- Boathouse mod's maintenance building is under assets/); without it, the file does, and the source says why.
+local carrierFor = function(depot : Engine.Entity, fileName : string) : string, string
+	local ok, fromDepot = pcall(depotCarrier, depot)
+	if not ok then return pathCarrier(fileName), "path error=" .. tostring(fromDepot) end
+	if fromDepot == nil then return pathCarrier(fileName), "path noDepotCarrier" end
+	return fromDepot, "depot"
+end
+
+local journalCarrier = function(name : string) : JournalEntry.Carrier
+	local c = api.type.JournalEntry.Carrier
+	local byName : {string : JournalEntry.Carrier} = { ROAD = c.ROAD, RAIL = c.RAIL, TRAM = c.TRAM, WATER = c.WATER, AIR = c.AIR }
+	return byName[name] or c.ROAD
 end
 
 -- Books a level's price as depot construction.
-local bookPrice = function(amount : integer, fileName : string) : string
+local bookPrice = function(amount : integer, carrier : string) : string
 	local entry = api.type.JournalEntry.new()
 	entry.amount = -amount
 	entry.time = -1 -- the engine fills in the time
 	entry.category.type = api.type.JournalEntry.Type.CONSTRUCTION
 	entry.category.construction = api.type.JournalEntry.Construction.DEPOT
-	entry.category.carrier = carrierFor(fileName)
+	entry.category.carrier = journalCarrier(carrier)
 	api.cmd.sendCommand(api.cmd.makeJournalBookAssetCmd(api.engine.util.getPlayer(), entry, api.type.Vec3f.new(0, 0, 0)))
 	return nil
 end
@@ -363,7 +402,8 @@ local processBuy = function(retrofit : RetrofitState, buy : Buy, t : number) : s
 	if buy.from >= levels.maxLevel then return "maxLevel" end
 	if isPending(retrofit, buy.construction, t) then return "pending" end
 	local rank, _, rankSource = readRank()
-	if rank ~= nil and buy.from + 1 > rank then return "rank rank=" .. tostring(rank) end
+	if rank == nil then return "rankUnknown rankSource=" .. rankSource end
+	if buy.from + 1 > rank then return "rank rank=" .. tostring(rank) end
 	local charged = chargedUpkeepOf(depot)
 	if charged == nil then return "noUpkeep" end
 	local price = levels.levelPrice(levels.buildPrice(charged, from), buy.tree, buy.from + 1)
@@ -375,13 +415,15 @@ local processBuy = function(retrofit : RetrofitState, buy : Buy, t : number) : s
 	local ran, result = sendRebuild(buy.construction, to)
 	if not ran then return "rebuild " .. result end
 	local label = buy.tree .. tostring(buy.from + 1)
+	local carrier, carrierSource = carrierFor(depot, con.fileName)
 	say("buy sent construction=" .. tostring(buy.construction) .. " depot=" .. tostring(depot) .. " tree=" .. buy.tree
 		.. " level=" .. tostring(buy.from + 1) .. " price=" .. tostring(price) .. " balanceBefore=" .. tostring(balance)
-		.. " rank=" .. tostring(rank) .. " rankSource=" .. rankSource .. " from=" .. levels.describe(from) .. " to=" .. levels.describe(to)
+		.. " rank=" .. tostring(rank) .. " rankSource=" .. rankSource .. " carrier=" .. carrier .. " carrierSource=" .. carrierSource
+		.. " from=" .. levels.describe(from) .. " to=" .. levels.describe(to)
 		.. (before ~= nil and (" " .. describeSnapshot(before)) or ""))
 	retrofit.pending = retrofit.pending or {}
 	table.insert(retrofit.pending, { construction = buy.construction, tree = buy.tree, level = buy.from + 1,
-		untilT = t + buyPendingClock, price = price, fileName = con.fileName, label = label })
+		untilT = t + buyPendingClock, price = price, fileName = con.fileName, carrier = carrier, label = label })
 	if before ~= nil then
 		retrofit.watches = retrofit.watches or {}
 		table.insert(retrofit.watches, { construction = buy.construction, depot = depot, label = label,
@@ -420,9 +462,12 @@ local processPending = function(retrofit : RetrofitState, t : number) : boolean
 			changed = true
 			if p.price ~= nil then
 				local balance = balanceOf()
-				local okCharge, chargeErr = pcall(bookPrice, p.price, p.fileName)
+				-- A pending buy saved before the carrier was kept falls back to the file's.
+				local carrier = p.carrier or pathCarrier(p.fileName)
+				local okCharge, chargeErr = pcall(bookPrice, p.price, carrier)
 				say("buy charged construction=" .. tostring(p.construction) .. " bought=" .. tostring(p.label) .. " price=" .. tostring(p.price)
-					.. " charged=" .. tostring(okCharge) .. " chargeError=" .. tostring(chargeErr) .. " balanceBefore=" .. tostring(balance))
+					.. " carrier=" .. carrier .. " charged=" .. tostring(okCharge) .. " chargeError=" .. tostring(chargeErr)
+					.. " balanceBefore=" .. tostring(balance))
 			end
 		elseif t >= p.untilT then
 			changed = true

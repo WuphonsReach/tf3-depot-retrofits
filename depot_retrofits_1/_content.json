@@ -1,6 +1,7 @@
 {
     "archives": null,
     "files": [
+        "company_rank.tl",
         "construction.script.tl",
         "levels.tl",
         "mod.script.tl",
