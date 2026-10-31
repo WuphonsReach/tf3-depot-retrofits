@@ -98,6 +98,12 @@ local boxColors : {string : {number}} = {
 local drawnStyles : {string : StyleSheet} = nil
 
 local buyTooltip = "Buy the next level. The building is rebuilt, and the game reassigns its vehicles."
+-- On the line with the percentages: the map shows a level as a few decibels, averaged over minutes, so it barely moves
+-- (docs/design/findings.md). Kept within the base game's longest tooltips, about 130 characters; tooltips wrap at 800 px.
+local effectTooltips : {string : string} = {
+	pollution = "Cuts the building's own pollution; vehicles keep theirs. The map catches up over minutes; level 15 is about 3 of its 12 steps.",
+	noise = "Cuts the building's own noise; vehicles keep theirs. The map catches up over minutes; level 15 is about 3 of its 12 steps.",
+}
 
 local shownLines = 0
 local shownKeys : {string : boolean} = {}
@@ -195,8 +201,8 @@ local readTab = function(construction : Engine.Entity) : TabState
 end
 
 -- One text size everywhere in the tab, for now.
-local text = function(value : string) : TreeNodeId
-	return builtin.TextView{ meta = { class = "font-scale-body" }, text = value }
+local text = function(value : string, tooltip? : string) : TreeNodeId
+	return builtin.TextView{ meta = { class = "font-scale-body", tooltip = tooltip }, text = value }
 end
 
 -- 20 x 20, the size of the footer's upkeep icon ("text-icon-size-hack" in gui/main/default.css.lua).
@@ -399,7 +405,7 @@ local treeCard = function(s : TabState, tree : string, gameCtx : GameContext) : 
 	if level >= levels.maxLevel then
 		return card(levels.names[tree], twoRows(
 			spreadRow(levelText, text("Highest level")),
-			spreadRow(text(effect(s, tree, level)), builtin.Component{})
+			spreadRow(text(effect(s, tree, level), effectTooltips[tree]), builtin.Component{})
 		), gameCtx)
 	end
 	-- Build only the node that is shown: a recipe called but left out of the tree costs the game log a "Preserved props"
@@ -413,7 +419,7 @@ local treeCard = function(s : TabState, tree : string, gameCtx : GameContext) : 
 	end
 	return card(levels.names[tree], twoRows(
 		spreadRow(levelText, nextUpkeep),
-		spreadRow(text(effect(s, tree, level, level + 1)), buyButton(s, tree))
+		spreadRow(text(effect(s, tree, level, level + 1), effectTooltips[tree]), buyButton(s, tree))
 	), gameCtx)
 end
 
