@@ -37,7 +37,7 @@
 
 ## Gallery
 
-- **The cover is not in the gallery.** `0.jpg` fills the dialog's Preview slot and the mod's card. The gallery under the large image holds `1.jpg` to `4.jpg`, and the large image opens on `1.jpg`, so a player who clicks the card sees the window cards next, not the cover again. Seen in the mod's dialog in the save's Mods tab (staging copy, 31 Oct 2026). Best Before opens on its cover only because its `1.jpg` is a copy of the cover.
+- **The cover is not in the gallery.** `0.jpg` fills the dialog's Preview slot and the mod's card. The gallery under the large image holds `1.jpg` to `4.jpg`, and the large image opens on `1.jpg`, so a player who clicks the card sees the window cards next, not the cover again. Seen in the mod's dialog in the save's Mods tab and in My Mods, where the Preview slot holds the cover and the gallery `1.jpg` to `4.jpg` (staging copy, 31 Oct 2026). Best Before opens on its cover only because its `1.jpg` is a copy of the cover.
 - **The order is the file names.** In Best Before's dialog the gallery showed its images sorted by name, and the page followed the dialog.
 - **Moving a thumbnail swaps the files.** Each thumbnail in the dialog has a small < (Move Left), > (Move Right) and bin over its top right corner. Moving one swaps the two files' contents on disk and writes nothing else. Commit the files as the dialog leaves them, or the next upload goes back to the old order.
 - **mod.io keeps old names.** A file uploaded under a name mod.io already holds is stored under a new name (`workshop_preview.1.jpg`) and the old one stays on its image server. Numbered files that never change name avoid that; to change an image, replace the file under the same number.
