@@ -116,6 +116,9 @@ local effectTooltips : {string : string} = {
 
 local shownLines = 0
 local shownKeys : {string : boolean} = {}
+-- The open lines have their own cap, so a long buying session cannot hide why a window left out the Retrofit tab.
+local maxOpenLines = 60
+local openLines = 0
 
 local money = function(amount : number) : string
 	if amount == nil then return "?" end
@@ -134,9 +137,18 @@ local constructionParams = function(construction : Engine.Component.Construction
 	return (construction.params as table) as {string:any}
 end
 
+-- The construction's depot. Maintenance buildings in a save begun on a pre-release build list none in `depots` (all 13
+-- seen in the mod.io save "333", road, rail and water, built 1904 to 1998; its depots list theirs), so the fallback is the
+-- first subconstruction with a vehicle depot, which is how the base construction window finds its tabs
+-- (gui/entity_window/make_entity_window.tl). The same function is in retrofits.script.tl: keep the copies equal.
 local firstDepot = function(construction : Engine.Entity) : Engine.Entity
 	local con = api.engine.getComponent(construction, api.type.ComponentType.CONSTRUCTION) as Engine.Component.Construction
-	return con and con.depots and con.depots[1] or nil
+	if con == nil then return nil end
+	if con.depots and con.depots[1] then return con.depots[1] end
+	for _, sub in ipairs(con.subconstructions or {}) do
+		if api.engine.getComponent(sub, api.type.ComponentType.VEHICLE_DEPOT) ~= nil then return sub end
+	end
+	return nil
 end
 
 -- The factor the game's upkeep footer multiplies a construction's upkeep by (MaintenanceBar in
@@ -529,11 +541,17 @@ window.entityWindowFn = function(_captureParams : any, entity : Engine.Entity, t
 	end
 	-- The game calls this many times while one window opens (about 60 in the first second), so log each building once.
 	local openKey = "open " .. tostring(entity) .. " " .. tostring(show)
-	if logFull and shownLines < maxShownLines and not shownKeys[openKey] then
+	if logFull and openLines < maxOpenLines and not shownKeys[openKey] then
 		shownKeys[openKey] = true
-		shownLines = shownLines + 1
+		openLines = openLines + 1
+		local okCon, con : boolean, any = pcall(api.engine.getComponent, entity, api.type.ComponentType.CONSTRUCTION)
+		local c = okCon and con as Engine.Component.Construction or nil
+		local fileName : string = c and c.fileName or "?"
+		local depots : string = c and c.depots and tostring(#c.depots) or "nil"
+		local timeBuilt : string = c and tostring(c.timeBuilt) or "?"
 		say("window open construction=" .. tostring(entity) .. " depot=" .. tostring(depot) .. " retrofitTab=" .. tostring(show)
-			.. " owned=" .. tostring(okOwned and owned))
+			.. " ready=" .. tostring(ready) .. " owned=" .. tostring(okOwned and owned) .. " depots=" .. depots
+			.. " timeBuilt=" .. timeBuilt .. " fileName=" .. tostring(fileName))
 	end
 	return {
 		recipe = makeEntityWindow.ConstructionWindow,

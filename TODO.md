@@ -18,11 +18,12 @@
 - [ ] Check which finance rows the level charges land in (booked as depot construction).
 - [ ] Confirm that the upkeep tree leaves the vehicles' running cost (the accumulated costs in the upkeep footer) alone, as designed: on two like buildings servicing similar vehicles, one with upkeep levels, the accumulated costs should grow at the same rate.
 - [x] Retake the gallery `_metadata/1.jpg` to `3.jpg`, and add `4.jpg`: the old images showed the old price ladder (the upkeep tree priced like the others), and 2.jpg an old buy tooltip. Use buildings at level 0, with only upkeep levels, or bought once since the 15% upkeep step; buildings levelled before it show prices 25% to 43% too high until rebuilt (docs/design/findings.md). Full 4K screenshots will do: crop the window for `tools/make_gallery.py` (same angles and slots as its docstring), and crop 2.jpg and 3.jpg to 16:9 at 1920x1080.
+- [ ] Retake the gallery cards that show a pollution or noise price or upkeep: pollution levels now start at 0.08 × the build price and add 5% of the base upkeep each, noise levels 0.12 × and 10%. Use buildings with no pollution or noise levels bought before the change; buildings that have them show wrong figures until rebuilt (docs/design/findings.md).
 - [ ] Release, following [docs/publishing.md](docs/publishing.md): the listing text in `_metadata/modinfo.json` (drop its "IN DEVELOPMENT" paragraph if it no longer applies), the CHANGELOG entry and `modVersion`, README status, the upload, a test of the published copy, then a `v*.*` tag and GitHub release (both immutable). After the first upload, commit `mod.io_fileid.txt` and note whether the gallery took `2.jpg` and `3.jpg`.
 
 ## Design
 
-- [x] Decide the upkeep tree's first-level share: 0.25 (pays back in about 9.5 years with the other trees full).
+- [x] Decide the upkeep tree's first-level share: 0.25 (pays back in about 12 years with the other trees full).
 - [ ] Text sizes in the tab: everything is body size for now.
 - [x] The listing says that buying a level lets the game reassign the building's vehicles, some or all of them to another building in range.
 

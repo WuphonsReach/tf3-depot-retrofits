@@ -153,6 +153,20 @@ local getConstruction = function(construction : Engine.Entity) : Engine.Componen
 	return api.engine.getComponent(construction, api.type.ComponentType.CONSTRUCTION) as Engine.Component.Construction
 end
 
+-- The construction's depot. Maintenance buildings in a save begun on a pre-release build list none in `depots` (all 13
+-- seen in the mod.io save "333", road, rail and water, built 1904 to 1998; its depots list theirs), so the fallback is the
+-- first subconstruction with a vehicle depot, which is how the base construction window finds its tabs
+-- (gui/entity_window/make_entity_window.tl). The same function is in retrofit_window.script.tl: keep the copies equal.
+local firstDepot = function(construction : Engine.Entity) : Engine.Entity
+	local con = api.engine.getComponent(construction, api.type.ComponentType.CONSTRUCTION) as Engine.Component.Construction
+	if con == nil then return nil end
+	if con.depots and con.depots[1] then return con.depots[1] end
+	for _, sub in ipairs(con.subconstructions or {}) do
+		if api.engine.getComponent(sub, api.type.ComponentType.VEHICLE_DEPOT) ~= nil then return sub end
+	end
+	return nil
+end
+
 local storedLevels = function(construction : Engine.Entity) : {string : integer}
 	local con = getConstruction(construction)
 	return con and levels.read(constructionParams(con)) or nil
@@ -342,7 +356,7 @@ local processBuy = function(retrofit : RetrofitState, buy : Buy, t : number) : s
 	local con = getConstruction(buy.construction)
 	if con == nil then return "noConstruction" end
 	if isWrapped(con) == false then return "notWrapped fileName=" .. tostring(con.fileName) end
-	local depot = con.depots and con.depots[1]
+	local depot = firstDepot(buy.construction)
 	if not exists(depot) then return "noDepot" end
 	local from = levels.read(constructionParams(con))
 	if from[buy.tree] ~= buy.from then return "stale stored=" .. tostring(from[buy.tree]) end

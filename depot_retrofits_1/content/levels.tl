@@ -23,10 +23,14 @@ local levels : DepotRetrofitsLevels = {
 local radiusStep = 0.05
 local vehiclesStep = 0.10
 local emissionStep = 0.05
-local upkeepPerOtherLevel = 0.15
+-- Each level adds this share of the base upkeep. Pollution and noise add less, since they do not change what the building
+-- does (a wider radius or a larger pool can mean fewer buildings). Pollution adds least: the town's rating spreads it over the
+-- whole town area, so it takes many buildings to show. Noise counts where people are.
+local upkeepPerLevel : {string : number} = { radius = 0.15, vehicles = 0.15, pollution = 0.05, noise = 0.10 }
 local upkeepStep = 0.05
--- Level 1 costs this share of the build price. The upkeep tree starts higher, since it pays for itself.
-local firstLevelShare : {string : number} = { radius = 0.15, vehicles = 0.15, pollution = 0.15, noise = 0.15, upkeep = 0.25 }
+-- Level 1 costs this share of the build price. The upkeep tree starts higher, since it pays for itself; pollution and noise
+-- start lower, for the same reason that they add less upkeep.
+local firstLevelShare : {string : number} = { radius = 0.15, vehicles = 0.15, pollution = 0.08, noise = 0.12, upkeep = 0.25 }
 local priceGrowth = 1.15 -- each further level costs this much more than the one before
 local buildPricePerUpkeep = 6 -- every base depot and maintenance building costs 6 times its yearly upkeep to build
 
@@ -67,10 +71,6 @@ function levels.withLevel(values : {string : integer}, tree : string, level : in
 	return result
 end
 
-function levels.otherLevels(values : {string : integer}) : integer
-	return (values.radius or 0) + (values.vehicles or 0) + (values.pollution or 0) + (values.noise or 0)
-end
-
 -- At least one more vehicle per level, so small pools (rail depots hold 6) still grow.
 function levels.pool(basePool : number, level : integer) : integer
 	return math.max(round(basePool * (1 + vehiclesStep * level)), round(basePool) + level)
@@ -95,8 +95,13 @@ function levels.emissionFactor(level : integer) : number
 	return 1 - emissionStep * level
 end
 
+-- Summed in the fixed order of levels.trees, so every script gets the same floating-point factor.
 function levels.upkeepFactor(values : {string : integer}) : number
-	return (1 + upkeepPerOtherLevel * levels.otherLevels(values)) * (1 - upkeepStep * (values.upkeep or 0))
+	local added = 0.0
+	for _, tree in ipairs(levels.trees) do
+		added = added + (upkeepPerLevel[tree] or 0) * (values[tree] or 0)
+	end
+	return (1 + added) * (1 - upkeepStep * (values.upkeep or 0))
 end
 
 -- The update script's upkeep at some levels, rounded to whole dollars as construction.script.tl stores it. Every script that

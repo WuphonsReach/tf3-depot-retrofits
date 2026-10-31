@@ -15,8 +15,6 @@ global record DepotRetrofitsLevels
 	describe : function(levels : {string : integer}) : string
 	-- A copy of the levels with one tree at another level.
 	withLevel : function(levels : {string : integer}, tree : string, level : integer) : {string : integer}
-	-- Sum of the radius, vehicles, pollution and noise levels (the ones that raise upkeep).
-	otherLevels : function(levels : {string : integer}) : integer
 
 	pool : function(basePool : number, level : integer) : integer
 	basePool : function(pool : number, level : integer) : integer
