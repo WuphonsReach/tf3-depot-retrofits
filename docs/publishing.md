@@ -6,10 +6,10 @@
 - **How it gets there.** Only through the game's own uploader: Mod Hub, My Mods, the mod's dialog. The mod.io website refuses uploads for Transport Fever 3, and the page text changes only through the uploader. The uploader reads the name, summary, description and tags from [modinfo.json](../depot_retrofits_1/_metadata/modinfo.json) and the images from `depot_retrofits_1/_metadata/`.
 - **The mod id file.** The first upload writes `depot_retrofits_1/_metadata/mod.io_fileid.txt` (the mod id). Commit it and never delete it: with it the dialog updates the existing mod, without it the next upload creates a second one.
 - **What ships.** The whole `depot_retrofits_1/` folder except `_metadata/`: `mod.json`, `_content.json` and `content/`. The game loads only the files `_content.json` lists, so `python3 tools/check_content_list.py` must pass before an upload.
-- **Images.** The layout of the Industry Upgrades listing: `0.jpg` is the cover, and `1.jpg`, `2.jpg`, `3.jpg` are the gallery, in file-name order. There is no `workshop_preview.jpg`.
+- **Images.** The layout of the Industry Upgrades listing: `0.jpg` is the cover, and `1.jpg` to `4.jpg` are the gallery, in file-name order. There is no `workshop_preview.jpg`. The cover shows on the mod's card only: opening the mod shows `1.jpg` first.
 - **Version numbers.** mod.io labels every uploaded file "1.0", whatever the mod's number. The number that counts is `modVersion` in [mod.script.tl](../depot_retrofits_1/content/mod.script.tl), which the log prints at every load as `DEPOT_RETROFITS version <number>`, and the matching entry in [CHANGELOG.md](../CHANGELOG.md).
 - **How sure.** The steps are the ones that worked for the sibling mod Best Before (four uploads, 17 to 30 Oct 2026; its [publishing.md](https://github.com/WuphonsReach/tf3-best-before-mod/blob/9fa081fc1c23ee79fcc4bac1b74a109db188c97d/docs/publishing.md)). None has been run for this mod.
-- **Unknown.** Whether the gallery takes `2.jpg` and `3.jpg` as well as `1.jpg` (Industry Upgrades' listing has `1.png` to `7.png`, so it should), and whether the dialog writes a `workshop_preview.jpg` by itself when there is none.
+- **Unknown.** Whether mod.io's page shows the gallery the way the game's dialog does (seen only in the dialog, from the staging copy), and whether the dialog writes a `workshop_preview.jpg` by itself when there is none.
 
 ## Releasing a version
 
@@ -37,7 +37,7 @@
 
 ## Gallery
 
-- **The cover is not in the gallery.** `0.jpg` fills the dialog's Preview slot and the mod's card. The gallery under the large image on the page holds the other images.
+- **The cover is not in the gallery.** `0.jpg` fills the dialog's Preview slot and the mod's card. The gallery under the large image holds `1.jpg` to `4.jpg`, and the large image opens on `1.jpg`, so a player who clicks the card sees the window cards next, not the cover again. Seen in the mod's dialog in the save's Mods tab and in My Mods, where the Preview slot holds the cover and the gallery `1.jpg` to `4.jpg` (staging copy, 31 Oct 2026). Best Before opens on its cover only because its `1.jpg` is a copy of the cover.
 - **The order is the file names.** In Best Before's dialog the gallery showed its images sorted by name, and the page followed the dialog.
 - **Moving a thumbnail swaps the files.** Each thumbnail in the dialog has a small < (Move Left), > (Move Right) and bin over its top right corner. Moving one swaps the two files' contents on disk and writes nothing else. Commit the files as the dialog leaves them, or the next upload goes back to the old order.
 - **mod.io keeps old names.** A file uploaded under a name mod.io already holds is stored under a new name (`workshop_preview.1.jpg`) and the old one stays on its image server. Numbered files that never change name avoid that; to change an image, replace the file under the same number.
