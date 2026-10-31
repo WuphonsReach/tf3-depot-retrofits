@@ -7,6 +7,7 @@
 
 ## Before a release
 
+- [ ] See the radius button show "No effect", greyed out, on a depot with a radius under 20 m (the Grimes Buffer Stop Depot mod's, 1 m), with the card showing the radius now and no upkeep after a level.
 - [ ] Roundhouse: add a stall to a levelled one and check the `module` line's `baseSource` (`recorded` means the game hands the modules the wrapper's own table; `inverted` is the fallback) and that the pool is the formula's. Also check whether the pollution and noise trees cut the chimney's emissions: the wrapper only scales the depot subconstruction's.
 - [ ] Confirm that the upkeep tree leaves the accumulated costs in the upkeep footer alone: on two like buildings servicing similar vehicles, one with upkeep levels, they should grow at the same rate.
 - [ ] Optional: the Modern Railway Depot mod's depot (modular, its modules are wrapped); in a save before 2015, turn on its "Available from 1900" setting.
