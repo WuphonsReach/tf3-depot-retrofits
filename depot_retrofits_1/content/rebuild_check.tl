@@ -1,7 +1,8 @@
 -- Whether the game would build a construction's rebuild, asked before it is sent; shared by the game script and the building
 -- window (each loads it with ug_require under pcall). The game refuses a proposal whose data carries error messages, for
--- example "Collision" when the building's street stub no longer fits what was built around it (docs/design/findings.md); the
--- base windows treat a proposal with no messages as buildable (gui/entity_window/bridge_and_tunnel.tl).
+-- example "Collision" when something built around the building since, such as a town building, is in its way
+-- (docs/design/findings.md); the base windows treat a proposal with no messages as buildable
+-- (gui/entity_window/bridge_and_tunnel.tl).
 --
 -- makeProposalData takes a SimpleProposal, not the Proposal that createProposalReplaceConstruction returns (the type
 -- definition says Proposal; the game raises "SimpleProposal expected, got Proposal"). So the check asks about the same rebuild

@@ -306,8 +306,8 @@ local compare = function(snap : Snapshot, e : Expected, to : {string : integer})
 end
 
 -- Sends the rebuild once the game has said it would build it. A blocked rebuild is not sent: the game would refuse it ("Collision"
--- where the building's street stub no longer fits), so the buy is refused at once instead of waiting out the pending deadline.
--- When the check itself fails the rebuild is sent unchecked. The second result is the reason, or the check's outcome.
+-- where something built around the building since is in its way), so the buy is refused at once instead of waiting out the
+-- pending deadline. When the check itself fails the rebuild is sent unchecked. The second result is the reason, or the check's outcome.
 local sendRebuild = function(construction : Engine.Entity, values : {string : integer}) : boolean, string
 	local con = getConstruction(construction)
 	if con == nil then return false, "noConstruction" end

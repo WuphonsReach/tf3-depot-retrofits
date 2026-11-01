@@ -3,14 +3,14 @@
 ## In short
 
 - **Where it stands.** 1.0 is on mod.io (mod id 6495416, uploaded 31 Oct 2026). The review fixes all passed in game (rank read, carrier from the depot, every buy charged once, buttons greyed out when money is short). Test results are in [docs/design/findings.md](docs/design/findings.md).
-- **Next.** 1.1 (on a branch): a rebuild is checked before it is sent, and the tab shows "Blocked" when the game would refuse it. The first in-game test found the check failing on every call (`makeProposalData` takes a `SimpleProposal`), so every rebuild went out unchecked as in 1.0; fixed and tested (both blocked buildings in "333" show "Blocked", a clear building buys as before). The Summary lines were easy to miss, so the tab now shows a yellow warning instead; to test, then release. The checks below are optional; the ideas at the bottom are not planned.
+- **Next.** 1.1 (on a branch): a rebuild is checked before it is sent, and the tab shows "Blocked" when the game would refuse it. The first in-game test found the check failing on every call (`makeProposalData` takes a `SimpleProposal`), so every rebuild went out unchecked as in 1.0; fixed and tested (both blocked buildings in "333" show "Blocked", a clear building buys as before). The yellow warning tested well. A town can build on a cleared lot again within days at 1x, so a tab that turns clear now keeps checking for 30 seconds; to test, then release. The checks below are optional; the ideas at the bottom are not planned.
 
 ## Release 1.0
 
 - [x] Upload 1.0 ([docs/publishing.md](docs/publishing.md)): page public, gallery `1.jpg` to `5.jpg` in order, `mod.io_fileid.txt` committed.
 - [x] Test the published copy with the staging link removed: `version 1.0 logLevel=summary`, files identical to `v1.0`, no load errors.
 - [x] Tag `v1.0` (on `478003d`, the uploaded code) and publish the GitHub release.
-- [ ] 1.1: before a rebuild, ask the game whether it would collide (`api.engine.util.proposal.makeProposalData`); refuse at once with `reason=blocked` and log the game's messages, and in the tab grey the buy buttons as "Blocked" under a yellow warning at the top of the tab (greyed buttons show no tooltip). The window checks on opening and every couple of seconds while open, so removing the obstacle clears it; the game script checks again on every buy (docs/design/findings.md).
+- [ ] 1.1: before a rebuild, ask the game whether it would collide (`api.engine.util.proposal.makeProposalData`); refuse at once with `reason=blocked` and log the game's messages, and in the tab grey the buy buttons as "Blocked" under a yellow warning at the top of the tab (greyed buttons show no tooltip). The window checks on opening, after each click and every 2 seconds while blocked and for 30 seconds after, so removing the obstacle clears it; the game script checks again on every buy (docs/design/findings.md).
 - [ ] Check that the page lists the console file too.
 
 ## Optional checks

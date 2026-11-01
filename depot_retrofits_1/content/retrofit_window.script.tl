@@ -194,14 +194,19 @@ local record RebuildCheckState
 	at : number -- os.clock() of the check, or the tab's step count where os.clock is not available
 	clear : boolean
 	reason : string
+	watchUntil : number -- after a blocked tab turns clear, until when it keeps checking; nil when it does not
 end
 
 -- A rebuild check asks the game to work out a whole rebuild proposal, so it runs only when needed: once when a tab opens, again
 -- after each click on a buy button (the click resets it), and every 2 seconds while the tab shows "Blocked", paused or not, so
--- the buttons come back by themselves once the way is clear. A clear tab does not check on its own: the game script checks
--- every buy again before sending it, so a stale "clear" never lets a blocked rebuild through.
+-- the buttons come back by themselves once the way is clear. Once a blocked tab turns clear it keeps checking every 2 seconds
+-- for 30 seconds more, since a running town can build on a cleared lot again within a game day or two. Otherwise a clear tab
+-- does not check on its own: the game script checks every buy again before sending it, so a stale "clear" never lets a
+-- blocked rebuild through.
 local blockedRecheckSeconds = 2
 local blockedRecheckSteps = 120
+local clearedWatchSeconds = 30
+local clearedWatchSteps = 1800
 local stepCount = 0
 local clockNow = function() : number, boolean
 	local ok, seconds = pcall(os.clock)
@@ -215,15 +220,25 @@ local checkRebuild = function(construction : Engine.Entity, con : Engine.Compone
 	local now, isClock = clockNow()
 	local last = checkRef:get()
 	if last ~= nil then
-		if last.clear ~= false then return last.clear end
+		local watching = last.clear == true and last.watchUntil ~= nil and now >= last.at and now < last.watchUntil
+		if last.clear ~= false and not watching then return last.clear end
 		local wait = isClock and blockedRecheckSeconds or blockedRecheckSteps
-		if now >= last.at and now - last.at < wait then return false end
+		if now >= last.at and now - last.at < wait then return last.clear end
 	end
 	local _, clear, reason = rebuildCheck.check(construction, constructionParams(con))
-	if logFull and (last == nil or last.clear ~= clear) then
-		say("window rebuildCheck construction=" .. tostring(construction) .. " clear=" .. tostring(clear) .. " reason=" .. tostring(reason))
+	local watchUntil : number = nil
+	if clear == true and last ~= nil then
+		if last.clear == false then
+			watchUntil = now + (isClock and clearedWatchSeconds or clearedWatchSteps)
+		else
+			watchUntil = last.watchUntil
+		end
 	end
-	checkRef:set({ at = now, clear = clear, reason = reason })
+	if logFull and (last == nil or last.clear ~= clear) then
+		say("window rebuildCheck construction=" .. tostring(construction) .. " clear=" .. tostring(clear) .. " reason=" .. tostring(reason)
+			.. (watchUntil ~= nil and " watching=" .. tostring(isClock and clearedWatchSeconds or clearedWatchSteps) or ""))
+	end
+	checkRef:set({ at = now, clear = clear, reason = reason, watchUntil = watchUntil })
 	return clear
 end
 
