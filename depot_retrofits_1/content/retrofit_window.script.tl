@@ -733,6 +733,8 @@ local viewerNode = function(construction : Engine.Entity, viewer : Viewer, verdi
 			local ok, line = pcall(describeProposalData, data)
 			local reason = ok and line or ("describeError=" .. tostring(line))
 			verdictRef:set({ levels = viewer.levels, clear = #messages == 0, reason = reason })
+			-- A clear answer after a refused buy means the way has been cleared since: the "Not rebuilt" warning goes too.
+			if #messages == 0 and refused[construction] == viewer.levels then refused[construction] = nil end
 			if logFull then
 				local logLine = "window viewer construction=" .. tostring(construction) .. " levels=" .. viewer.levels .. " " .. reason
 				if not viewerLogged[logLine] then
