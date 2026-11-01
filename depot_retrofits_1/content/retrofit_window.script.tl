@@ -211,11 +211,12 @@ local record ActionArea
 	placedRef : ReactRefT<string>
 end
 local actionAreas : {Engine.Entity : ActionArea} = {}
--- About a second: the game API has no clock finer than whole seconds, so the wait is counted in the tab's steps (one per
--- frame) as well, and needs at least one tick of the clock. A rebuild lands within the same second as the click. A rebuild
--- that lands later anyway clears the warning, as its levels change.
-local refusedAfterSeconds = 1
-local refusedAfterSteps = 45
+-- One to two seconds: two ticks of os.time, as the game API has no finer clock. One tick could come just after the click,
+-- and the tab's steps are no measure of time: at the fastest speed 45 of them passed before a rebuild that landed in the
+-- same second (docs/design/findings.md). A rebuild that lands later anyway clears the warning, as its levels change, and so
+-- does the proposal viewer saying the rebuild would be built. The step count is only for where os.time is not available.
+local refusedAfterSeconds = 2
+local refusedAfterSteps = 120
 local stepCount = 0
 -- Real time in whole seconds. Not os.clock: that is the process's processor time, summed over the game's threads, and ran
 -- about 5 times faster than real time in game. The tab's step count where os.time is not available.
@@ -233,7 +234,7 @@ local readRefused = function(construction : Engine.Entity, current : string) : b
 		local now, isClock = clockNow()
 		if try.levels ~= current then
 			tries[construction] = nil
-		elseif stepCount - try.step >= refusedAfterSteps and (not isClock or now - try.at >= refusedAfterSeconds) then
+		elseif (isClock and now - try.at >= refusedAfterSeconds) or (not isClock and stepCount - try.step >= refusedAfterSteps) then
 			tries[construction] = nil
 			refused[construction] = current
 			inTheWay[construction] = nil
@@ -728,6 +729,12 @@ local viewerNode = function(construction : Engine.Entity, viewer : Viewer) : Tre
 				for _, c in ipairs(data.collisionInfo.collisionEntities or {}) do named[#named + 1] = c.entity end
 			end
 			inTheWay[construction] = named
+			-- The game would build it: the buy was not refused after all, only slow to land.
+			local messages = data.errorState and data.errorState.messages or {}
+			if #messages == 0 and refused[construction] == viewer.levels then
+				refused[construction] = nil
+				say("window refusalWithdrawn construction=" .. tostring(construction) .. " levels=" .. viewer.levels)
+			end
 			if logFull then
 				local ok, line = pcall(describeProposalData, data)
 				local reason = ok and line or ("describeError=" .. tostring(line))
