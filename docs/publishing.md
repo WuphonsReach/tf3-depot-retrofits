@@ -2,13 +2,13 @@
 
 ## In short
 
-- **Where it is.** [Depot Retrofits](https://mod.io/g/transportfever3/m/depot-retrofits) on mod.io, mod id 6495416, public since 31 Oct 2026 (version 1.1.1 since the same evening), tag Script Mod, creator WuphonsReach. Players subscribe on that page or in the game's Mod Hub.
+- **Where it is.** [Depot Retrofits](https://mod.io/g/transportfever3/m/depot-retrofits) on mod.io, mod id 6495416, public since 31 Oct 2026 (version 1.2 since 1 Nov 2026), tag Script Mod, creator WuphonsReach. Players subscribe on that page or in the game's Mod Hub.
 - **How it gets there.** Only through the game's own uploader: Mod Hub, My Mods, the mod's dialog. The mod.io website refuses uploads for Transport Fever 3, and the page text changes only through the uploader. The uploader reads the name, summary, description and tags from [modinfo.json](../depot_retrofits_1/_metadata/modinfo.json) and the images from `depot_retrofits_1/_metadata/`.
 - **The mod id file.** The first upload writes `depot_retrofits_1/_metadata/mod.io_fileid.txt` (the mod id). Commit it and never delete it: with it the dialog updates the existing mod, without it the next upload creates a second one.
 - **What ships.** The whole `depot_retrofits_1/` folder except `_metadata/`: `mod.json`, `_content.json` and `content/`. The game loads only the files `_content.json` lists, so `python3 tools/check_content_list.py` must pass before an upload.
 - **Images.** `0.jpg` is the cover, and the gallery is `1-cover.jpg` to `6-rail-maintenance.jpg`, in file-name order: a number for the place, a name for the picture. `1-cover.jpg` is a copy of the cover, so the gallery opens on it, as Best Before's does. A changed picture needs a name mod.io has not seen (see [Gallery](#gallery)). There is no `workshop_preview.jpg`.
 - **Version numbers.** mod.io labels every uploaded file "1.0", whatever the mod's number. The number that counts is `modVersion` in [mod.script.tl](../depot_retrofits_1/content/mod.script.tl), which the log prints at every load as `DEPOT_RETROFITS version <number>`, and the matching entry in [CHANGELOG.md](../CHANGELOG.md).
-- **How sure.** The steps worked for the first upload and two updates (1.0, 1.1 and 1.1.1, 31 Oct 2026) and are the ones the sibling mod Best Before used (four uploads, 17 to 30 Oct 2026; its [publishing.md](https://github.com/WuphonsReach/tf3-best-before-mod/blob/9fa081fc1c23ee79fcc4bac1b74a109db188c97d/docs/publishing.md)).
+- **How sure.** The steps worked for the first upload and five updates (1.0, 1.1 and 1.1.1 on 31 Oct 2026; 1.2 and two gallery updates on 1 Nov 2026) and are the ones the sibling mod Best Before used (four uploads, 17 to 30 Oct 2026; its [publishing.md](https://github.com/WuphonsReach/tf3-best-before-mod/blob/9fa081fc1c23ee79fcc4bac1b74a109db188c97d/docs/publishing.md)).
 - **Console file.** The page lists one file for Windows, Mac and Linux and one for Xbox Series X/S and PlayStation 5. After the first upload only the first showed for a while; after each update both showed within a few minutes.
 
 ## Releasing a version
@@ -72,3 +72,15 @@
 - **Page.** The two new files (34.02 KB each, with the release note) showed within a few minutes, and the 1.1 files moved under "other versions".
 - **Published copy.** With the staging link removed, `mods/6495416/` held the files of `c194f37`, byte for byte, and the log read `DEPOT_RETROFITS version 1.1.1 logLevel=summary` with no load errors. Peterlee Road Depot opened clear and took a radius level.
 - **Tag.** `v1.1.1` is on `c194f37`.
+
+## Update (1.2, 1 Nov 2026)
+
+- **Dialog.** The button read Update and the gallery showed `1.jpg` to `6.jpg` in order, with the new `2.jpg` and `6.jpg`; it ended with "Upload Successful".
+- **Page.** The two new files (34.08 KB each, with the release note) showed within a few minutes. The gallery kept 1.1's pictures: the update sent the cover again but no gallery image (see [Gallery](#gallery)).
+- **Published copy.** With the staging link removed, `mods/6495416/` held the files of `c02773a`, byte for byte, and the log read `DEPOT_RETROFITS version 1.2 logLevel=summary` with no load errors. On Berkeley Maintenance Building a buy was refused with the house next door in red; once the house was bulldozed the warning cleared, and four upkeep levels landed and were charged.
+- **Tag.** `v1.2` is on `c02773a`.
+
+## Gallery updates (1 Nov 2026)
+
+- **Reordered, same names.** The dialog's move buttons put the "Not rebuilt" shot third (changelog "Update gallery images"). The update added a file pair with the 1.2 code and sent the cover (`0.4.jpg`), but no gallery image; the page kept 1.1's gallery.
+- **Renamed `<n>-<name>.jpg`.** From the branch of PR #39 (changelog "Replace gallery images with updated ones."). All six went up under their own names, byte for byte the files in the repo, with the cover as `0.5.jpg`, and the page showed them in order. The update added another file pair with the 1.2 code ("10 other versions").
