@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-A Transport Fever 3 script mod in development: depots and maintenance buildings get levels for maintenance radius, vehicles maintained, pollution, noise and upkeep, bought in the building's window. The player-facing guide is [docs/user-guide.md](docs/user-guide.md). The design docs are in `docs/design/`: the spec is [docs/design/spec.md](docs/design/spec.md); the verified game facts and the open unknowns are in [docs/design/findings.md](docs/design/findings.md). Read findings before changing mechanics.
+A Transport Fever 3 script mod: depots and maintenance buildings get levels for maintenance radius, vehicles maintained, pollution, noise and upkeep, bought in the building's window. The player-facing guide is [docs/user-guide.md](docs/user-guide.md). The design docs are in `docs/design/`: the spec is [docs/design/spec.md](docs/design/spec.md); the verified game facts and the open unknowns are in [docs/design/findings.md](docs/design/findings.md). Read findings before changing mechanics.
 
 The repo is public on GitHub ([WuphonsReach/tf3-depot-retrofits](https://github.com/WuphonsReach/tf3-depot-retrofits), MIT); the mod is not on mod.io yet. `main` takes changes only through a pull request (see "CI and repo rules"): branch from `origin/main` as `<YYYY-MM-DD>-<slug>`, and push or open a PR only when the user asks. The name avoids "Upgrades" (too close to another mod's "Industry Upgrades"); inside the mod the terms are "level" and "retrofit".
 
@@ -29,7 +29,7 @@ python3 tools/check_content_list.py
 python3 tools/check_repo.py
 
 # Redraw the mod's cover (depot_retrofits_1/_metadata/0.jpg, the uploader's Preview slot, and its copy 1.jpg, the first gallery image; 1920x1080; needs rsvg-convert and the Lato font)
-python3 tools/make_preview.py [--version 0.5] [--keep-svg local/preview/cover.svg]   # the version goes in the upper right corner, kept clear for it
+python3 tools/make_preview.py [--version 1.0] [--keep-svg local/preview/cover.svg]   # the version goes in the upper right corner, kept clear for it
 
 # Redraw the gallery's 2.jpg: hand-cropped screenshots of the building window, laid as a pile of cards on the cover's background
 python3 tools/make_gallery.py depot_retrofits_1/_metadata/2.jpg CARD.png[:angle[:dy[:slot]]] ...   # the docstring has the command for the current image
@@ -50,7 +50,7 @@ The rulesets match Best Before's and have no bypass actors, so they bind the own
 
 Releases follow [docs/publishing.md](docs/publishing.md): upload only through the game's Mod Hub dialog, test the published copy with the staging link removed, then tag. Keep `modVersion` in `mod.script.tl` and the top entry of [CHANGELOG.md](CHANGELOG.md) in step (between releases `modVersion` reads the next number with `-dev`). After the first upload `_metadata/mod.io_fileid.txt` holds the mod id: commit it and never delete it, or the next upload creates a second mod. Images: `0.jpg` the cover, `1.jpg` onward the gallery in file-name order, `1.jpg` a copy of the cover (as in Best Before), no `workshop_preview.jpg`; moving a thumbnail in the dialog swaps the files on disk, so commit them as the dialog leaves them.
 
-## Architecture (0.5)
+## Architecture (1.0)
 
 `depot_retrofits_1/` is the mod. Levels are stored, applied and bought in the building's window; the game script only handles buys. The probes are in git history (0.2, value scaling, at `fe37966`; 0.3, param variants, at `3adf8c6`; 0.4, random levels across a save, at `449de35`); their results are in docs/design/findings.md.
 

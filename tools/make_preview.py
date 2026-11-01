@@ -3,7 +3,7 @@
 A retrofitted depot with its maintenance radius drawn as rings (the stock radius dashed, the retrofitted one amber),
 buses around it, and the five level trees listed on the left. The upper right corner is kept clear for a version number.
 
-Usage: python3 tools/make_preview.py [OUT_FILE] [--version 0.5] [--keep-svg SVG_FILE]
+Usage: python3 tools/make_preview.py [OUT_FILE] [--version 1.0] [--keep-svg SVG_FILE]
 --keep-svg also writes the SVG the image is rendered from (for example to local/preview/cover.svg); keep it out of depot_retrofits_1/.
 OUT_FILE defaults to depot_retrofits_1/_metadata/0.jpg, the cover (the uploader's Preview slot), and then also writes a copy to
 1.jpg, the first gallery image, so the cover opens the gallery too; see docs/publishing.md.

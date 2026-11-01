@@ -2,7 +2,7 @@
 
 ## In short
 
-Depots and maintenance buildings get levels, bought one at a time in the building's own window. There are five level trees of 15 levels each, and a tree's highest level available is the company's claimed rank (the game has 15 ranks). Four trees (maintenance radius, vehicles maintained, pollution, noise) improve the building and raise its upkeep. Radius and vehicles levels cost 0.15 × the build price at level 1 and add 15% of the base upkeep each; noise costs 0.12 and adds 10%, pollution 0.08 and 5%, since those two do not change what the building does, and a town's rating spreads pollution over its whole area. In every tree, each level costs 15% more than the one before. The upkeep tree cuts the total upkeep, so it starts higher, at 0.25 × the build price, and a full upkeep tree pays for itself in about 12 game years on a building with the other four trees at 15. Version 0.5 stores, applies and sells levels by rebuilding the construction with new parameters (see [findings.md](findings.md) for what the tests showed).
+Depots and maintenance buildings get levels, bought one at a time in the building's own window. There are five level trees of 15 levels each, and a tree's highest level available is the company's claimed rank (the game has 15 ranks). Four trees (maintenance radius, vehicles maintained, pollution, noise) improve the building and raise its upkeep. Radius and vehicles levels cost 0.15 × the build price at level 1 and add 15% of the base upkeep each; noise costs 0.12 and adds 10%, pollution 0.08 and 5%, since those two do not change what the building does, and a town's rating spreads pollution over its whole area. In every tree, each level costs 15% more than the one before. The upkeep tree cuts the total upkeep, so it starts higher, at 0.25 × the build price, and a full upkeep tree pays for itself in about 12 game years on a building with the other four trees at 15. Version 1.0 stores, applies and sells levels by rebuilding the construction with new parameters (see [findings.md](findings.md) for what the tests showed).
 
 ## Trees
 
@@ -90,7 +90,7 @@ The early levels pay back quickly and the late ones slowly: with the other trees
 
 A tree's maximum level equals the claimed company rank. It is fixed: there is no setting to turn it off. When the rank cannot be read, no level can be bought.
 
-## How it is built (0.5)
+## How it is built (1.0)
 
 - **Storing levels.** One construction param per tree, values 0 to 15, declared with an availability year of 9999. That keeps it out of the build menu even in a save that runs past the year 3000 (the game's date card goes up to 5000), and a rebuild stores it.
 - **Price.** The build price is 6 × the upkeep the game charges for the building now, divided by what its current levels do to the upkeep, rounded to $100 (the game's whole-dollar upkeep leaves a few dollars of noise). That gives today's build price, with the game's upkeep factor and inflation included, without reading the depot scripts' base cost.
