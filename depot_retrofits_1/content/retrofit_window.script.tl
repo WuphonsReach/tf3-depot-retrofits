@@ -188,12 +188,11 @@ local footerScale = function(con : Engine.Component.Construction) : number
 end
 
 -- A buy is tried, not checked first: the click sends it, and the game builds the rebuild or refuses it (when something built
--- around the building since is in its way). The tab remembers the levels it showed at the click; when they have not changed a
--- few seconds later, the game refused it (nothing is charged then), and the tab says so and shows what is in the way in red
+-- around the building since is in its way). The tab remembers the levels it showed at the click; when they have not changed
+-- about a second later, the game refused it (nothing is charged then), and the tab says so and shows what is in the way in red
 -- (the proposal viewer below), until the next click, a rebuild that lands, or what it named as in the way is gone (when it
--- named nothing, until the next click). The game script gives up waiting a little sooner
--- (retrofits.script.tl), so a buy sent again is not refused as pending. Kept per building for the session, so the warning is
--- still there when the window is opened again. A check before the buy was tried and dropped: a stand-in check (in git
+-- named nothing, until the next click). A buy sent again replaces the refused one in the game script (retrofits.script.tl).
+-- Kept per building for the session, so the warning is still there when the window is opened again. A check before the buy was tried and dropped: a stand-in check (in git
 -- history, rebuild_check.tl) called buildings blocked that the game rebuilds, and the game's proposal viewer previews the rebuilt
 -- building each time it asks, which regrows the greenery around it and flashes its road connection (docs/design/findings.md).
 local record Try
