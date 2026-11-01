@@ -14,6 +14,7 @@
 - [x] 1.1 gallery: `2.jpg` has a fourth card, Berkeley Road Depot's blocked tab (`tools/gallery/road_depot_blocked.png`), and the new `6.jpg` is the tram building's blocked tab beside the house and garden the bulldozer highlights. At the upload, check that the dialog's gallery shows `6.jpg` after `5.jpg`.
 - [x] Check that the page lists the console file too: both files show since the 1.1 upload.
 - [ ] 1.1.1: a collision only with the building's own entrance road counts as clear. Release it ([docs/publishing.md](docs/publishing.md)).
+- [ ] After 1.1.1: probe the base game's `ProposalViewer` (`gui/entity_window/bridge_and_tunnel.tl`) in the window with the real replace proposal, logging only, on Peterlee Road Depot (clear expected), the "333" tram building with its neighbour standing (Collision expected) and Berkeley Road Depot with the block cleared but its road connected. If it agrees with the game, it replaces the stand-in check, the own-road rule and most of the timers; if not, the game script's check becomes advisory (send anyway; an unlanded rebuild is never charged). No more exceptions in the meantime.
 - [ ] Optional: in "333", bulldoze only the buildings around Berkeley Road Depot (88894) and leave the road; if the tab turns clear, its road 80088 was the same false alarm.
 
 ## Optional checks
