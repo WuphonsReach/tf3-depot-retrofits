@@ -29,6 +29,7 @@ local record TabState
 	scriptUpkeep : number -- the MAINTENANCE_COST upkeep, the update script's value with the levels applied
 	upkeepScale : number -- what the footer multiplies scriptUpkeep by
 	blocked : boolean -- true when the game would refuse a rebuild, so no level can be bought; nil when unchecked
+	checkRef : ReactRefT<RebuildCheckState> -- the tab's last rebuild check, reset by a click on a buy button; not in the key
 	key : string -- every field above as text; the tab redraws when it changes
 end
 
@@ -190,27 +191,39 @@ end
 
 -- The last rebuild check of one open tab.
 local record RebuildCheckState
-	t : number -- game time of the check
+	at : number -- os.clock() of the check, or the tab's step count where os.clock is not available
 	clear : boolean
 	reason : string
 end
 
--- A rebuild check asks the game to work out a whole rebuild proposal, so an open tab repeats it at most once a game day (about 4
--- seconds at 1x, 1 at 4x) and not while the game is paused; each newly opened tab checks once. The game script checks again
--- on every buy, so a stale answer here never lets a blocked rebuild through.
-local checkEveryClock = 4000
+-- A rebuild check asks the game to work out a whole rebuild proposal, so it runs only when needed: once when a tab opens, again
+-- after each click on a buy button (the click resets it), and every 2 seconds while the tab shows "Blocked", paused or not, so
+-- the buttons come back by themselves once the way is clear. A clear tab does not check on its own: the game script checks
+-- every buy again before sending it, so a stale "clear" never lets a blocked rebuild through.
+local blockedRecheckSeconds = 2
+local blockedRecheckSteps = 120
+local stepCount = 0
+local clockNow = function() : number, boolean
+	local ok, seconds = pcall(os.clock)
+	if ok and type(seconds) == "number" then return seconds, true end
+	return stepCount, false
+end
 local checkRebuild = function(construction : Engine.Entity, con : Engine.Component.Construction,
 		checkRef : ReactRefT<RebuildCheckState>) : boolean
 	if rebuildCheck == nil or con == nil or checkRef == nil then return nil end
-	local gameTime = api.engine.getComponent(api.engine.util.getWorld(), api.type.ComponentType.GAME_TIME) as Engine.Component.GameTime
-	local t = gameTime and gameTime.gameTime or 0
+	stepCount = stepCount + 1
+	local now, isClock = clockNow()
 	local last = checkRef:get()
-	if last ~= nil and t >= last.t and t - last.t < checkEveryClock then return last.clear end
+	if last ~= nil then
+		if last.clear ~= false then return last.clear end
+		local wait = isClock and blockedRecheckSeconds or blockedRecheckSteps
+		if now >= last.at and now - last.at < wait then return false end
+	end
 	local _, clear, reason = rebuildCheck.check(construction, constructionParams(con))
 	if logFull and (last == nil or last.clear ~= clear) then
 		say("window rebuildCheck construction=" .. tostring(construction) .. " clear=" .. tostring(clear) .. " reason=" .. tostring(reason))
 	end
-	checkRef:set({ t = t, clear = clear, reason = reason })
+	checkRef:set({ at = now, clear = clear, reason = reason })
 	return clear
 end
 
@@ -221,6 +234,7 @@ local readTab = function(construction : Engine.Entity, checkRef? : ReactRefT<Reb
 	s.levels = levels.read(con and constructionParams(con) or {})
 	local okCheck, clear = pcall(checkRebuild, construction, con, checkRef)
 	s.blocked = okCheck and clear == false or nil
+	s.checkRef = checkRef
 	if companyRank ~= nil then
 		s.rank, s.earnedRank, s.rankSource = companyRank.read(api.engine.util.getPlayer())
 	else
@@ -419,6 +433,7 @@ local buyButton = function(s : TabState, tree : string) : TreeNodeId
 		} },
 		onClick = function()
 			if not enabled then return end
+			if s.checkRef ~= nil then s.checkRef:set(nil) end
 			if logFull then
 				say("window buy construction=" .. tostring(s.construction) .. " tree=" .. tree .. " from=" .. tostring(level)
 					.. " shownPrice=" .. tostring(price))
@@ -532,11 +547,11 @@ local tabBody = function(s : TabState, gameCtx : GameContext) : TreeNodeId
 		summaryRow("Radius", s.radius and string.format("%d m", math.floor(s.radius + 0.5)) or "?"),
 		summaryRow("Vehicles", tostring(s.maintained or "?") .. "/" .. tostring(s.pool or "?")),
 	}
-	-- Greyed buttons show no tooltip, so the reason for "Blocked" and the way out go in the Summary card. A paused game does not
-	-- check again while the window stays open; a newly opened window does.
+	-- Greyed buttons show no tooltip, so the reason for "Blocked" and the way out go in the Summary card. The tab checks again
+	-- every 2 seconds while blocked, so the buttons come back by themselves.
 	if s.blocked then
 		summary[#summary + 1] = summaryRow("Blocked: something is in the way of a rebuild", "")
-		summary[#summary + 1] = summaryRow("Clear it, then open this window again", "")
+		summary[#summary + 1] = summaryRow("Clear it (pause first); the buttons come back", "")
 	end
 	local cards : {TreeNodeId} = { card("Summary", summary, gameCtx) }
 	for _, tree in ipairs(levels.trees) do cards[#cards + 1] = treeCard(s, tree, gameCtx) end
