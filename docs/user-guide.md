@@ -7,7 +7,7 @@
 - **What it costs.** Each level costs more than the one before. Every level except the upkeep levels also raises the building's upkeep.
 - **Limit.** A retrofit's highest level is your company rank.
 - **One catch.** Buying a level rebuilds the building. The game then reassigns the vehicles it maintained; some or all of them may go to another building in range.
-- **Status.** The mod is in development and not released yet.
+- **Status.** Version 1.0, the first release.
 
 ## Which buildings
 

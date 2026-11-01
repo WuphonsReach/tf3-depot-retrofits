@@ -2,7 +2,7 @@
 
 ## In short
 
-- **Where it stands.** 0.5 is on `main` and not released. The review fixes all passed in game (rank read, carrier from the depot, every buy charged once, buttons greyed out when money is short). Test results are in [docs/design/findings.md](docs/design/findings.md).
+- **Where it stands.** 1.0 is on `main`, ready to upload. The review fixes all passed in game (rank read, carrier from the depot, every buy charged once, buttons greyed out when money is short). Test results are in [docs/design/findings.md](docs/design/findings.md).
 - **Before a release.** Only the release itself. The checks below it are optional.
 
 ## Before a release
