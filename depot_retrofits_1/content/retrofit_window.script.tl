@@ -325,6 +325,96 @@ local getDrawnStyles = function() : {string : StyleSheet}
 	return drawnStyles ~= nil and drawnStyles.gap ~= nil and drawnStyles or nil
 end
 
+-- The "Blocked" banner, drawn as the yellow caution cards at the top of the town and line windows
+-- (entity_window_util.NotificationWidget in gui/entity_window/entity_window_util.tl): the card surface tinted with the
+-- caution colour at the game's high transparency, the icon on a solid caution tile (the colours and sizes are in
+-- game_mechanics/notifications/gui/notifications.css.lua; Caution is #FFC40C, gui/main/color_internal.lua). That CSS
+-- matches the base recipe's name, so the banner sets the same values inline; the outline class is not tied to a recipe.
+-- Built once on the first draw, apart from the drawn styles, so a failure here leaves the level boxes alone; an empty table
+-- after a failure, and the banner falls back to plain lines.
+local bannerStyles : {string : StyleSheet} = nil
+local caution = { 1, 0.769, 0.047 }
+local bannerIcon = "::/game_mechanics/notifications/gui/icons/building_industry_bulldozer.tga"
+local bannerLines = {
+	"Blocked: something is in the way of a rebuild.",
+	"Pause, then clear what is in the way.",
+	"The buy buttons come back within a few seconds.",
+}
+
+local getBannerStyles = function() : {string : StyleSheet}
+	if bannerStyles == nil and styleutil ~= nil then
+		local ok, styles = pcall(function() : {string : StyleSheet}
+			local ninePatch = function(fileName : string) : NinePatch
+				local patch = api.gui.NinePatch.new()
+				patch.fileName = fileName
+				patch.horizontal = { 0, 6, 26, 32 }
+				patch.vertical = { 0, 6, 26, 32 }
+				return patch
+			end
+			local card = styleutil.makeStyle{
+				backgroundImage1 = ninePatch("::/gui/entity_window/design/card_surface.tga"),
+				backgroundColor1 = { caution[1], caution[2], caution[3], 0.25 },
+			}
+			card.padding = api.type.Vec4f.new(8, 10, 8, 10)
+			local tile = styleutil.makeStyle{
+				backgroundImage1 = ninePatch("::/game_mechanics/notifications/gui/design/notification_surface.tga"),
+				backgroundColor1 = { caution[1], caution[2], caution[3], 1 },
+				color = { 1, 1, 1, 1 },
+				size = { 32, 32 },
+			}
+			tile.padding = api.type.Vec4f.new(4, 4, 4, 4)
+			return {
+				card = card,
+				tile = tile,
+				iconGap = styleutil.makeStyle{ size = { 10, 0 } },
+				below = styleutil.makeStyle{ size = { 0, 8 } },
+			}
+		end)
+		if not ok then say("window bannerStylesFailed error=" .. tostring(styles)) end
+		bannerStyles = ok and styles or {}
+	end
+	return bannerStyles ~= nil and bannerStyles.card ~= nil and bannerStyles or nil
+end
+
+-- Above the scrolling cards, so it shows whatever the scroll. Greyed buttons show no tooltip, so the reason and the way out
+-- are here; the tab checks again every 2 seconds while blocked, so the buttons come back by themselves.
+local blockedBanner = function() : TreeNodeId
+	local lines : {TreeNodeId} = {}
+	for _, line in ipairs(bannerLines) do
+		lines[#lines + 1] = builtin.TextView{ meta = { class = "font-scale-body" }, text = line, tooltipWhenClipped = line }
+	end
+	local styles = getBannerStyles()
+	if styles == nil then
+		return builtin.BoxLayout{ orientation = builtin.type.Orientation.Vertical, children = lines }
+	end
+	return builtin.BoxLayout{
+		orientation = builtin.type.Orientation.Vertical,
+		children = {
+			builtin.Component{
+				meta = { class = "notification-entity-window-card-outline" },
+				layout = builtin.BoxLayout{ children = {
+					builtin.Component{
+						meta = { styleSheet = styles.card },
+						layout = builtin.BoxLayout{
+							orientation = builtin.type.Orientation.Horizontal,
+							children = {
+								builtin.ImageView{
+									meta = { styleSheet = styles.tile },
+									path = bannerIcon,
+									scaling = builtin.type.ImageViewScaling.AutoFit,
+								},
+								builtin.Component{ meta = { styleSheet = styles.iconGap } },
+								builtin.BoxLayout{ orientation = builtin.type.Orientation.Vertical, children = lines },
+							},
+						},
+					},
+				} },
+			},
+			builtin.Component{ meta = { styleSheet = styles.below } },
+		},
+	}
+end
+
 -- The tree's symbol, then the boxes; the tooltip gives the level as a number.
 local levelRow = function(s : TabState, tree : string) : TreeNodeId
 	local level = s.levels[tree]
@@ -547,30 +637,23 @@ local tabBody = function(s : TabState, gameCtx : GameContext) : TreeNodeId
 		summaryRow("Radius", s.radius and string.format("%d m", math.floor(s.radius + 0.5)) or "?"),
 		summaryRow("Vehicles", tostring(s.maintained or "?") .. "/" .. tostring(s.pool or "?")),
 	}
-	-- Greyed buttons show no tooltip, so the reason for "Blocked" and the way out go in the Summary card. The tab checks again
-	-- every 2 seconds while blocked, so the buttons come back by themselves.
-	if s.blocked then
-		summary[#summary + 1] = summaryRow("Blocked: something is in the way of a rebuild", "")
-		summary[#summary + 1] = summaryRow("Clear it (pause first); the buttons come back", "")
-	end
 	local cards : {TreeNodeId} = { card("Summary", summary, gameCtx) }
 	for _, tree in ipairs(levels.trees) do cards[#cards + 1] = treeCard(s, tree, gameCtx) end
+	local children : {TreeNodeId} = {}
+	if s.blocked then children[#children + 1] = blockedBanner() end
 	if entityWindowUtil == nil then
-		return builtin.BoxLayout{ orientation = builtin.type.Orientation.Vertical, children = cards }
+		for _, node in ipairs(cards) do children[#children + 1] = node end
+		return builtin.BoxLayout{ orientation = builtin.type.Orientation.Vertical, children = children }
 	end
-	return builtin.BoxLayout{
-		orientation = builtin.type.Orientation.Vertical,
-		children = {
-			entityWindowUtil.ContentWidgetScrollContainer(cards, true),
-			entityWindowUtil.MaintenanceBar{
-				entity = s.construction,
-				maintenancePeriodText = _("Year"),
-				initialCalloutText = "",
-				gameCtx = gameCtx,
-				showOnRightSide = false,
-			},
-		},
+	children[#children + 1] = entityWindowUtil.ContentWidgetScrollContainer(cards, true)
+	children[#children + 1] = entityWindowUtil.MaintenanceBar{
+		entity = s.construction,
+		maintenancePeriodText = _("Year"),
+		initialCalloutText = "",
+		gameCtx = gameCtx,
+		showOnRightSide = false,
 	}
+	return builtin.BoxLayout{ orientation = builtin.type.Orientation.Vertical, children = children }
 end
 
 local RetrofitTab : Recipe<IEntityWindowParam> = nil
