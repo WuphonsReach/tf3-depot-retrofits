@@ -27,7 +27,7 @@ The Retrofit tab sits next to the building's own tab. From top to bottom:
 
 The upkeep figures, in the cards and in the footer, include a running cost for the vehicles the building maintains, which goes up and down as vehicles come and go. Buying a level rebuilds the building and resets that cost to zero, so right after a buy the footer can read a little below the figure the card showed. The upkeep retrofit does not cut this running cost.
 
-The buy button shows "Rank N" and is greyed out when the next level needs a higher company rank. It is also greyed out, with the price still shown, when you do not have enough money for the level. On a building with a very small maintenance radius (under 20 m, as on some modded depots), a radius level would widen it by less than 1 m, so that button shows "No effect" and is greyed out. A retrofit at level 15 shows "Highest level".
+The buy button shows "Rank N" and is greyed out when the next level needs a higher company rank. It is also greyed out, with the price still shown, when you do not have enough money for the level. On a building with a very small maintenance radius (under 20 m, as on some modded depots), a radius level would widen it by less than 1 m, so that button shows "No effect" and is greyed out. When the game cannot rebuild the building, because something now stands in the way of its street connection (for example, a town grew around the depot), every button shows "Blocked" and is greyed out, and the Summary card says so. Clear what is in the way, then open the window again; pausing the game first keeps the town from building it back. A retrofit at level 15 shows "Highest level".
 
 Levels cannot be sold or lowered.
 

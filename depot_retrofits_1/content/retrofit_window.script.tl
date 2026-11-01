@@ -28,6 +28,7 @@ local record TabState
 	accumulated : number -- the MAINTENANCE_COST accumulated costs, which the game's upkeep footer adds to the upkeep
 	scriptUpkeep : number -- the MAINTENANCE_COST upkeep, the update script's value with the levels applied
 	upkeepScale : number -- what the footer multiplies scriptUpkeep by
+	blocked : boolean -- true when the game would refuse a rebuild, so no level can be bought; nil when unchecked
 	key : string -- every field above as text; the tab redraws when it changes
 end
 
@@ -74,10 +75,12 @@ local companyRank = loadModule("depot_retrofits_1::/company_rank.tl") as DepotRe
 local entityWindowUtil = loadModule("::/gui/entity_window/entity_window_util.tl") as EntityWindowUtil
 -- Optional: without it each card shows its level as text instead of a row of marks.
 local styleutil = loadModule("::/gui/main/styleutil.tl") as StyleUtil
+-- Optional: without it the tab cannot show "Blocked"; the game script checks every buy itself.
+local rebuildCheck = loadModule("depot_retrofits_1::/rebuild_check.tl") as DepotRetrofitsRebuildCheck
 local ready = react ~= nil and builtin ~= nil and engineReact ~= nil and contentCard ~= nil and levels ~= nil
 say("window loaded ready=" .. tostring(ready) .. " constructionWindow=" .. tostring(makeEntityWindow ~= nil)
 	.. " companyRank=" .. tostring(companyRank ~= nil) .. " entityWindowUtil=" .. tostring(entityWindowUtil ~= nil)
-	.. " styleutil=" .. tostring(styleutil ~= nil))
+	.. " styleutil=" .. tostring(styleutil ~= nil) .. " rebuildCheck=" .. tostring(rebuildCheck ~= nil))
 
 -- Stock icons: the upkeep symbol of the game's own upkeep footer (gui/entity_window/entity_window_util.tl, MaintenanceBar), the
 -- shopping cart of the vehicle store's buy button (gui/line_vehicle_mgmt/vehicle_store_window.tl), and in front of each
@@ -185,11 +188,39 @@ local footerScale = function(con : Engine.Component.Construction) : number
 	return maintenanceScale * multiplier
 end
 
-local readTab = function(construction : Engine.Entity) : TabState
+-- The last rebuild check of one open tab.
+local record RebuildCheckState
+	t : number -- game time of the check
+	clear : boolean
+	reason : string
+end
+
+-- A rebuild check asks the game to work out a whole rebuild proposal, so an open tab repeats it at most once a game day (about 4
+-- seconds at 1x, 1 at 4x) and not while the game is paused; each newly opened tab checks once. The game script checks again
+-- on every buy, so a stale answer here never lets a blocked rebuild through.
+local checkEveryClock = 4000
+local checkRebuild = function(construction : Engine.Entity, con : Engine.Component.Construction,
+		checkRef : ReactRefT<RebuildCheckState>) : boolean
+	if rebuildCheck == nil or con == nil or checkRef == nil then return nil end
+	local gameTime = api.engine.getComponent(api.engine.util.getWorld(), api.type.ComponentType.GAME_TIME) as Engine.Component.GameTime
+	local t = gameTime and gameTime.gameTime or 0
+	local last = checkRef:get()
+	if last ~= nil and t >= last.t and t - last.t < checkEveryClock then return last.clear end
+	local _, clear, reason = rebuildCheck.check(construction, constructionParams(con))
+	if logFull and (last == nil or last.clear ~= clear) then
+		say("window rebuildCheck construction=" .. tostring(construction) .. " clear=" .. tostring(clear) .. " reason=" .. tostring(reason))
+	end
+	checkRef:set({ t = t, clear = clear, reason = reason })
+	return clear
+end
+
+local readTab = function(construction : Engine.Entity, checkRef? : ReactRefT<RebuildCheckState>) : TabState
 	local depot = firstDepot(construction)
 	local s : TabState = { depot = depot, construction = construction }
 	local con = api.engine.getComponent(construction, api.type.ComponentType.CONSTRUCTION) as Engine.Component.Construction
 	s.levels = levels.read(con and constructionParams(con) or {})
+	local okCheck, clear = pcall(checkRebuild, construction, con, checkRef)
+	s.blocked = okCheck and clear == false or nil
 	if companyRank ~= nil then
 		s.rank, s.earnedRank, s.rankSource = companyRank.read(api.engine.util.getPlayer())
 	else
@@ -236,6 +267,7 @@ local readTab = function(construction : Engine.Entity) : TabState
 		.. " upkeep=" .. tostring(s.chargedUpkeep) .. " pool=" .. tostring(s.pool) .. " radius=" .. tostring(s.radius)
 		.. " maintained=" .. tostring(s.maintained) .. " accumulated=" .. tostring(s.accumulated)
 		.. " upkeepScript=" .. tostring(s.scriptUpkeep) .. " upkeepScale=" .. tostring(s.upkeepScale)
+		.. " blocked=" .. tostring(s.blocked)
 	return s
 end
 
@@ -363,6 +395,8 @@ local buyButton = function(s : TabState, tree : string) : TreeNodeId
 	local price = s.buildPrice and levels.levelPrice(s.buildPrice, tree, nextLevel) or nil
 	if price == nil then
 		label, tooltip = "?", "Price unknown"
+	elseif s.blocked then
+		label, tooltip = "Blocked", "Something is in the way: the game cannot rebuild this building"
 	elseif noEffect(s, tree) then
 		label, tooltip = "No effect", "A level would widen the radius by less than 1 m"
 	elseif s.rank == nil then
@@ -493,13 +527,18 @@ end
 local tabBody = function(s : TabState, gameCtx : GameContext) : TreeNodeId
 	local rankNote = (s.earnedRank and s.rank and s.earnedRank > s.rank)
 		and ("Rank " .. tostring(s.earnedRank) .. " earned: claim it to buy higher levels") or ""
-	local cards : {TreeNodeId} = {
-		card("Summary", {
-			summaryRow("Company rank " .. tostring(s.rank or "?"), rankNote),
-			summaryRow("Radius", s.radius and string.format("%d m", math.floor(s.radius + 0.5)) or "?"),
-			summaryRow("Vehicles", tostring(s.maintained or "?") .. "/" .. tostring(s.pool or "?")),
-		}, gameCtx),
+	local summary : {TreeNodeId} = {
+		summaryRow("Company rank " .. tostring(s.rank or "?"), rankNote),
+		summaryRow("Radius", s.radius and string.format("%d m", math.floor(s.radius + 0.5)) or "?"),
+		summaryRow("Vehicles", tostring(s.maintained or "?") .. "/" .. tostring(s.pool or "?")),
 	}
+	-- Greyed buttons show no tooltip, so the reason for "Blocked" and the way out go in the Summary card. A paused game does not
+	-- check again while the window stays open; a newly opened window does.
+	if s.blocked then
+		summary[#summary + 1] = summaryRow("Blocked: something is in the way of a rebuild", "")
+		summary[#summary + 1] = summaryRow("Clear it, then open this window again", "")
+	end
+	local cards : {TreeNodeId} = { card("Summary", summary, gameCtx) }
 	for _, tree in ipairs(levels.trees) do cards[#cards + 1] = treeCard(s, tree, gameCtx) end
 	if entityWindowUtil == nil then
 		return builtin.BoxLayout{ orientation = builtin.type.Orientation.Vertical, children = cards }
@@ -523,8 +562,9 @@ local RetrofitTab : Recipe<IEntityWindowParam> = nil
 if ready then
 	RetrofitTab = react.RegisterRecipe("DepotRetrofitsTab", function(params : IEntityWindowParam) : TreeNodeId
 		local construction = params.keyEntity
+		local checkRef = react.useRef(nil as RebuildCheckState)
 		local state = engineReact.useStepState(function() : TabState
-			return readTab(construction)
+			return readTab(construction, checkRef)
 		end, nil, function(a : TabState, b : TabState) : boolean
 			return a ~= nil and b ~= nil and a.key == b.key
 		end)

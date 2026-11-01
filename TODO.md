@@ -3,7 +3,7 @@
 ## In short
 
 - **Where it stands.** 1.0 is on mod.io (mod id 6495416, uploaded 31 Oct 2026). The review fixes all passed in game (rank read, carrier from the depot, every buy charged once, buttons greyed out when money is short). Test results are in [docs/design/findings.md](docs/design/findings.md).
-- **Next.** 1.1: check a rebuild before sending it, and show "Blocked" when the game would refuse it. The checks below are optional.
+- **Next.** 1.1 (on a branch): a rebuild is checked before it is sent, and the tab shows "Blocked" when the game would refuse it; to test in game, then release. The checks below are optional.
 
 ## Release 1.0
 
