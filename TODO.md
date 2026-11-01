@@ -3,7 +3,7 @@
 ## In short
 
 - **Where it stands.** 1.0 is on mod.io (mod id 6495416, uploaded 31 Oct 2026). The review fixes all passed in game (rank read, carrier from the depot, every buy charged once, buttons greyed out when money is short). Test results are in [docs/design/findings.md](docs/design/findings.md).
-- **Next.** 1.1 (on a branch): a rebuild is checked before it is sent, and the tab shows "Blocked" when the game would refuse it; to test in game, then release. The checks below are optional.
+- **Next.** 1.1 (on a branch): a rebuild is checked before it is sent, and the tab shows "Blocked" when the game would refuse it. The first in-game test found the check failing on every call (`makeProposalData` takes a `SimpleProposal`), so every rebuild went out unchecked as in 1.0; fixed, to test again, then release. The checks below are optional; the ideas at the bottom are not planned.
 
 ## Release 1.0
 
@@ -24,3 +24,11 @@
 
 - [ ] Text sizes in the tab: everything is body size for now.
 - [ ] "gameScript loaded" is logged once per Lua state, about 14 lines per load.
+
+## Ideas (not planned)
+
+Other ways to handle a building the game will not rebuild, kept for if the "Blocked" check falls short (the facts are in [docs/design/findings.md](docs/design/findings.md)).
+
+- **Force the rebuild.** Send it with `ignoreErrors` on, as the base game does for its own in-place replacements (landmark level-ups). What that does on a collision is unknown: first a one-off probe on a copy of the "333" save, forcing one rebuild of Berkeley Road Depot (88894), and a look at its surroundings. If it proves harmless for some kinds of collision (for example town buildings only), force those and show "Blocked" for the rest; the check logs the colliding entities.
+- **Skip the rebuild.** Set pollution and noise with `makeEntitySetEmissionsCmd`, and upkeep with the debug `makeMaintenanceCostUpdateCmd`, without a rebuild. Not taken: pool and radius have no such command, and the next rebuild (a module edit, catenary) would undo the values, since the levels are stored in the building's params and those change only by a rebuild.
+- **A warning banner.** Show "Blocked" as a yellow warning at the top of the window, like the warnings in the line and town windows, instead of the two lines in the Summary card; find the component those windows use.
