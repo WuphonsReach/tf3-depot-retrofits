@@ -190,7 +190,8 @@ end
 -- A buy is tried, not checked first: the click sends it, and the game builds the rebuild or refuses it (when something built
 -- around the building since is in its way). The tab remembers the levels it showed at the click; when they have not changed a
 -- few seconds later, the game refused it (nothing is charged then), and the tab says so and shows what is in the way in red
--- (refusedViewer below), until the next click or a rebuild that lands. The game script gives up waiting a little sooner
+-- (the proposal viewer below), until the next click, a rebuild that lands, or what it named as in the way is gone (when it
+-- named nothing, until the next click). The game script gives up waiting a little sooner
 -- (retrofits.script.tl), so a buy sent again is not refused as pending. Kept per building for the session, so the warning is
 -- still there when the window is opened again. A check before the buy was tried and dropped: a stand-in check (in git
 -- history, rebuild_check.tl) called buildings blocked that the game rebuilds, and the game's proposal viewer previews the rebuilt
@@ -203,6 +204,8 @@ end
 local tries : {Engine.Entity : Try} = {}
 local refused : {Engine.Entity : string} = {} -- the levels when the buy was found refused; cleared by a click or a new level
 local refusals : {Engine.Entity : integer} = {} -- counts the refusals, so each one places a new viewer
+-- What the viewer named as in the way after a refusal; once none of it exists any more, the warning and the red go.
+local inTheWay : {Engine.Entity : {Engine.Entity}} = {}
 -- Each open tab's way to its action area, so a click can take the viewer away at once.
 local record ActionArea
 	setActionFn : function(actionFn? : (function() : TreeNodeId), key2? : string)
@@ -234,12 +237,25 @@ local readRefused = function(construction : Engine.Entity, current : string) : b
 		elseif stepCount - try.step >= refusedAfterSteps and (not isClock or now - try.at >= refusedAfterSeconds) then
 			tries[construction] = nil
 			refused[construction] = current
+			inTheWay[construction] = nil
 			refusals[construction] = (refusals[construction] or 0) + 1
 			say("window notRebuilt construction=" .. tostring(construction) .. " levels=" .. current
 				.. " waited=" .. tostring(now - try.at) .. " steps=" .. tostring(stepCount - try.step) .. " clock=" .. tostring(isClock))
 		end
 	end
 	if refused[construction] ~= nil and refused[construction] ~= current then refused[construction] = nil end
+	local named = inTheWay[construction]
+	if refused[construction] ~= nil and named ~= nil and #named > 0 then
+		local gone = true
+		for _, entity in ipairs(named) do
+			local ok, exists = pcall(api.engine.entityExists, entity)
+			if not ok or exists then gone = false end
+		end
+		if gone then
+			refused[construction] = nil
+			say("window cleared construction=" .. tostring(construction) .. " levels=" .. current)
+		end
+	end
 	return refused[construction] ~= nil
 end
 
@@ -393,7 +409,7 @@ local getBannerStyles = function() : {string : StyleSheet}
 	return bannerStyles ~= nil and bannerStyles.card ~= nil and bannerStyles or nil
 end
 
--- Above the scrolling cards, so it shows whatever the scroll; after a buy the game refused, until the next click.
+-- Above the scrolling cards, so it shows whatever the scroll; after a buy the game refused (see readRefused).
 local banner = function(bannerLines : {string}) : TreeNodeId
 	local lines : {TreeNodeId} = {}
 	for _, line in ipairs(bannerLines) do
@@ -708,6 +724,11 @@ local viewerNode = function(construction : Engine.Entity, viewer : Viewer) : Tre
 	return builtin.ActionDescriptor{ horizontalPromptList = true, children = { builtin.ProposalViewer{
 		proposal = viewer.proposal,
 		onCreateProposalData = function(data : ProposalData, _proposal : Proposal)
+			local named : {Engine.Entity} = {}
+			if data.collisionInfo ~= nil then
+				for _, c in ipairs(data.collisionInfo.collisionEntities or {}) do named[#named + 1] = c.entity end
+			end
+			inTheWay[construction] = named
 			if logFull then
 				local ok, line = pcall(describeProposalData, data)
 				local reason = ok and line or ("describeError=" .. tostring(line))
