@@ -27,7 +27,7 @@
 
 ## Ideas (not planned)
 
-Other ways to handle a building the game will not rebuild, kept for if the "Blocked" check falls short (the facts are in [docs/design/findings.md](docs/design/findings.md)).
+Other ways to handle a building the game will not rebuild, kept in case the "Blocked" check falls short (the facts are in [docs/design/findings.md](docs/design/findings.md)).
 
 - **Force the rebuild.** Send it with `ignoreErrors` on, as the base game does for its own in-place replacements (landmark level-ups). What that does on a collision is unknown: first a one-off probe on a copy of the "333" save, forcing one rebuild of Berkeley Road Depot (88894), and a look at its surroundings. If it proves harmless for some kinds of collision (for example town buildings only), force those and show "Blocked" for the rest; the check logs the colliding entities.
 - **Skip the rebuild.** Set pollution and noise with `makeEntitySetEmissionsCmd`, and upkeep with the debug `makeMaintenanceCostUpdateCmd`, without a rebuild. Not taken: pool and radius have no such command, and the next rebuild (a module edit, catenary) would undo the values, since the levels are stored in the building's params and those change only by a rebuild.

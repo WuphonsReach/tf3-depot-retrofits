@@ -113,11 +113,11 @@ local buyTooltip = "Buy the next level. The building is rebuilt, and the game re
 -- (docs/design/findings.md). A plain tooltip does not wrap (in game it ran as one line the width of the window), so the
 -- lines are broken by hand, as the base game does, one sentence a line.
 local effectTooltips : {string : string} = {
-	pollution = "The pollution overlay map uses a decibel scale and averages across a few minutes of play.\n"
-		.. "At the full 75% reduction in pollution, the pollution map will only show a reduction of 2-3 steps.\n"
+	pollution = "The pollution overlay map uses a decibel scale and averages over a few minutes of play.\n"
+		.. "At the full 75% reduction in pollution, the pollution map will show a reduction of only 2-3 steps.\n"
 		.. "Vehicle pollution is not affected and will still increase the pollution in the area.",
-	noise = "The noise overlay map uses a decibel scale and averages across a few minutes of play.\n"
-		.. "At the full 75% reduction in noise, the noise map will only show a reduction of 2-3 steps.\n"
+	noise = "The noise overlay map uses a decibel scale and averages over a few minutes of play.\n"
+		.. "At the full 75% reduction in noise, the noise map will show a reduction of only 2-3 steps.\n"
 		.. "Vehicle noise is not affected and will still increase the noise in the area.",
 }
 
@@ -359,7 +359,7 @@ local caution = { 1, 0.769, 0.047 }
 local bannerIcon = "::/game_mechanics/notifications/gui/icons/building_industry_bulldozer.tga"
 local bannerLines = {
 	"Blocked: a building or a road is in the way.",
-	"Pause, then clear it; reconnect roads after.",
+	"Pause and clear it; reconnect roads afterwards.",
 	"The buy buttons should come back after a few seconds.",
 }
 
