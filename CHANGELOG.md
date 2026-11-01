@@ -4,7 +4,10 @@ Newest first. The number in the title is `modVersion` at the top of [mod.script.
 
 ## 1.2 (not released)
 
-Nothing yet.
+- **A buy is tried, not checked first.** In 1.1 the tab asked the game before each buy and greyed the buttons as "Blocked" when the answer was no, but that check judged a stand-in for the rebuild and called buildings blocked that the game rebuilds without trouble (a road depot by its own road, train depots in open country). The buy buttons now always send the buy, and the game decides.
+- **When the game refuses, the tab says why.** About two seconds after the click, a yellow warning shows at the top of the tab, and what is in the way shows in red. Nothing is charged. Clear it and buy again: the warning goes by itself once what was in red is gone. The building's own entrance can show red too without being in the way.
+
+Release note: `The game decides whether a level can be built; when it cannot, the tab shows what is in the way in red. No more false "Blocked".`
 
 ## 1.1.1 (2026-10-31)
 

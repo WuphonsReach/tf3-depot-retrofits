@@ -2,8 +2,8 @@
 
 ## In short
 
-- **Where it stands.** 1.0 is on mod.io (mod id 6495416, uploaded 31 Oct 2026). The review fixes all passed in game (rank read, carrier from the depot, every buy charged once, buttons greyed out when money is short). Test results are in [docs/design/findings.md](docs/design/findings.md).
-- **Next.** 1.1 (on a branch): a rebuild is checked before it is sent, and the tab shows "Blocked" when the game would refuse it. The first in-game test found the check failing on every call (`makeProposalData` takes a `SimpleProposal`), so every rebuild went out unchecked as in 1.0; fixed and tested (both blocked buildings in "333" show "Blocked", a clear building buys as before). The yellow warning tested well. A tab that turns clear keeps checking for 30 seconds, every 2 real seconds; tested. Berkeley Road Depot in "333" can only take levels with its road cut off, then built again. The gallery shows the warning (`2.jpg`, `6.jpg`). A radius level adds at least 10 m: the Buffer Stop Depot's radius went 1 m, 11 m, 21 m and on; tested. 1.1 is released (tagged `v1.1`). Its published copy showed a false "Blocked" on a road depot whose only collision was its own entrance road; 1.1.1 counts that as clear and is released (tagged `v1.1.1`, published copy tested). Next: the `ProposalViewer` probe. The checks below are optional; the ideas at the bottom are not planned.
+- **Where it stands.** 1.1.1 is on mod.io (mod id 6495416) and tagged `v1.1.1`. Test results are in [docs/design/findings.md](docs/design/findings.md).
+- **Next.** 1.2 (on a branch): the check before a buy is gone, as it called buildings blocked that the game rebuilds. A click sends the buy, and a refused one shows "Not rebuilt" with what is in the way in red (the game's `ProposalViewer`, placed only after a refusal, since each viewer previews the rebuild in the world); tested in "333" at the fastest speed. Left for 1.2: test that the warning stays through a retry, retake the two gallery images that show "Blocked", then the release. The checks below are optional; the ideas at the bottom are not planned.
 
 ## Release 1.0
 
@@ -14,7 +14,13 @@
 - [x] 1.1 gallery: `2.jpg` has a fourth card, Berkeley Road Depot's blocked tab (`tools/gallery/road_depot_blocked.png`), and the new `6.jpg` is the tram building's blocked tab beside the house and garden the bulldozer highlights. At the upload, check that the dialog's gallery shows `6.jpg` after `5.jpg`.
 - [x] Check that the page lists the console file too: both files show since the 1.1 upload.
 - [x] 1.1.1: a collision only with the building's own entrance road counts as clear. Released (`v1.1.1` on `c194f37`); the published copy took a level on Peterlee Road Depot.
-- [ ] After 1.1.1: probe the base game's `ProposalViewer` (`gui/entity_window/bridge_and_tunnel.tl`) in the window with the real replace proposal, logging only, on Peterlee Road Depot (clear expected), the "333" tram building with its neighbour standing (Collision expected) and Berkeley Road Depot with the block cleared but its road connected. If it agrees with the game, it replaces the stand-in check, the own-road rule and most of the timers; if not, the game script's check becomes advisory (send anyway; an unlanded rebuild is never charged). No more exceptions in the meantime.
+- [x] After 1.1.1: probe the base game's `ProposalViewer` with the real replace proposal. It agreed with the game everywhere the stand-in check did not, but each viewer previews the rebuild in the world (regrown greenery, a blue or red flash), so 1.2 tries the buy and places the viewer only after a refusal (docs/design/findings.md).
+
+## Release 1.2
+
+- [ ] Test that "Not rebuilt" stays through a retry on a building the game still refuses (Berkeley Maintenance Building in "333" with the house standing), and goes once the house is bulldozed.
+- [ ] Gallery: `2.jpg` (its fourth card, `tools/gallery/road_depot_blocked.png`) and `6.jpg` show the 1.1 "Blocked" tab. Retake both with the "Not rebuilt" warning and the obstacle in red.
+- [ ] Release 1.2 ([docs/publishing.md](docs/publishing.md)).
 - [x] Optional: in "333", bulldoze only the buildings around Berkeley Road Depot (88894) and leave the road. The tab stayed blocked until the road was cut off, so the own-road rule does not clear that road; whether the game would refuse the rebuild is for the probe.
 
 ## Optional checks
@@ -31,8 +37,8 @@
 
 ## Ideas (not planned)
 
-Other ways to handle a building the game will not rebuild, kept in case the "Blocked" check falls short (the facts are in [docs/design/findings.md](docs/design/findings.md)).
+Other ways to handle a building the game will not rebuild (the facts are in [docs/design/findings.md](docs/design/findings.md)).
 
-- **Force the rebuild.** Send it with `ignoreErrors` on, as the base game does for its own in-place replacements (landmark level-ups). What that does on a collision is unknown: first a one-off probe on a copy of the "333" save, forcing one rebuild of Berkeley Road Depot (88894), and a look at its surroundings. If it proves harmless for some kinds of collision (for example town buildings only), force those and show "Blocked" for the rest; the check logs the colliding entities.
+- **Force the rebuild.** Send it with `ignoreErrors` on, as the base game does for its own in-place replacements (landmark level-ups). What that does on a collision is unknown: first a one-off probe on a copy of the "333" save, forcing one rebuild of Berkeley Road Depot (88894), and a look at its surroundings. If it proves harmless for some kinds of collision (for example town buildings only), force those and show "Not rebuilt" for the rest; the proposal viewer reports the colliding entities.
 - **Skip the rebuild.** Set pollution and noise with `makeEntitySetEmissionsCmd`, and upkeep with the debug `makeMaintenanceCostUpdateCmd`, without a rebuild. Not taken: pool and radius have no such command, and the next rebuild (a module edit, catenary) would undo the values, since the levels are stored in the building's params and those change only by a rebuild.
-- **Point at what is in the way.** The check logs the colliding entities (for Berkeley Road Depot, 80088 and 110793). The warning could name them or a click could move the camera there, so the player knows what to clear.
+- **Point at what is in the way.** After a refusal the proposal viewer draws it in red. A click could also move the camera there, for a building in the way that is off screen.
