@@ -6,7 +6,7 @@ A Transport Fever 3 script mod: depots and maintenance buildings get levels that
 
 <p>
   <img src="depot_retrofits_1/_metadata/0.jpg" alt="Depot Retrofits: level up your depots" width="49%">
-  <img src="depot_retrofits_1/_metadata/2.jpg" alt="The Retrofit tab of three buildings, one card per retrofit" width="49%">
+  <img src="depot_retrofits_1/_metadata/2.jpg" alt="The Retrofit tab of four buildings, one card per retrofit; the last shows the Not rebuilt warning" width="49%">
 </p>
 
 ## In short
