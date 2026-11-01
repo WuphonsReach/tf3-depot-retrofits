@@ -630,7 +630,7 @@ end
 
 -- The cards scroll and the game's own upkeep footer sits below them, as in the depot's tab
 -- (gui/entity_window/maintenance_station/maintenance_station.tl).
-local tabBody = function(s : TabState, gameCtx : GameContext, probe? : TreeNodeId) : TreeNodeId
+local tabBody = function(s : TabState, gameCtx : GameContext) : TreeNodeId
 	local rankNote = (s.earnedRank and s.rank and s.earnedRank > s.rank)
 		and ("Rank " .. tostring(s.earnedRank) .. " earned: claim it to buy higher levels") or ""
 	local summary : {TreeNodeId} = {
@@ -642,7 +642,6 @@ local tabBody = function(s : TabState, gameCtx : GameContext, probe? : TreeNodeI
 	for _, tree in ipairs(levels.trees) do cards[#cards + 1] = treeCard(s, tree, gameCtx) end
 	local children : {TreeNodeId} = {}
 	if s.refused then children[#children + 1] = refusedBanner() end
-	if probe ~= nil then children[#children + 1] = probe end
 	if entityWindowUtil == nil then
 		for _, node in ipairs(cards) do children[#children + 1] = node end
 		return builtin.BoxLayout{ orientation = builtin.type.Orientation.Vertical, children = children }
@@ -661,8 +660,9 @@ end
 -- The probe, at logLevel "full" only: the game's own proposal viewer, as the base bridge and tunnel window uses it
 -- (gui/entity_window/bridge_and_tunnel.tl), given the real rebuild (createProposalReplaceConstruction) with the levels
 -- unchanged. It logs what the game says about that proposal, to set beside the stand-in check and what the game does with a
--- buy. Whether the viewer works outside the window's action area is part of the probe: the log says when it is placed and
--- each different answer it gives.
+-- buy. The viewer goes into the window's action area through setActionFn, inside an ActionDescriptor, as the bridge window
+-- places it: placed among the tab's own widgets it stopped the game ("Assertion `!IsTransformWithContext(node.recipeId)'").
+-- The log says when it is placed and each different answer it gives.
 local record Probe
 	levels : string
 	proposal : Proposal
@@ -694,7 +694,7 @@ end
 
 local probeViewer = function(construction : Engine.Entity, probe : Probe) : TreeNodeId
 	if probe == nil or probe.proposal == nil then return nil end
-	return builtin.ProposalViewer{
+	return builtin.ActionDescriptor{ horizontalPromptList = true, children = { builtin.ProposalViewer{
 		proposal = probe.proposal,
 		onCreateProposalData = function(data : ProposalData, _proposal : Proposal)
 			local ok, line = pcall(describeProposalData, data)
@@ -707,7 +707,7 @@ local probeViewer = function(construction : Engine.Entity, probe : Probe) : Tree
 		end,
 		entityForRefundableContext = api.engine.util.getPlayer(),
 		proposalId = "depot_retrofits_probe," .. tostring(construction) .. "," .. probe.levels,
-	}
+	} } }
 end
 
 local RetrofitTab : Recipe<IEntityWindowParam> = nil
@@ -723,18 +723,19 @@ if ready then
 		local s = state:old()
 		local ok, body = pcall(function() : TreeNodeId
 			logShown(s)
-			local probe : TreeNodeId = nil
-			if logFull then
+			if logFull and params.setActionFn ~= nil then
 				local current = levels.describe(s.levels)
 				local last = probeRef:get()
 				if last == nil or last.levels ~= current then
 					last = makeProbe(construction, current)
 					probeRef:set(last)
 				end
-				local okProbe, viewer = pcall(probeViewer, construction, last)
-				if okProbe then probe = viewer else say("window probeError construction=" .. tostring(construction) .. " error=" .. tostring(viewer)) end
+				local okProbe, probeError : boolean, any = pcall(params.setActionFn, function() : TreeNodeId
+					return probeViewer(construction, last)
+				end)
+				if not okProbe then say("window probeError construction=" .. tostring(construction) .. " error=" .. tostring(probeError)) end
 			end
-			return tabBody(s, params.gameCtx, probe)
+			return tabBody(s, params.gameCtx)
 		end)
 		if not ok then
 			say("window error construction=" .. tostring(construction) .. " error=" .. tostring(body))
@@ -761,6 +762,8 @@ window.entityWindowFn = function(_captureParams : any, entity : Engine.Entity, t
 	local okOwned, owned = pcall(isPlayerOwned, entity)
 	local customTabs : {ConstructionWindowParam.ConData} = {}
 	local show = ready and depot ~= nil and okOwned and owned
+	-- The probe's way into the window's action area, keyed to the tab (logLevel "full" only).
+	local tabAction = (show and logFull) and makeEntityWindow.makeSetActionFnWithCombinedKey(RetrofitTab, setActionFnAndProxy) or nil
 	if show then
 		table.insert(customTabs, {
 			entity = entity,
@@ -776,6 +779,8 @@ window.entityWindowFn = function(_captureParams : any, entity : Engine.Entity, t
 					gameCtx = gameCtx,
 					isMapEditor = isMapEditor,
 					isSandboxMode = isSandboxMode,
+					setActionFn = tabAction and tabAction.fn,
+					setActionFn_compareProxy = tabAction and tabAction.proxy,
 				} as IEntityWindowParam,
 				autoCloseCondition = entityRevisionCloseConditionAndProxy[1],
 				autoCloseCondition_compareProxy = entityRevisionCloseConditionAndProxy[2],
