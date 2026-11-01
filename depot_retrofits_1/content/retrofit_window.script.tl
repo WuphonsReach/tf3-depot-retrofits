@@ -31,7 +31,7 @@ local record TabState
 	refused : boolean -- true when the game did not rebuild the building for its last buy (see readRefused); nil otherwise
 	blocked : boolean -- true when the proposal viewer says the game would refuse the rebuild; nil when clear or not answered
 	viewer : boolean -- whether the proposal viewer is wanted in the action area now
-	recheck : integer -- while blocked, which 2-second period it is: a new one places a new viewer; nil otherwise
+	ask : integer -- how often the building's verdict was dropped to ask again: a new value places a new viewer
 	key : string -- every field above as text; the tab redraws when it changes
 end
 
@@ -195,12 +195,23 @@ end
 -- (nothing is charged then), and the tab says so until a rebuild lands. The game script gives up waiting a little sooner
 -- (retrofits.script.tl), so a buy sent again is not refused as pending. Kept per building for the session, so the warning is
 -- still there when the window is opened again.
--- The proposal viewer's last answer for the tab's building: clear when the game would build the rebuild with the levels shown.
--- Kept per open tab, so each opening asks afresh.
+-- The proposal viewer's last answer for a building: clear when the game would build the rebuild with the levels shown. Kept
+-- per building for the session, so switching tabs or opening the window again does not ask again: each viewer previews the
+-- rebuilt building, which regrows the greenery around it and flashes its road connection blue. It is asked again when the
+-- levels change, after a refused buy, and while blocked when something it named as in the way is gone (or, when it named
+-- nothing, every 10 seconds): one viewer answers once, so with the house next door bulldozed it went on saying blocked.
 local record Verdict
 	levels : string
 	clear : boolean
 	reason : string
+	entities : {Engine.Entity} -- what it named as in the way
+	at : number -- clockNow() of the answer
+end
+local verdicts : {Engine.Entity : Verdict} = {}
+local asks : {Engine.Entity : integer} = {} -- counts the times a verdict was dropped to ask again; part of the viewer's key
+local askAgain = function(construction : Engine.Entity)
+	verdicts[construction] = nil
+	asks[construction] = (asks[construction] or 0) + 1
 end
 
 local record Try
@@ -215,8 +226,8 @@ local record ActionArea
 end
 local actionAreas : {Engine.Entity : ActionArea} = {}
 local refused : {Engine.Entity : string} = {} -- the levels when the rebuild was found refused; cleared once they change
-local blockedRecheckSeconds = 2
-local blockedRecheckSteps = 120
+local unnamedRecheckSeconds = 10
+local unnamedRecheckSteps = 600
 local refusedAfterSeconds = 4
 local refusedAfterSteps = 240
 local stepCount = 0
@@ -229,7 +240,7 @@ local clockNow = function() : number, boolean
 end
 
 -- Whether the building's last buy was refused by the game: the levels did not change within the wait after the click.
-local readRefused = function(construction : Engine.Entity, current : string, verdictRef : ReactRefT<Verdict>) : boolean
+local readRefused = function(construction : Engine.Entity, current : string) : boolean
 	stepCount = stepCount + 1
 	local try = tries[construction]
 	if try ~= nil then
@@ -237,12 +248,12 @@ local readRefused = function(construction : Engine.Entity, current : string, ver
 		if try.levels ~= current then
 			tries[construction] = nil
 			-- The game has just rebuilt it, so it needs no asking: the viewer stays away and the next click shows no flicker.
-			if verdictRef ~= nil then verdictRef:set({ levels = current, clear = true, reason = "landed" }) end
+			verdicts[construction] = { levels = current, clear = true, reason = "landed", entities = {}, at = now }
 		elseif now - try.at >= (isClock and refusedAfterSeconds or refusedAfterSteps) then
 			tries[construction] = nil
 			refused[construction] = current
 			-- Ask the viewer again, so what is in the way shows in red.
-			if verdictRef ~= nil then verdictRef:set(nil) end
+			askAgain(construction)
 			say("window notRebuilt construction=" .. tostring(construction) .. " levels=" .. current
 				.. " waited=" .. tostring(now - try.at) .. " clock=" .. tostring(isClock))
 		end
@@ -251,26 +262,51 @@ local readRefused = function(construction : Engine.Entity, current : string, ver
 	return refused[construction] ~= nil
 end
 
-local readTab = function(construction : Engine.Entity, verdictRef : ReactRefT<Verdict>) : TabState
+local exists = function(entity : Engine.Entity) : boolean
+	local ok, result = pcall(api.engine.entityExists, entity)
+	return not ok or result == true
+end
+
+-- The building's verdict for the levels shown, after dropping one that is out of date (see Verdict).
+local readVerdict = function(construction : Engine.Entity, current : string) : Verdict
+	local verdict = verdicts[construction]
+	if verdict == nil then return nil end
+	if verdict.levels ~= current then
+		askAgain(construction)
+		return nil
+	end
+	if verdict.clear then return verdict end
+	local stale = false
+	if #verdict.entities > 0 then
+		for _, entity in ipairs(verdict.entities) do
+			if not exists(entity) then stale = true end
+		end
+	else
+		local now, isClock = clockNow()
+		stale = now - verdict.at >= (isClock and unnamedRecheckSeconds or unnamedRecheckSteps)
+	end
+	if stale then
+		askAgain(construction)
+		return nil
+	end
+	return verdict
+end
+
+local readTab = function(construction : Engine.Entity) : TabState
 	local depot = firstDepot(construction)
 	local s : TabState = { depot = depot, construction = construction }
 	local con = api.engine.getComponent(construction, api.type.ComponentType.CONSTRUCTION) as Engine.Component.Construction
 	s.levels = levels.read(con and constructionParams(con) or {})
 	local current = levels.describe(s.levels)
-	local okRefused, wasRefused = pcall(readRefused, construction, current, verdictRef)
+	local okRefused, wasRefused = pcall(readRefused, construction, current)
 	s.refused = okRefused and wasRefused or nil
-	local verdict = verdictRef ~= nil and verdictRef:get() or nil
-	if verdict ~= nil and verdict.levels ~= current then verdict = nil end
+	local okVerdict, verdict = pcall(readVerdict, construction, current)
+	if not okVerdict then verdict = nil end
 	s.blocked = verdict ~= nil and verdict.clear == false or nil
 	-- The viewer is placed while its answer is wanted: not yet given, or blocked. Never while a buy is on its way: once the
 	-- rebuild lands, a viewer still holding the old proposal flashes the building red ("Construction Not Possible").
 	s.viewer = tries[construction] == nil and (verdict == nil or verdict.clear == false)
-	-- A viewer answers once: with the house next door bulldozed it still said blocked, paused and running, until the window
-	-- was opened again (docs/design/findings.md). So while blocked a new one is placed every 2 seconds, paused or not.
-	if s.blocked then
-		local now, isClock = clockNow()
-		s.recheck = math.floor(now / (isClock and blockedRecheckSeconds or blockedRecheckSteps))
-	end
+	s.ask = asks[construction] or 0
 	if companyRank ~= nil then
 		s.rank, s.earnedRank, s.rankSource = companyRank.read(api.engine.util.getPlayer())
 	else
@@ -317,7 +353,7 @@ local readTab = function(construction : Engine.Entity, verdictRef : ReactRefT<Ve
 		.. " upkeep=" .. tostring(s.chargedUpkeep) .. " pool=" .. tostring(s.pool) .. " radius=" .. tostring(s.radius)
 		.. " maintained=" .. tostring(s.maintained) .. " accumulated=" .. tostring(s.accumulated)
 		.. " upkeepScript=" .. tostring(s.scriptUpkeep) .. " upkeepScale=" .. tostring(s.upkeepScale)
-		.. " refused=" .. tostring(s.refused) .. " blocked=" .. tostring(s.blocked) .. " viewer=" .. tostring(s.viewer) .. " recheck=" .. tostring(s.recheck)
+		.. " refused=" .. tostring(s.refused) .. " blocked=" .. tostring(s.blocked) .. " viewer=" .. tostring(s.viewer) .. " ask=" .. tostring(s.ask)
 	return s
 end
 
@@ -733,14 +769,19 @@ local makeViewer = function(construction : Engine.Entity, current : string) : Vi
 	return viewer
 end
 
-local viewerNode = function(construction : Engine.Entity, viewer : Viewer, verdictRef : ReactRefT<Verdict>) : TreeNodeId
+local viewerNode = function(construction : Engine.Entity, viewer : Viewer) : TreeNodeId
 	return builtin.ActionDescriptor{ horizontalPromptList = true, children = { builtin.ProposalViewer{
 		proposal = viewer.proposal,
 		onCreateProposalData = function(data : ProposalData, _proposal : Proposal)
 			local messages = data.errorState and data.errorState.messages or {}
 			local ok, line = pcall(describeProposalData, data)
 			local reason = ok and line or ("describeError=" .. tostring(line))
-			verdictRef:set({ levels = viewer.levels, clear = #messages == 0, reason = reason })
+			local named : {Engine.Entity} = {}
+			if data.collisionInfo ~= nil then
+				for _, c in ipairs(data.collisionInfo.collisionEntities or {}) do named[#named + 1] = c.entity end
+			end
+			verdicts[construction] = { levels = viewer.levels, clear = #messages == 0, reason = reason, entities = named,
+				at = clockNow() }
 			-- A clear answer after a refused buy means the way has been cleared since: the "Not rebuilt" warning goes too.
 			if #messages == 0 and refused[construction] == viewer.levels then refused[construction] = nil end
 			if logFull then
@@ -760,10 +801,9 @@ local RetrofitTab : Recipe<IEntityWindowParam> = nil
 if ready then
 	RetrofitTab = react.RegisterRecipe("DepotRetrofitsTab", function(params : IEntityWindowParam) : TreeNodeId
 		local construction = params.keyEntity
-		local verdictRef = react.useRef(nil as Verdict)
 		local placedRef = react.useRef(nil as string) -- what the action area holds: the viewer's levels, "none", or nil at first
 		local state = engineReact.useStepState(function() : TabState
-			return readTab(construction, verdictRef)
+			return readTab(construction)
 		end, nil, function(a : TabState, b : TabState) : boolean
 			return a ~= nil and b ~= nil and a.key == b.key
 		end)
@@ -774,7 +814,7 @@ if ready then
 			if params.setActionFn ~= nil then
 				actionAreas[construction] = { setActionFn = params.setActionFn, placedRef = placedRef }
 				local current = levels.describe(s.levels)
-				local want = s.viewer and (current .. "#" .. tostring(s.recheck)) or "none"
+				local want = s.viewer and (current .. "#" .. tostring(s.ask)) or "none"
 				if placedRef:get() ~= want then
 					placedRef:set(want)
 					local okPlace, placeError : boolean, any = pcall(function()
@@ -787,7 +827,7 @@ if ready then
 						if viewer.proposal == nil then
 							params.setActionFn(nil)
 						else
-							params.setActionFn(function() : TreeNodeId return viewerNode(construction, viewer, verdictRef) end)
+							params.setActionFn(function() : TreeNodeId return viewerNode(construction, viewer) end)
 						end
 					end)
 					if not okPlace then say("window viewerError construction=" .. tostring(construction) .. " error=" .. tostring(placeError)) end
