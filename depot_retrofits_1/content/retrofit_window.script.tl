@@ -234,9 +234,14 @@ local checkRebuild = function(construction : Engine.Entity, con : Engine.Compone
 			watchUntil = last.watchUntil
 		end
 	end
-	if logFull and (last == nil or last.clear ~= clear) then
-		say("window rebuildCheck construction=" .. tostring(construction) .. " clear=" .. tostring(clear) .. " reason=" .. tostring(reason)
-			.. (watchUntil ~= nil and " watching=" .. tostring(isClock and clearedWatchSeconds or clearedWatchSteps) or ""))
+	-- One line per check run (at most every 2 seconds per tab), so the log shows when the checks run and stop: with the window
+	-- closed, or with another tab of the window showing. The reason only when the result changes.
+	if logFull then
+		local changed = last == nil or last.clear ~= clear
+		say("window rebuildCheck construction=" .. tostring(construction) .. " clear=" .. tostring(clear)
+			.. " changed=" .. tostring(changed) .. " clock=" .. tostring(isClock)
+			.. " watchLeft=" .. (watchUntil ~= nil and string.format("%.1f", watchUntil - now) or "nil")
+			.. (changed and (" reason=" .. tostring(reason)) or ""))
 	end
 	checkRef:set({ at = now, clear = clear, reason = reason, watchUntil = watchUntil })
 	return clear
