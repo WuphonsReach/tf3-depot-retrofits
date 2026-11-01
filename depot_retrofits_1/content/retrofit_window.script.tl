@@ -360,7 +360,7 @@ local bannerIcon = "::/game_mechanics/notifications/gui/icons/building_industry_
 local bannerLines = {
 	"Blocked: a building or a road is in the way.",
 	"Pause, then clear it; reconnect roads after.",
-	"The buy buttons come back within a few seconds.",
+	"The buy buttons should come back after a few seconds.",
 }
 
 local getBannerStyles = function() : {string : StyleSheet}
