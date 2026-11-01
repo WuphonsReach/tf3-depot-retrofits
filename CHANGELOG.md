@@ -2,6 +2,12 @@
 
 Newest first. The number in the title is `modVersion` at the top of [mod.script.tl](depot_retrofits_1/content/mod.script.tl), which the game log prints at every load as `DEPOT_RETROFITS version <number>` (between releases it reads the next number with "-dev", for example `1.1-dev`). Each entry's last line is the one-liner for the Changelog field of the in-game uploader ([how to release](docs/publishing.md#releasing-a-version)). mod.io labels every uploaded file "1.0", whatever the number here is, so the number in this file and in the log is the one that tells builds apart.
 
+## 1.1.1 (not released)
+
+- **"Blocked" no longer shows for a depot's own road.** The check asks about the rebuild as a removal and a new building, and on some road depots the road at the entrance came back as "in the way", though the game rebuilds them without trouble. In 1.1 such a depot showed "Blocked" with nothing to clear. A collision only with road joined to the building's own entrance now counts as clear; a building or any other road in the way still shows "Blocked".
+
+Release note: `Fixes a "Blocked" warning on some road depots where nothing was in the way.`
+
 ## 1.1 (2026-10-31)
 
 - **A building the game cannot rebuild shows "Blocked".** Buying a level rebuilds the building, and the game refuses a rebuild when something built after it stands in the way, such as a town building on the lot next door or the road in front of it. In 1.0 the click then did nothing, and nothing was charged. The tab now asks the game first: the buy buttons read "Blocked", greyed out, and a yellow warning at the top of the tab says that a building or a road is in the way and asks you to clear it. The tab checks again every 2 seconds while blocked, paused or not, so the buttons come back by themselves once the way is clear. It keeps checking for 30 seconds after that, so they grey out again if the town builds on the cleared lot. The buy is checked again when it is sent.

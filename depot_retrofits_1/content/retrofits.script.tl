@@ -319,7 +319,7 @@ local sendRebuild = function(construction : Engine.Entity, values : {string : in
 		local clear, reason : boolean, string
 		proposal, clear, reason = rebuildCheck.check(construction, params)
 		if clear == false then return false, "blocked " .. reason end
-		checked = clear and "clear" or ("unchecked " .. reason)
+		checked = clear and (reason == "clear" and "clear" or ("clear " .. reason)) or ("unchecked " .. reason)
 	end
 	if proposal == nil then
 		local ok, made = pcall(api.engine.util.proposal.createProposalReplaceConstruction, construction, params)
