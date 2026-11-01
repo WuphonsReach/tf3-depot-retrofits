@@ -31,6 +31,7 @@ local record TabState
 	refused : boolean -- true when the game did not rebuild the building for its last buy (see readRefused); nil otherwise
 	blocked : boolean -- true when the proposal viewer says the game would refuse the rebuild; nil when clear or not answered
 	viewer : boolean -- whether the proposal viewer is wanted in the action area now
+	recheck : integer -- while blocked, which 2-second period it is: a new one places a new viewer; nil otherwise
 	key : string -- every field above as text; the tab redraws when it changes
 end
 
@@ -214,6 +215,8 @@ local record ActionArea
 end
 local actionAreas : {Engine.Entity : ActionArea} = {}
 local refused : {Engine.Entity : string} = {} -- the levels when the rebuild was found refused; cleared once they change
+local blockedRecheckSeconds = 2
+local blockedRecheckSteps = 120
 local refusedAfterSeconds = 4
 local refusedAfterSteps = 240
 local stepCount = 0
@@ -259,10 +262,15 @@ local readTab = function(construction : Engine.Entity, verdictRef : ReactRefT<Ve
 	local verdict = verdictRef ~= nil and verdictRef:get() or nil
 	if verdict ~= nil and verdict.levels ~= current then verdict = nil end
 	s.blocked = verdict ~= nil and verdict.clear == false or nil
-	-- The viewer is placed while its answer is wanted: not yet given, or blocked (it answers again when the world around the
-	-- building changes, so clearing the way turns the tab clear). Never while a buy is on its way: once the rebuild lands, a
-	-- viewer still holding the old proposal flashes the building red ("Construction Not Possible").
+	-- The viewer is placed while its answer is wanted: not yet given, or blocked. Never while a buy is on its way: once the
+	-- rebuild lands, a viewer still holding the old proposal flashes the building red ("Construction Not Possible").
 	s.viewer = tries[construction] == nil and (verdict == nil or verdict.clear == false)
+	-- A viewer answers once: with the house next door bulldozed it still said blocked, paused and running, until the window
+	-- was opened again (docs/design/findings.md). So while blocked a new one is placed every 2 seconds, paused or not.
+	if s.blocked then
+		local now, isClock = clockNow()
+		s.recheck = math.floor(now / (isClock and blockedRecheckSeconds or blockedRecheckSteps))
+	end
 	if companyRank ~= nil then
 		s.rank, s.earnedRank, s.rankSource = companyRank.read(api.engine.util.getPlayer())
 	else
@@ -309,7 +317,7 @@ local readTab = function(construction : Engine.Entity, verdictRef : ReactRefT<Ve
 		.. " upkeep=" .. tostring(s.chargedUpkeep) .. " pool=" .. tostring(s.pool) .. " radius=" .. tostring(s.radius)
 		.. " maintained=" .. tostring(s.maintained) .. " accumulated=" .. tostring(s.accumulated)
 		.. " upkeepScript=" .. tostring(s.scriptUpkeep) .. " upkeepScale=" .. tostring(s.upkeepScale)
-		.. " refused=" .. tostring(s.refused) .. " blocked=" .. tostring(s.blocked) .. " viewer=" .. tostring(s.viewer)
+		.. " refused=" .. tostring(s.refused) .. " blocked=" .. tostring(s.blocked) .. " viewer=" .. tostring(s.viewer) .. " recheck=" .. tostring(s.recheck)
 	return s
 end
 
@@ -766,7 +774,7 @@ if ready then
 			if params.setActionFn ~= nil then
 				actionAreas[construction] = { setActionFn = params.setActionFn, placedRef = placedRef }
 				local current = levels.describe(s.levels)
-				local want = s.viewer and current or "none"
+				local want = s.viewer and (current .. "#" .. tostring(s.recheck)) or "none"
 				if placedRef:get() ~= want then
 					placedRef:set(want)
 					local okPlace, placeError : boolean, any = pcall(function()
