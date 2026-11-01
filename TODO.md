@@ -3,7 +3,7 @@
 ## In short
 
 - **Where it stands.** 1.0 is on mod.io (mod id 6495416, uploaded 31 Oct 2026). The review fixes all passed in game (rank read, carrier from the depot, every buy charged once, buttons greyed out when money is short). Test results are in [docs/design/findings.md](docs/design/findings.md).
-- **Next.** 1.1 (on a branch): a rebuild is checked before it is sent, and the tab shows "Blocked" when the game would refuse it. The first in-game test found the check failing on every call (`makeProposalData` takes a `SimpleProposal`), so every rebuild went out unchecked as in 1.0; fixed and tested (both blocked buildings in "333" show "Blocked", a clear building buys as before). The yellow warning tested well. A town can build on a cleared lot again within days at 1x, so a tab that turns clear now keeps checking for 30 seconds; to test, then release. The checks below are optional; the ideas at the bottom are not planned.
+- **Next.** 1.1 (on a branch): a rebuild is checked before it is sent, and the tab shows "Blocked" when the game would refuse it. The first in-game test found the check failing on every call (`makeProposalData` takes a `SimpleProposal`), so every rebuild went out unchecked as in 1.0; fixed and tested (both blocked buildings in "333" show "Blocked", a clear building buys as before). The yellow warning tested well. A tab that turns clear keeps checking for 30 seconds, every 2 real seconds; tested. Berkeley Road Depot in "333" can only take levels with its road cut off, then built again. Left: the Buffer Stop Depot's radius (1 m -> 11 m), a gallery image of the warning, then release. The checks below are optional; the ideas at the bottom are not planned.
 
 ## Release 1.0
 
@@ -11,6 +11,7 @@
 - [x] Test the published copy with the staging link removed: `version 1.0 logLevel=summary`, files identical to `v1.0`, no load errors.
 - [x] Tag `v1.0` (on `478003d`, the uploaded code) and publish the GitHub release.
 - [ ] 1.1: before a rebuild, ask the game whether it would collide (`api.engine.util.proposal.makeProposalData`); refuse at once with `reason=blocked` and log the game's messages, and in the tab grey the buy buttons as "Blocked" under a yellow warning at the top of the tab (greyed buttons show no tooltip). The window checks on opening, after each click and every 2 seconds while blocked and for 30 seconds after, so removing the obstacle clears it; the game script checks again on every buy (docs/design/findings.md).
+- [ ] 1.1 gallery: show a blocked tab, as a full screenshot (the warning with the bulldozer highlighting what is in the way) or as a card cropped from the blocked tab for the pile in `2.jpg` (`tools/make_gallery.py`), or both. Shots from the 31 Oct test show both: the tram building's tab beside the highlighted house and garden, and Berkeley Road Depot's beside a highlighted tower.
 - [ ] Check that the page lists the console file too.
 
 ## Optional checks
