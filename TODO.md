@@ -3,7 +3,7 @@
 ## In short
 
 - **Where it stands.** 1.1.1 is on mod.io (mod id 6495416) and tagged `v1.1.1`. Test results are in [docs/design/findings.md](docs/design/findings.md).
-- **Next.** 1.2 (on a branch): the check before a buy is gone, as it called buildings blocked that the game rebuilds. A click sends the buy, and a refused one shows "Not rebuilt" with what is in the way in red (the game's `ProposalViewer`, placed only after a refusal, since each viewer previews the rebuild in the world); tested in "333" at the fastest speed. Left for 1.2: test that the warning stays through a retry, retake the two gallery images that show "Blocked", then the release. The checks below are optional; the ideas at the bottom are not planned.
+- **Next.** 1.2 (on `main` as `1.2-dev`): the check before a buy is gone, as it called buildings blocked that the game rebuilds. A click sends the buy, and a refused one shows "Not rebuilt" with what is in the way in red (the game's `ProposalViewer`, placed only after a refusal, since each viewer previews the rebuild in the world); tested in "333" at the fastest speed, the warning stays through a retry, and the gallery shows it. Left for 1.2: the release. The checks below are optional; the ideas at the bottom are not planned.
 
 ## Release 1.0
 
@@ -18,8 +18,8 @@
 
 ## Release 1.2
 
-- [ ] Test that "Not rebuilt" stays through a retry on a building the game still refuses (Berkeley Maintenance Building in "333" with the house standing), and goes once the house is bulldozed.
-- [ ] Gallery: `2.jpg` (its fourth card, `tools/gallery/road_depot_blocked.png`) and `6.jpg` show the 1.1 "Blocked" tab. Retake both with the "Not rebuilt" warning and the obstacle in red.
+- [x] Test that "Not rebuilt" stays through a retry on a building the game still refuses (Berkeley Maintenance Building in "333" with the house standing), and goes once the house is bulldozed.
+- [x] Gallery: `2.jpg` (its fourth card, now `tools/gallery/maintenance_not_rebuilt.png`) and `6.jpg` showed the 1.1 "Blocked" tab. Both are retaken from Berkeley Maintenance Building with "Not rebuilt" and the house in red.
 - [ ] Release 1.2 ([docs/publishing.md](docs/publishing.md)).
 - [x] Optional: in "333", bulldoze only the buildings around Berkeley Road Depot (88894) and leave the road. The tab stayed blocked until the road was cut off, so the own-road rule does not clear that road; whether the game would refuse the rebuild is for the probe.
 
