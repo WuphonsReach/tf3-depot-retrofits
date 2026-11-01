@@ -3,7 +3,7 @@
 ## In short
 
 - **Where it stands.** 1.1.1 is on mod.io (mod id 6495416) and tagged `v1.1.1`. Test results are in [docs/design/findings.md](docs/design/findings.md).
-- **Next.** 1.2 (on `main` as `1.2-dev`): the check before a buy is gone, as it called buildings blocked that the game rebuilds. A click sends the buy, and a refused one shows "Not rebuilt" with what is in the way in red (the game's `ProposalViewer`, placed only after a refusal, since each viewer previews the rebuild in the world); tested in "333" at the fastest speed, the warning stays through a retry, and the gallery shows it. Left for 1.2: the release. The checks below are optional; the ideas at the bottom are not planned.
+- **Next.** 1.2 (release PR open, `modVersion` 1.2): the check before a buy is gone, as it called buildings blocked that the game rebuilds. A click sends the buy, and a refused one shows "Not rebuilt" with what is in the way in red (the game's `ProposalViewer`, placed only after a refusal, since each viewer previews the rebuild in the world); tested in "333" at the fastest speed, the warning stays through a retry, and the gallery shows it. Left for 1.2: the upload, the published-copy test and the tag. The checks below are optional; the ideas at the bottom are not planned.
 
 ## Release 1.0
 
