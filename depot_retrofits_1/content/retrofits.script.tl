@@ -29,7 +29,7 @@ local buyCheckOffsets = { 200, dayClock, 7 * dayClock, 30 * dayClock }
 -- The pending buy keeps only its tree and level: in a run of quick buys, two recorded with all five levels were found holding
 -- the levels from before the buy, so they never matched and went uncharged (docs/design/findings.md).
 local buyPendingClock = dayClock
-local buyPendingSeconds = 4
+local buyPendingSeconds = 3
 
 local record Snapshot
 	pool : number
