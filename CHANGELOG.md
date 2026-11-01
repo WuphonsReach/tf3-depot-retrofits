@@ -4,7 +4,7 @@ Newest first. The number in the title is `modVersion` at the top of [mod.script.
 
 ## 1.1 (not released)
 
-- **A building the game cannot rebuild shows "Blocked".** Buying a level rebuilds the building, and the game refuses a rebuild when something built since stands in the way, such as a town building on the lot next door. In 1.0 the click then did nothing, and nothing was charged. The tab now asks the game first: the buy buttons read "Blocked", greyed out, and a yellow warning at the top of the tab says to clear what is in the way. The tab checks again every 2 seconds while blocked, paused or not, so the buttons come back by themselves once the way is clear, and for 30 seconds after that, so they grey out again if the town builds on the cleared lot. The buy is checked again when it is sent.
+- **A building the game cannot rebuild shows "Blocked".** Buying a level rebuilds the building, and the game refuses a rebuild when something built since stands in the way, such as a town building on the lot next door or the road in front of it. In 1.0 the click then did nothing, and nothing was charged. The tab now asks the game first: the buy buttons read "Blocked", greyed out, and a yellow warning at the top of the tab says that a building or a road is in the way and to clear it. The tab checks again every 2 seconds while blocked, paused or not, so the buttons come back by themselves once the way is clear, and for 30 seconds after that, so they grey out again if the town builds on the cleared lot. The buy is checked again when it is sent.
 
 Release note: `Buildings the game cannot rebuild now show "Blocked" in the Retrofit tab instead of ignoring the click.`
 

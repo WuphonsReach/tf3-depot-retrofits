@@ -191,7 +191,7 @@ end
 
 -- The last rebuild check of one open tab.
 local record RebuildCheckState
-	at : number -- os.clock() of the check, or the tab's step count where os.clock is not available
+	at : number -- os.time() of the check, or the tab's step count where os.time is not available
 	clear : boolean
 	reason : string
 	watchUntil : number -- after a blocked tab turns clear, until when it keeps checking; nil when it does not
@@ -208,8 +208,10 @@ local blockedRecheckSteps = 120
 local clearedWatchSeconds = 30
 local clearedWatchSteps = 1800
 local stepCount = 0
+-- Real time in whole seconds. Not os.clock: that is the process's processor time, summed over the game's threads, and ran
+-- about 5 times faster than real time in game (the 30-second watch was over in 5 seconds).
 local clockNow = function() : number, boolean
-	local ok, seconds = pcall(os.clock)
+	local ok, seconds = pcall(os.time)
 	if ok and type(seconds) == "number" then return seconds, true end
 	return stepCount, false
 end
@@ -240,7 +242,7 @@ local checkRebuild = function(construction : Engine.Entity, con : Engine.Compone
 		local changed = last == nil or last.clear ~= clear
 		say("window rebuildCheck construction=" .. tostring(construction) .. " clear=" .. tostring(clear)
 			.. " changed=" .. tostring(changed) .. " clock=" .. tostring(isClock)
-			.. " watchLeft=" .. (watchUntil ~= nil and string.format("%.1f", watchUntil - now) or "nil")
+			.. " watchLeft=" .. (watchUntil ~= nil and tostring(math.floor(watchUntil - now)) or "nil")
 			.. (changed and (" reason=" .. tostring(reason)) or ""))
 	end
 	checkRef:set({ at = now, clear = clear, reason = reason, watchUntil = watchUntil })
@@ -356,8 +358,8 @@ local bannerStyles : {string : StyleSheet} = nil
 local caution = { 1, 0.769, 0.047 }
 local bannerIcon = "::/game_mechanics/notifications/gui/icons/building_industry_bulldozer.tga"
 local bannerLines = {
-	"Blocked: something is in the way of a rebuild.",
-	"Pause, then clear what is in the way.",
+	"Blocked: a building or a road is in the way.",
+	"Pause, then clear it; reconnect roads after.",
 	"The buy buttons come back within a few seconds.",
 }
 
