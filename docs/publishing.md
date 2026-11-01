@@ -2,14 +2,14 @@
 
 ## In short
 
-- **Where it is.** [Depot Retrofits](https://mod.io/g/transportfever3/m/depot-retrofits) on mod.io, mod id 6495416, public since 31 Oct 2026 (version 1.1 since the same evening), tag Script Mod, creator WuphonsReach. Players subscribe on that page or in the game's Mod Hub.
+- **Where it is.** [Depot Retrofits](https://mod.io/g/transportfever3/m/depot-retrofits) on mod.io, mod id 6495416, public since 31 Oct 2026 (version 1.1.1 since the same evening), tag Script Mod, creator WuphonsReach. Players subscribe on that page or in the game's Mod Hub.
 - **How it gets there.** Only through the game's own uploader: Mod Hub, My Mods, the mod's dialog. The mod.io website refuses uploads for Transport Fever 3, and the page text changes only through the uploader. The uploader reads the name, summary, description and tags from [modinfo.json](../depot_retrofits_1/_metadata/modinfo.json) and the images from `depot_retrofits_1/_metadata/`.
 - **The mod id file.** The first upload writes `depot_retrofits_1/_metadata/mod.io_fileid.txt` (the mod id). Commit it and never delete it: with it the dialog updates the existing mod, without it the next upload creates a second one.
 - **What ships.** The whole `depot_retrofits_1/` folder except `_metadata/`: `mod.json`, `_content.json` and `content/`. The game loads only the files `_content.json` lists, so `python3 tools/check_content_list.py` must pass before an upload.
 - **Images.** `0.jpg` is the cover, and `1.jpg` to `6.jpg` are the gallery, in file-name order. `1.jpg` is a copy of the cover, so the gallery opens on it, as Best Before's does. There is no `workshop_preview.jpg`.
 - **Version numbers.** mod.io labels every uploaded file "1.0", whatever the mod's number. The number that counts is `modVersion` in [mod.script.tl](../depot_retrofits_1/content/mod.script.tl), which the log prints at every load as `DEPOT_RETROFITS version <number>`, and the matching entry in [CHANGELOG.md](../CHANGELOG.md).
-- **How sure.** The steps worked for the first upload and an update (1.0 and 1.1, 31 Oct 2026) and are the ones the sibling mod Best Before used (four uploads, 17 to 30 Oct 2026; its [publishing.md](https://github.com/WuphonsReach/tf3-best-before-mod/blob/9fa081fc1c23ee79fcc4bac1b74a109db188c97d/docs/publishing.md)).
-- **Console file.** The page lists one file for Windows, Mac and Linux and one for Xbox Series X/S and PlayStation 5. After the first upload only the first showed for a while; after the update both showed within a few minutes.
+- **How sure.** The steps worked for the first upload and two updates (1.0, 1.1 and 1.1.1, 31 Oct 2026) and are the ones the sibling mod Best Before used (four uploads, 17 to 30 Oct 2026; its [publishing.md](https://github.com/WuphonsReach/tf3-best-before-mod/blob/9fa081fc1c23ee79fcc4bac1b74a109db188c97d/docs/publishing.md)).
+- **Console file.** The page lists one file for Windows, Mac and Linux and one for Xbox Series X/S and PlayStation 5. After the first upload only the first showed for a while; after each update both showed within a few minutes.
 
 ## Releasing a version
 
@@ -63,3 +63,10 @@
 - **Page.** The description and gallery changed within a minute; the two new files (33.51 KB each, with the release note) replaced the 1.0 files a few minutes later, and the 1.0 files moved under "other versions". Subscribing before then would download 1.0.
 - **Published copy.** With the staging link removed, `mods/6495416/` held the files of `58c88fb`, byte for byte, and the log read `DEPOT_RETROFITS version 1.1 logLevel=summary` with no load errors. The test found the false "Blocked" fixed in 1.1.1.
 - **Tag.** `v1.1` is on `58c88fb`; its release notes name the bug.
+
+## Update (1.1.1, 31 Oct 2026)
+
+- **Dialog.** The button read Update ("The existing mod on mod.io will be updated"), the gallery showed `1.jpg` to `6.jpg` in order, and Set Public and Update Metadata were ticked. It ran "Uploading Mods (1/1)", then "(2/2)", then "Upload Successful"; no file in the repo changed.
+- **Page.** The two new files (34.02 KB each, with the release note) showed within a few minutes, and the 1.1 files moved under "other versions".
+- **Published copy.** With the staging link removed, `mods/6495416/` held the files of `c194f37`, byte for byte, and the log read `DEPOT_RETROFITS version 1.1.1 logLevel=summary` with no load errors. Peterlee Road Depot opened clear and took a radius level.
+- **Tag.** `v1.1.1` is on `c194f37`.
