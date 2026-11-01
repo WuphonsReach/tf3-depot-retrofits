@@ -2,7 +2,7 @@
 
 Newest first. The number in the title is `modVersion` at the top of [mod.script.tl](depot_retrofits_1/content/mod.script.tl), which the game log prints at every load as `DEPOT_RETROFITS version <number>` (between releases it reads the next number with "-dev", for example `1.1-dev`). Each entry's last line is the one-liner for the Changelog field of the in-game uploader ([how to release](docs/publishing.md#releasing-a-version)). mod.io labels every uploaded file "1.0", whatever the number here is, so the number in this file and in the log is the one that tells builds apart.
 
-## 1.1 (not released)
+## 1.1 (2026-10-31)
 
 - **A building the game cannot rebuild shows "Blocked".** Buying a level rebuilds the building, and the game refuses a rebuild when something built after it stands in the way, such as a town building on the lot next door or the road in front of it. In 1.0 the click then did nothing, and nothing was charged. The tab now asks the game first: the buy buttons read "Blocked", greyed out, and a yellow warning at the top of the tab says that a building or a road is in the way and asks you to clear it. The tab checks again every 2 seconds while blocked, paused or not, so the buttons come back by themselves once the way is clear. It keeps checking for 30 seconds after that, so they grey out again if the town builds on the cleared lot. The buy is checked again when it is sent.
 - **A radius level adds at least 10 m.** It adds 5% of the building's normal radius, as before, but never less than 10 m, so buildings with a very small radius (under 200 m, as on some modded depots) still grow. No base game building is affected. The "No effect" button of 1.0 is gone, since a radius level now always changes something.
