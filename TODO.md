@@ -2,12 +2,15 @@
 
 ## In short
 
-- **Where it stands.** 1.0 is on `main`, ready to upload. The review fixes all passed in game (rank read, carrier from the depot, every buy charged once, buttons greyed out when money is short). Test results are in [docs/design/findings.md](docs/design/findings.md).
-- **Before a release.** Only the release itself. The checks below it are optional.
+- **Where it stands.** 1.0 is on mod.io (mod id 6495416, uploaded 31 Oct 2026). The review fixes all passed in game (rank read, carrier from the depot, every buy charged once, buttons greyed out when money is short). Test results are in [docs/design/findings.md](docs/design/findings.md).
+- **To finish the release.** Test the published copy, then tag `v1.0`. The checks below it are optional.
 
 ## Before a release
 
-- [ ] Release, following [docs/publishing.md](docs/publishing.md): the listing text in `_metadata/modinfo.json`, the CHANGELOG entry and `modVersion`, README status, the upload, a test of the published copy, then a `v*.*` tag and GitHub release (both immutable). After the first upload, commit `mod.io_fileid.txt` and note whether the page's gallery shows `1.jpg` to `5.jpg` in order.
+- [x] Upload 1.0 ([docs/publishing.md](docs/publishing.md)): page public, gallery `1.jpg` to `5.jpg` in order, `mod.io_fileid.txt` committed.
+- [ ] Test the published copy with the staging link removed (`version 1.0`, no load errors, the downloaded `_content.json`).
+- [ ] Tag `v1.0` and publish the GitHub release (both immutable).
+- [ ] Check that the page lists the console file too.
 
 ## Optional checks
 
