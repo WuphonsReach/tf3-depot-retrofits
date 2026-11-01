@@ -19,6 +19,7 @@ global record DepotRetrofitsLevels
 	pool : function(basePool : number, level : integer) : integer
 	basePool : function(pool : number, level : integer) : integer
 	radius : function(baseRadius : number, level : integer) : number
+	baseRadius : function(radius : number, level : integer) : number
 	emissionFactor : function(level : integer) : number
 	upkeepFactor : function(levels : {string : integer}) : number
 	-- The update script's upkeep at some levels, in whole dollars, from the upkeep before any level.

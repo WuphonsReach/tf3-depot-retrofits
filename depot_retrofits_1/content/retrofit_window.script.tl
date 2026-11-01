@@ -468,21 +468,12 @@ local valueAt = function(s : TabState, tree : string, level : integer) : string
 	local now = s.levels[tree]
 	if tree == "radius" then
 		if s.radius == nil then return "?" end
-		return string.format("%d m", math.floor(levels.radius(s.radius / levels.radius(1, now), level) + 0.5))
+		return string.format("%d m", math.floor(levels.radius(levels.baseRadius(s.radius, now), level) + 0.5))
 	elseif tree == "vehicles" then
 		local base = levels.basePool(s.pool, now)
 		return base and tostring(levels.pool(base, level)) or "?"
 	end
 	return level == 0 and "0%" or ("-" .. tostring(5 * level) .. "%")
-end
-
--- Whether the next level changes nothing worth buying: a radius level adds 5% of the base radius, under 1 m where the base is
--- below 20 m (the Buffer Stop Depot mod's depot has 1 m; docs/design/findings.md). The other trees always change something.
-local noEffect = function(s : TabState, tree : string) : boolean
-	if tree ~= "radius" or s.radius == nil then return false end
-	local level = s.levels[tree]
-	local base = s.radius / levels.radius(1, level)
-	return levels.radius(base, level + 1) - levels.radius(base, level) < 1
 end
 
 -- What the next level changes, "400 m -> 420 m"; the upkeep tree cuts the total upkeep, the other trees' increases included.
@@ -509,7 +500,7 @@ local logShown = function(s : TabState)
 end
 
 -- The stock shopping cart and the price; a rank too low (or unknown) replaces the price. Short of money the price stays and the
--- button is greyed out, as the game script refuses the buy. A level that would change nothing shows "No effect", greyed out.
+-- button is greyed out, as the game script refuses the buy.
 -- The game shows no tooltip on a disabled button, so only an enabled button's tooltip is ever seen (docs/design/findings.md).
 -- No "buying" state: the rebuild lands within a second, paused or not, and the tab redraws with the new level. A second click
 -- before that sends the old level, which the game script refuses as stale, so nothing is charged twice.
@@ -523,8 +514,6 @@ local buyButton = function(s : TabState, tree : string) : TreeNodeId
 		label, tooltip = "?", "Price unknown"
 	elseif s.blocked then
 		label, tooltip = "Blocked", "Something is in the way: the game cannot rebuild this building"
-	elseif noEffect(s, tree) then
-		label, tooltip = "No effect", "A level would widen the radius by less than 1 m"
 	elseif s.rank == nil then
 		label, tooltip = "Rank ?", "The company rank could not be read, so no level can be bought (see the game log)"
 	elseif nextLevel > s.rank then
@@ -631,21 +620,16 @@ local treeCard = function(s : TabState, tree : string, gameCtx : GameContext) : 
 	end
 	-- Build only the node that is shown: a recipe called but left out of the tree costs the game log a "Preserved props"
 	-- warning on every redraw.
-	-- A level with no effect cannot be bought, so the card shows the value now and no upkeep after it.
-	local useless = noEffect(s, tree)
 	local nextUpkeep : TreeNodeId
 	local charged = upkeepAfter(s, levels.withLevel(s.levels, tree, level + 1))
-	if useless then
-		nextUpkeep = builtin.Component{}
-	elseif charged ~= nil then
+	if charged ~= nil then
 		nextUpkeep = iconText(upkeepIcon, perYear(charged + s.accumulated), "Upkeep after level " .. tostring(level + 1))
 	else
 		nextUpkeep = text("?")
 	end
-	local change = useless and effect(s, tree, level) or effect(s, tree, level, level + 1)
 	return card(levels.names[tree], twoRows(
 		spreadRow(levelText, nextUpkeep),
-		spreadRow(text(change, effectTooltips[tree]), buyButton(s, tree))
+		spreadRow(text(effect(s, tree, level, level + 1), effectTooltips[tree]), buyButton(s, tree))
 	), gameCtx)
 end
 

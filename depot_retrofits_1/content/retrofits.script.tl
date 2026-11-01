@@ -278,7 +278,7 @@ local expectedAfter = function(before : Snapshot, from : {string : integer}, to 
 	local base = levels.basePool(before.pool, from.vehicles)
 	e.pool = base and levels.pool(base, to.vehicles) or nil
 	if before.radius ~= nil then
-		e.radius = before.radius / levels.radius(1, from.radius) * levels.radius(1, to.radius)
+		e.radius = levels.radius(levels.baseRadius(before.radius, from.radius), to.radius)
 	end
 	local ratio = levels.upkeepFactor(to) / levels.upkeepFactor(from)
 	local baseUpkeep = levels.baseUpkeep(before.upkeepScript, from)
