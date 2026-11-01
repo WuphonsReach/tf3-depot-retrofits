@@ -28,8 +28,7 @@ local record TabState
 	accumulated : number -- the MAINTENANCE_COST accumulated costs, which the game's upkeep footer adds to the upkeep
 	scriptUpkeep : number -- the MAINTENANCE_COST upkeep, the update script's value with the levels applied
 	upkeepScale : number -- what the footer multiplies scriptUpkeep by
-	blocked : boolean -- true when the game would refuse a rebuild, so no level can be bought; nil when unchecked
-	checkRef : ReactRefT<RebuildCheckState> -- the tab's last rebuild check, reset by a click on a buy button; not in the key
+	refused : boolean -- true when the game did not rebuild the building for its last buy (see readRefused); nil otherwise
 	key : string -- every field above as text; the tab redraws when it changes
 end
 
@@ -76,7 +75,7 @@ local companyRank = loadModule("depot_retrofits_1::/company_rank.tl") as DepotRe
 local entityWindowUtil = loadModule("::/gui/entity_window/entity_window_util.tl") as EntityWindowUtil
 -- Optional: without it each card shows its level as text instead of a row of marks.
 local styleutil = loadModule("::/gui/main/styleutil.tl") as StyleUtil
--- Optional: without it the tab cannot show "Blocked"; the game script checks every buy itself.
+-- Optional, and only for the log at logLevel "full" (logStandIn); the game script logs it with every buy too.
 local rebuildCheck = loadModule("depot_retrofits_1::/rebuild_check.tl") as DepotRetrofitsRebuildCheck
 local ready = react ~= nil and builtin ~= nil and engineReact ~= nil and contentCard ~= nil and levels ~= nil
 say("window loaded ready=" .. tostring(ready) .. " constructionWindow=" .. tostring(makeEntityWindow ~= nil)
@@ -189,74 +188,71 @@ local footerScale = function(con : Engine.Component.Construction) : number
 	return maintenanceScale * multiplier
 end
 
--- The last rebuild check of one open tab.
-local record RebuildCheckState
-	at : number -- os.time() of the check, or the tab's step count where os.time is not available
-	clear : boolean
-	reason : string
-	watchUntil : number -- after a blocked tab turns clear, until when it keeps checking; nil when it does not
+-- A buy is tried, not checked first: the stand-in check (rebuild_check.tl) called buildings blocked that the game rebuilds, and
+-- asking about the real rebuild beforehand is not possible from here yet. The click sends the buy and the tab remembers the
+-- levels it showed. When they have not changed a few seconds later, the game did not rebuild the building (it refuses a rebuild
+-- when something built around the building since is in its way; nothing is charged then), and the tab says so until a rebuild
+-- lands. The game script gives up waiting a little sooner (retrofits.script.tl), so a buy sent again is not refused as pending.
+-- Kept per building for the session, so the warning is still there when the window is opened again.
+local record Try
+	levels : string -- levels.describe of the levels the tab showed at the click
+	at : number -- clockNow() at the click
 end
-
--- A rebuild check asks the game to work out a whole rebuild proposal, so it runs only when needed: once when a tab opens, again
--- after each click on a buy button (the click resets it), and every 2 seconds while the tab shows "Blocked", paused or not, so
--- the buttons come back by themselves once the way is clear. Once a blocked tab turns clear it keeps checking every 2 seconds
--- for 30 seconds more, since a running town can build on a cleared lot again within a game day or two. Otherwise a clear tab
--- does not check on its own: the game script checks every buy again before sending it, so a stale "clear" never lets a
--- blocked rebuild through.
-local blockedRecheckSeconds = 2
-local blockedRecheckSteps = 120
-local clearedWatchSeconds = 30
-local clearedWatchSteps = 1800
+local tries : {Engine.Entity : Try} = {}
+local refused : {Engine.Entity : string} = {} -- the levels when the rebuild was found refused; cleared once they change
+local refusedAfterSeconds = 6
+local refusedAfterSteps = 360
 local stepCount = 0
 -- Real time in whole seconds. Not os.clock: that is the process's processor time, summed over the game's threads, and ran
--- about 5 times faster than real time in game (the 30-second watch was over in 5 seconds).
+-- about 5 times faster than real time in game. The tab's step count where os.time is not available.
 local clockNow = function() : number, boolean
 	local ok, seconds = pcall(os.time)
 	if ok and type(seconds) == "number" then return seconds, true end
 	return stepCount, false
 end
-local checkRebuild = function(construction : Engine.Entity, con : Engine.Component.Construction,
-		checkRef : ReactRefT<RebuildCheckState>) : boolean
-	if rebuildCheck == nil or con == nil or checkRef == nil then return nil end
+
+-- Whether the building's last buy was refused by the game: the levels did not change within the wait after the click.
+local readRefused = function(construction : Engine.Entity, current : string) : boolean
 	stepCount = stepCount + 1
-	local now, isClock = clockNow()
-	local last = checkRef:get()
-	if last ~= nil then
-		local watching = last.clear == true and last.watchUntil ~= nil and now >= last.at and now < last.watchUntil
-		if last.clear ~= false and not watching then return last.clear end
-		local wait = isClock and blockedRecheckSeconds or blockedRecheckSteps
-		if now >= last.at and now - last.at < wait then return last.clear end
-	end
-	local _, clear, reason = rebuildCheck.check(construction, constructionParams(con))
-	local watchUntil : number = nil
-	if clear == true and last ~= nil then
-		if last.clear == false then
-			watchUntil = now + (isClock and clearedWatchSeconds or clearedWatchSteps)
-		else
-			watchUntil = last.watchUntil
+	local try = tries[construction]
+	if try ~= nil then
+		local now, isClock = clockNow()
+		if try.levels ~= current then
+			tries[construction] = nil
+		elseif now - try.at >= (isClock and refusedAfterSeconds or refusedAfterSteps) then
+			tries[construction] = nil
+			refused[construction] = current
+			say("window notRebuilt construction=" .. tostring(construction) .. " levels=" .. current
+				.. " waited=" .. tostring(now - try.at) .. " clock=" .. tostring(isClock))
 		end
 	end
-	-- One line per check run (at most every 2 seconds per tab), so the log shows when the checks run and stop: with the window
-	-- closed, or with another tab of the window showing. The reason only when the result changes.
-	if logFull then
-		local changed = last == nil or last.clear ~= clear
-		say("window rebuildCheck construction=" .. tostring(construction) .. " clear=" .. tostring(clear)
-			.. " changed=" .. tostring(changed) .. " clock=" .. tostring(isClock)
-			.. " watchLeft=" .. (watchUntil ~= nil and tostring(math.floor(watchUntil - now)) or "nil")
-			.. (changed and (" reason=" .. tostring(reason)) or ""))
-	end
-	checkRef:set({ at = now, clear = clear, reason = reason, watchUntil = watchUntil })
-	return clear
+	if refused[construction] ~= nil and refused[construction] ~= current then refused[construction] = nil end
+	return refused[construction] ~= nil
 end
 
-local readTab = function(construction : Engine.Entity, checkRef? : ReactRefT<RebuildCheckState>) : TabState
+-- At logLevel "full", the stand-in check once per building and levels, for the log only: to compare with what the game does
+-- with the buy, and with the game's own proposal viewer (the probe in the tab).
+local standInLogged : {string : boolean} = {}
+local logStandIn = function(construction : Engine.Entity, con : Engine.Component.Construction, current : string)
+	if not logFull or rebuildCheck == nil or con == nil then return end
+	local logKey = tostring(construction) .. " " .. current
+	if standInLogged[logKey] then return end
+	standInLogged[logKey] = true
+	local _, clear, reason = rebuildCheck.check(construction, constructionParams(con))
+	say("window standInCheck construction=" .. tostring(construction) .. " levels=" .. current .. " clear=" .. tostring(clear)
+		.. " reason=" .. tostring(reason))
+end
+
+local readTab = function(construction : Engine.Entity) : TabState
 	local depot = firstDepot(construction)
 	local s : TabState = { depot = depot, construction = construction }
 	local con = api.engine.getComponent(construction, api.type.ComponentType.CONSTRUCTION) as Engine.Component.Construction
 	s.levels = levels.read(con and constructionParams(con) or {})
-	local okCheck, clear = pcall(checkRebuild, construction, con, checkRef)
-	s.blocked = okCheck and clear == false or nil
-	s.checkRef = checkRef
+	local current = levels.describe(s.levels)
+	local okRefused, wasRefused = pcall(readRefused, construction, current)
+	s.refused = okRefused and wasRefused or nil
+	local okStandIn, standInError : boolean, any = pcall(logStandIn, construction, con, current)
+	if not okStandIn then say("window standInCheckError construction=" .. tostring(construction) .. " error=" .. tostring(standInError)) end
 	if companyRank ~= nil then
 		s.rank, s.earnedRank, s.rankSource = companyRank.read(api.engine.util.getPlayer())
 	else
@@ -303,7 +299,7 @@ local readTab = function(construction : Engine.Entity, checkRef? : ReactRefT<Reb
 		.. " upkeep=" .. tostring(s.chargedUpkeep) .. " pool=" .. tostring(s.pool) .. " radius=" .. tostring(s.radius)
 		.. " maintained=" .. tostring(s.maintained) .. " accumulated=" .. tostring(s.accumulated)
 		.. " upkeepScript=" .. tostring(s.scriptUpkeep) .. " upkeepScale=" .. tostring(s.upkeepScale)
-		.. " blocked=" .. tostring(s.blocked)
+		.. " refused=" .. tostring(s.refused)
 	return s
 end
 
@@ -347,7 +343,7 @@ local getDrawnStyles = function() : {string : StyleSheet}
 	return drawnStyles ~= nil and drawnStyles.gap ~= nil and drawnStyles or nil
 end
 
--- The "Blocked" banner, drawn as the yellow caution cards at the top of the town and line windows
+-- The "not rebuilt" banner, drawn as the yellow caution cards at the top of the town and line windows
 -- (entity_window_util.NotificationWidget in gui/entity_window/entity_window_util.tl): the card surface tinted with the
 -- caution colour at the game's high transparency, the icon on a solid caution tile (the colours and sizes are in
 -- game_mechanics/notifications/gui/notifications.css.lua; Caution is #FFC40C, gui/main/color_internal.lua). That CSS
@@ -358,9 +354,9 @@ local bannerStyles : {string : StyleSheet} = nil
 local caution = { 1, 0.769, 0.047 }
 local bannerIcon = "::/game_mechanics/notifications/gui/icons/building_industry_bulldozer.tga"
 local bannerLines = {
-	"Blocked: a building or a road is in the way.",
-	"Pause and clear it; reconnect roads afterwards.",
-	"The buy buttons should come back after a few seconds.",
+	"Not rebuilt: a building or a road is in the way.",
+	"Nothing was charged. Pause, clear it and buy again.",
+	"A road can be cut off and reconnected afterwards.",
 }
 
 local getBannerStyles = function() : {string : StyleSheet}
@@ -398,9 +394,8 @@ local getBannerStyles = function() : {string : StyleSheet}
 	return bannerStyles ~= nil and bannerStyles.card ~= nil and bannerStyles or nil
 end
 
--- Above the scrolling cards, so it shows whatever the scroll. Greyed buttons show no tooltip, so the reason and the way out
--- are here; the tab checks again every 2 seconds while blocked, so the buttons come back by themselves.
-local blockedBanner = function() : TreeNodeId
+-- Above the scrolling cards, so it shows whatever the scroll; it stays until a rebuild of the building lands.
+local refusedBanner = function() : TreeNodeId
 	local lines : {TreeNodeId} = {}
 	for _, line in ipairs(bannerLines) do
 		lines[#lines + 1] = builtin.TextView{ meta = { class = "font-scale-body" }, text = line, tooltipWhenClipped = line }
@@ -503,7 +498,8 @@ end
 -- button is greyed out, as the game script refuses the buy.
 -- The game shows no tooltip on a disabled button, so only an enabled button's tooltip is ever seen (docs/design/findings.md).
 -- No "buying" state: the rebuild lands within a second, paused or not, and the tab redraws with the new level. A second click
--- before that sends the old level, which the game script refuses as stale, so nothing is charged twice.
+-- before that sends the old level, which the game script refuses as stale, so nothing is charged twice. A rebuild the game
+-- refuses shows as the yellow warning a few seconds later (readRefused); the buttons stay, so the buy can be sent again.
 local buyButton = function(s : TabState, tree : string) : TreeNodeId
 	local level = s.levels[tree]
 	local nextLevel = level + 1
@@ -512,8 +508,6 @@ local buyButton = function(s : TabState, tree : string) : TreeNodeId
 	local price = s.buildPrice and levels.levelPrice(s.buildPrice, tree, nextLevel) or nil
 	if price == nil then
 		label, tooltip = "?", "Price unknown"
-	elseif s.blocked then
-		label, tooltip = "Blocked", "Something is in the way: the game cannot rebuild this building"
 	elseif s.rank == nil then
 		label, tooltip = "Rank ?", "The company rank could not be read, so no level can be bought (see the game log)"
 	elseif nextLevel > s.rank then
@@ -534,7 +528,8 @@ local buyButton = function(s : TabState, tree : string) : TreeNodeId
 		} },
 		onClick = function()
 			if not enabled then return end
-			if s.checkRef ~= nil then s.checkRef:set(nil) end
+			local now = clockNow()
+			tries[s.construction] = { levels = levels.describe(s.levels), at = now }
 			if logFull then
 				say("window buy construction=" .. tostring(s.construction) .. " tree=" .. tree .. " from=" .. tostring(level)
 					.. " shownPrice=" .. tostring(price))
@@ -635,7 +630,7 @@ end
 
 -- The cards scroll and the game's own upkeep footer sits below them, as in the depot's tab
 -- (gui/entity_window/maintenance_station/maintenance_station.tl).
-local tabBody = function(s : TabState, gameCtx : GameContext) : TreeNodeId
+local tabBody = function(s : TabState, gameCtx : GameContext, probe? : TreeNodeId) : TreeNodeId
 	local rankNote = (s.earnedRank and s.rank and s.earnedRank > s.rank)
 		and ("Rank " .. tostring(s.earnedRank) .. " earned: claim it to buy higher levels") or ""
 	local summary : {TreeNodeId} = {
@@ -646,7 +641,8 @@ local tabBody = function(s : TabState, gameCtx : GameContext) : TreeNodeId
 	local cards : {TreeNodeId} = { card("Summary", summary, gameCtx) }
 	for _, tree in ipairs(levels.trees) do cards[#cards + 1] = treeCard(s, tree, gameCtx) end
 	local children : {TreeNodeId} = {}
-	if s.blocked then children[#children + 1] = blockedBanner() end
+	if s.refused then children[#children + 1] = refusedBanner() end
+	if probe ~= nil then children[#children + 1] = probe end
 	if entityWindowUtil == nil then
 		for _, node in ipairs(cards) do children[#children + 1] = node end
 		return builtin.BoxLayout{ orientation = builtin.type.Orientation.Vertical, children = children }
@@ -662,20 +658,83 @@ local tabBody = function(s : TabState, gameCtx : GameContext) : TreeNodeId
 	return builtin.BoxLayout{ orientation = builtin.type.Orientation.Vertical, children = children }
 end
 
+-- The probe, at logLevel "full" only: the game's own proposal viewer, as the base bridge and tunnel window uses it
+-- (gui/entity_window/bridge_and_tunnel.tl), given the real rebuild (createProposalReplaceConstruction) with the levels
+-- unchanged. It logs what the game says about that proposal, to set beside the stand-in check and what the game does with a
+-- buy. Whether the viewer works outside the window's action area is part of the probe: the log says when it is placed and
+-- each different answer it gives.
+local record Probe
+	levels : string
+	proposal : Proposal
+	error : string
+end
+local probeLogged : {string : boolean} = {}
+
+local describeProposalData = function(data : ProposalData) : string
+	local errorState = data.errorState
+	local entities : {string} = {}
+	if data.collisionInfo ~= nil then
+		for _, c in ipairs(data.collisionInfo.collisionEntities or {}) do entities[#entities + 1] = tostring(c.entity) end
+	end
+	return "critical=" .. tostring(errorState and errorState.critical)
+		.. " messages=" .. table.concat(errorState and errorState.messages or {}, ";")
+		.. " warnings=" .. table.concat(errorState and errorState.warnings or {}, ";")
+		.. " collisionEntities=" .. table.concat(entities, ",") .. " costs=" .. tostring(data.costs)
+end
+
+local makeProbe = function(construction : Engine.Entity, current : string) : Probe
+	local con = api.engine.getComponent(construction, api.type.ComponentType.CONSTRUCTION) as Engine.Component.Construction
+	if con == nil then return { levels = current, error = "noConstruction" } end
+	local ok, made = pcall(api.engine.util.proposal.createProposalReplaceConstruction, construction, constructionParams(con))
+	local probe : Probe = { levels = current, proposal = ok and made or nil, error = (not ok or made == nil) and tostring(made) or nil }
+	say("window probe placed construction=" .. tostring(construction) .. " levels=" .. current
+		.. " proposal=" .. tostring(probe.proposal ~= nil) .. " error=" .. tostring(probe.error))
+	return probe
+end
+
+local probeViewer = function(construction : Engine.Entity, probe : Probe) : TreeNodeId
+	if probe == nil or probe.proposal == nil then return nil end
+	return builtin.ProposalViewer{
+		proposal = probe.proposal,
+		onCreateProposalData = function(data : ProposalData, _proposal : Proposal)
+			local ok, line = pcall(describeProposalData, data)
+			local logLine = "window probe construction=" .. tostring(construction) .. " levels=" .. probe.levels .. " "
+				.. (ok and line or ("describeError=" .. tostring(line)))
+			if not probeLogged[logLine] then
+				probeLogged[logLine] = true
+				say(logLine)
+			end
+		end,
+		entityForRefundableContext = api.engine.util.getPlayer(),
+		proposalId = "depot_retrofits_probe," .. tostring(construction) .. "," .. probe.levels,
+	}
+end
+
 local RetrofitTab : Recipe<IEntityWindowParam> = nil
 if ready then
 	RetrofitTab = react.RegisterRecipe("DepotRetrofitsTab", function(params : IEntityWindowParam) : TreeNodeId
 		local construction = params.keyEntity
-		local checkRef = react.useRef(nil as RebuildCheckState)
+		local probeRef = react.useRef(nil as Probe)
 		local state = engineReact.useStepState(function() : TabState
-			return readTab(construction, checkRef)
+			return readTab(construction)
 		end, nil, function(a : TabState, b : TabState) : boolean
 			return a ~= nil and b ~= nil and a.key == b.key
 		end)
 		local s = state:old()
 		local ok, body = pcall(function() : TreeNodeId
 			logShown(s)
-			return tabBody(s, params.gameCtx)
+			local probe : TreeNodeId = nil
+			if logFull then
+				local current = levels.describe(s.levels)
+				local last = probeRef:get()
+				if last == nil or last.levels ~= current then
+					last = makeProbe(construction, current)
+					probeRef:set(last)
+				end
+				local okProbe, viewer = pcall(probeViewer, construction, last)
+				if okProbe then probe = viewer else say("window probeError construction=" .. tostring(construction) .. " error=" .. tostring(viewer)) end
+			end
+			return tabBody(s, params.gameCtx, probe)
 		end)
 		if not ok then
 			say("window error construction=" .. tostring(construction) .. " error=" .. tostring(body))
