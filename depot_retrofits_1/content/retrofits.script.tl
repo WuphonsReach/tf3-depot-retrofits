@@ -2,8 +2,7 @@
 -- this script checks it (the construction runs our wrapper, the level the tab saw is still the stored one, below 15, within
 -- the company rank, enough money; a rank that cannot be read refuses the buy) and rebuilds the construction with the new
 -- level. The game itself decides whether the rebuild is built: one it refuses (something built around the building since is in
--- its way) never lands. The stand-in check of rebuild_check.tl only goes into the log line, since it called buildings blocked
--- that the game rebuilds (docs/design/findings.md). Once the rebuild has landed (the stored levels are the ones bought) it books
+-- its way) never lands. Once the rebuild has landed (the stored levels are the ones bought) it books
 -- the price as depot construction under the depot's carrier; a rebuild that never lands costs nothing. It logs each
 -- buy and its outcome; at logLevel "full" (settings.tl) also the building before, and after 1 game hour, 1 day, 7 days and
 -- 30 days with the values the formulas in levels.tl predict and the pollution and noise in dB at the building (the later checks
@@ -22,10 +21,11 @@ local buyEvent = "depotRetrofitsBuy"
 local dayClock = 4000
 local buyCheckOffsets = { 200, dayClock, 7 * dayClock, 30 * dayClock }
 -- A buy is charged when its rebuild lands: the stored level in its tree is at least the one bought, so a later buy landing first
--- also counts. Until then a second buy for the same building is refused. A rebuild that has not landed after a game day, or
--- after a few real seconds, is given up, uncharged: the game refused it. The real seconds count while the game is paused, when
--- game time stands still; a rebuild the game builds lands within a second, paused or not. The window (retrofit_window.script.tl)
--- waits a little longer before it says the building was not rebuilt, so a buy sent again after that is not refused as pending.
+-- also counts. A new buy for the same building before then replaces it, uncharged: the window (retrofit_window.script.tl) sends
+-- one buy at a time per building and says after about a second that the game refused it, so a buy sent again after clearing
+-- the way must go through. Both rebuild to the same level from the same stored levels, so at most one is charged. A rebuild
+-- that has not landed after a game day, or after a few real seconds, is given up, uncharged: the game refused it. The real
+-- seconds count while the game is paused, when game time stands still; a rebuild the game builds lands within a second.
 -- The pending buy keeps only its tree and level: in a run of quick buys, two recorded with all five levels were found holding
 -- the levels from before the buy, so they never matched and went uncharged (docs/design/findings.md).
 local buyPendingClock = dayClock
@@ -111,10 +111,6 @@ local logFull = settingsLoaded and type(settingsModule) == "table" and (settings
 -- Without it the rank is unknown and every buy is refused.
 local rankLoaded, rankModule = pcall(ug_require, "depot_retrofits_1::/company_rank.tl")
 local companyRank = rankLoaded and (rankModule as DepotRetrofitsRank) or nil
-
--- Without it a rebuild is sent unchecked, as in 1.0: one the game refuses then never lands and is not charged.
-local checkLoaded, checkModule = pcall(ug_require, "depot_retrofits_1::/rebuild_check.tl")
-local rebuildCheck = checkLoaded and (checkModule as DepotRetrofitsRebuildCheck) or nil
 
 -- Module variables do not persist across saves; this only keeps the load line to one per session.
 local loadLogged = false
@@ -317,36 +313,20 @@ local compare = function(snap : Snapshot, e : Expected, to : {string : integer})
 		.. " expUpkeepCharged=" .. tostring(e.upkeepCharged)
 end
 
--- Sends the rebuild; the game builds it or refuses it. The stand-in check runs first for the log only: its verdict ("clear",
--- "blocked" with the game's messages, or "unchecked") goes into the buy line, so the log shows how often it agrees with the game.
--- The second result is the reason, or the check's verdict.
+-- Sends the rebuild; the game builds it or refuses it. The second result is the reason it was not sent.
 local sendRebuild = function(construction : Engine.Entity, values : {string : integer}) : boolean, string
 	local con = getConstruction(construction)
 	if con == nil then return false, "noConstruction" end
 	local params = constructionParams(con)
 	levels.store(params, values)
-	local proposal : Proposal = nil
-	local checked = "unchecked moduleError=" .. tostring(checkModule)
-	if rebuildCheck ~= nil then
-		local clear, reason : boolean, string
-		proposal, clear, reason = rebuildCheck.check(construction, params)
-		if clear == false then
-			checked = "blocked " .. reason
-		else
-			checked = clear and (reason == "clear" and "clear" or ("clear " .. reason)) or ("unchecked " .. reason)
-		end
-	end
-	if proposal == nil then
-		local ok, made = pcall(api.engine.util.proposal.createProposalReplaceConstruction, construction, params)
-		if not ok or made == nil then return false, "noProposal error=" .. tostring(made) end
-		proposal = made
-	end
+	local ok, proposal = pcall(api.engine.util.proposal.createProposalReplaceConstruction, construction, params)
+	if not ok or proposal == nil then return false, "noProposal error=" .. tostring(proposal) end
 	local sent, err = pcall(function() : string
 		api.cmd.sendCommand(api.cmd.makeWorldBuildProposalCmd(proposal, nil, false, false, false))
 		return nil
 	end)
 	if not sent then return false, "sendError error=" .. tostring(err) end
-	return true, checked
+	return true, nil
 end
 
 -- The carrier the construction's file names: "TRAM", "RAIL", "WATER" or "ROAD" (the base depots' folders).
@@ -419,11 +399,18 @@ local stillPending = function(p : Pending, t : number) : boolean
 	return not expired(p, t, clockNow()) and not landed(p, storedLevels(p.construction))
 end
 
-local isPending = function(retrofit : RetrofitState, construction : Engine.Entity, t : number) : boolean
+-- Drops the building's buy that has not landed yet, uncharged, as a new buy for it replaces it.
+local replacePending = function(retrofit : RetrofitState, construction : Engine.Entity, t : number)
+	local kept : {Pending} = {}
 	for _, p in ipairs(retrofit.pending or {}) do
-		if p.construction == construction and stillPending(p, t) then return true end
+		if p.construction == construction and stillPending(p, t) then
+			say("buy notLanded construction=" .. tostring(p.construction) .. " bought=" .. tostring(p.label) .. " price=" .. tostring(p.price)
+				.. " reason=replaced charged=false")
+		else
+			kept[#kept + 1] = p
+		end
 	end
-	return false
+	retrofit.pending = kept
 end
 
 -- Returns the reason a buy was refused, or nil when it was carried out.
@@ -437,7 +424,6 @@ local processBuy = function(retrofit : RetrofitState, buy : Buy, t : number) : s
 	local from = levels.read(constructionParams(con))
 	if from[buy.tree] ~= buy.from then return "stale stored=" .. tostring(from[buy.tree]) end
 	if buy.from >= levels.maxLevel then return "maxLevel" end
-	if isPending(retrofit, buy.construction, t) then return "pending" end
 	local rank, _, rankSource = readRank()
 	if rank == nil then return "rankUnknown rankSource=" .. rankSource end
 	if buy.from + 1 > rank then return "rank rank=" .. tostring(rank) end
@@ -456,9 +442,9 @@ local processBuy = function(retrofit : RetrofitState, buy : Buy, t : number) : s
 	say("buy sent construction=" .. tostring(buy.construction) .. " depot=" .. tostring(depot) .. " tree=" .. buy.tree
 		.. " level=" .. tostring(buy.from + 1) .. " price=" .. tostring(price) .. " balanceBefore=" .. tostring(balance)
 		.. " rank=" .. tostring(rank) .. " rankSource=" .. rankSource .. " carrier=" .. carrier .. " carrierSource=" .. carrierSource
-		.. " rebuildCheck=" .. result .. " from=" .. levels.describe(from) .. " to=" .. levels.describe(to)
+		.. " from=" .. levels.describe(from) .. " to=" .. levels.describe(to)
 		.. (before ~= nil and (" " .. describeSnapshot(before)) or ""))
-	retrofit.pending = retrofit.pending or {}
+	replacePending(retrofit, buy.construction, t)
 	table.insert(retrofit.pending, { construction = buy.construction, tree = buy.tree, level = buy.from + 1,
 		untilT = t + buyPendingClock, sentAt = clockNow(), price = price, fileName = con.fileName, carrier = carrier, label = label })
 	if before ~= nil then
@@ -541,7 +527,7 @@ local retrofitScript : GameScript<RetrofitState> = {
 		local t = now()
 		if not loadLogged then
 			loadLogged = true
-			say("gameScript loaded t=" .. tostring(t) .. " " .. describeRank() .. " rebuildCheck=" .. tostring(rebuildCheck ~= nil))
+			say("gameScript loaded t=" .. tostring(t) .. " " .. describeRank())
 		end
 
 		-- One buy per update; the queue is saved first, so a buy that fails is not retried.

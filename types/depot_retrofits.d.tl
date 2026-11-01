@@ -40,9 +40,3 @@ global record DepotRetrofitsRank
 	read : function(player : Engine.Entity) : integer, integer, string
 end
 
--- The type of the rebuild check module (depot_retrofits_1/content/rebuild_check.tl).
-global record DepotRetrofitsRebuildCheck
-	-- The rebuild proposal with these params, and whether the game would build it: true (clear), false (blocked; the reason
-	-- holds the game's messages and the entities in the way) or nil (the check itself failed; the reason says why).
-	check : function(construction : Engine.Entity, params : {string : any}) : Proposal, boolean, string
-end
