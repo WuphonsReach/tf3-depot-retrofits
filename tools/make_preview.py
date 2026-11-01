@@ -6,7 +6,7 @@ buses around it, and the five level trees listed on the left. The upper right co
 Usage: python3 tools/make_preview.py [OUT_FILE] [--version 1.0] [--keep-svg SVG_FILE]
 --keep-svg also writes the SVG the image is rendered from (for example to local/preview/cover.svg); keep it out of depot_retrofits_1/.
 OUT_FILE defaults to depot_retrofits_1/_metadata/0.jpg, the cover (the uploader's Preview slot), and then also writes a copy to
-1.jpg, the first gallery image, so the cover opens the gallery too; see docs/publishing.md.
+1-cover.jpg, the first gallery image, so the cover opens the gallery too; see docs/publishing.md.
 """
 import shutil
 import subprocess
@@ -223,8 +223,8 @@ def main():
         Image.open(png).convert("RGB").save(out, quality=92, optimize=True, progressive=True)
     print(out)
     if not args:
-        shutil.copyfile(out, metadata / "1.jpg")
-        print(metadata / "1.jpg")
+        shutil.copyfile(out, metadata / "1-cover.jpg")
+        print(metadata / "1-cover.jpg")
 
 
 if __name__ == "__main__":

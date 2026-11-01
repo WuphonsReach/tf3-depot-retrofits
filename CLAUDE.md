@@ -28,12 +28,12 @@ python3 tools/check_content_list.py
 # Check that settings.tl ships logLevel "summary" (a test value warns here and fails in CI, which passes --strict)
 python3 tools/check_repo.py
 
-# Redraw the mod's cover (depot_retrofits_1/_metadata/0.jpg, the uploader's Preview slot, and its copy 1.jpg, the first gallery image; 1920x1080; needs rsvg-convert and the Lato font)
+# Redraw the mod's cover (depot_retrofits_1/_metadata/0.jpg, the uploader's Preview slot, and its copy 1-cover.jpg, the first gallery image; 1920x1080; needs rsvg-convert and the Lato font)
 python3 tools/make_preview.py [--version 1.0] [--keep-svg local/preview/cover.svg]   # the version goes in the upper right corner, kept clear for it
 
-# Redraw the gallery's 2.jpg: hand-cropped screenshots of the building window, laid as a pile of cards on the cover's background
-python3 tools/make_gallery.py depot_retrofits_1/_metadata/2.jpg CARD.png[:angle[:dy[:slot]]] ...   # the docstring has the command for the current image
-# 3.jpg to 6.jpg are game screenshots cropped to 16:9 and scaled to 1920x1080 (the listing's thumbnails are cropped to 16:9). The layout: 0 is the cover, 1 to N the gallery in file-name order with 1 a copy of the cover, no workshop_preview.jpg (docs/publishing.md)
+# Redraw the gallery's 2-retrofit-tabs.jpg: hand-cropped screenshots of the building window, laid as a pile of cards on the cover's background
+python3 tools/make_gallery.py depot_retrofits_1/_metadata/2-retrofit-tabs.jpg CARD.png[:angle[:dy[:slot]]] ...   # the docstring has the command for the current image
+# 3-not-rebuilt.jpg to 6-rail-maintenance.jpg are game screenshots cropped to 16:9 and scaled to 1920x1080 (the listing's thumbnails are cropped to 16:9). The layout: 0.jpg is the cover, <n>-<name>.jpg the gallery in file-name order with 1-cover.jpg a copy of the cover, no workshop_preview.jpg (docs/publishing.md)
 ```
 
 Run `tl check` on each script you touch.
@@ -48,7 +48,7 @@ The rulesets match Best Before's and have no bypass actors, so they bind the own
 - `trunks`: `main` cannot be deleted or force-pushed.
 - `version-tags`: tags matching `v*.*` cannot be moved or deleted once pushed. Releases are immutable too, so check a tag and its release before publishing; a mistake means a new version, not a fix in place.
 
-Releases follow [docs/publishing.md](docs/publishing.md): upload only through the game's Mod Hub dialog, test the published copy with the staging link removed, then tag. Keep `modVersion` in `mod.script.tl` and the top entry of [CHANGELOG.md](CHANGELOG.md) in step (between releases `modVersion` reads the next number with `-dev`). After the first upload `_metadata/mod.io_fileid.txt` holds the mod id: commit it and never delete it, or the next upload creates a second mod. Images: `0.jpg` the cover, `1.jpg` onward the gallery in file-name order, `1.jpg` a copy of the cover (as in Best Before), no `workshop_preview.jpg`; moving a thumbnail in the dialog swaps the files on disk, so commit them as the dialog leaves them.
+Releases follow [docs/publishing.md](docs/publishing.md): upload only through the game's Mod Hub dialog, test the published copy with the staging link removed, then tag. Keep `modVersion` in `mod.script.tl` and the top entry of [CHANGELOG.md](CHANGELOG.md) in step (between releases `modVersion` reads the next number with `-dev`). After the first upload `_metadata/mod.io_fileid.txt` holds the mod id: commit it and never delete it, or the next upload creates a second mod. Images: `0.jpg` the cover, `<n>-<name>.jpg` the gallery in file-name order, `1-cover.jpg` a copy of the cover (as in Best Before), no `workshop_preview.jpg`. An update does not send a gallery image under a name mod.io already has, so a changed picture gets a new name. Moving a thumbnail in the dialog swaps the files' contents on disk: reorder by renaming instead, and check names against pictures before committing.
 
 ## Architecture (1.0)
 
