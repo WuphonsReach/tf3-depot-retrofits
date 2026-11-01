@@ -27,7 +27,7 @@ The Retrofit tab sits next to the building's own tab. From top to bottom:
 
 The upkeep figures, in the cards and in the footer, include a running cost for the vehicles the building maintains, which goes up and down as vehicles come and go. Buying a level rebuilds the building and resets that cost to zero, so right after a buy the footer can read a little below the figure the card showed. The upkeep retrofit does not cut this running cost.
 
-The buy button shows "Rank N" and is greyed out when the next level needs a higher company rank. It is also greyed out, with the price still shown, when you do not have enough money for the level. On a building with a very small maintenance radius (under 20 m, as on some modded depots), a radius level would widen it by less than 1 m, so that button shows "No effect" and is greyed out. A retrofit at level 15 shows "Highest level".
+The buy button shows "Rank N" and is greyed out when the next level needs a higher company rank. It is also greyed out, with the price still shown, when you do not have enough money for the level. When the game cannot rebuild the building, because something built after it stands in the way (a town building on the lot next door, or the road in front of it), every buy button shows "Blocked" and is greyed out, and a yellow warning at the top of the tab says so. Pause the game and clear what is in the way; with the window still open, the buttons should come back after a few seconds. Buy while still paused, so the town cannot build there again first. If you removed a road, build it again once the levels are bought, so the building is connected again. If the town builds there again within 30 seconds of the buttons coming back, the warning comes back by itself; after that, the next click on a buy button shows it. A retrofit at level 15 shows "Highest level".
 
 Levels cannot be sold or lowered.
 
@@ -37,7 +37,7 @@ Each building has five retrofits, each with 15 levels:
 
 | Retrofit | Per level | At level 15 |
 |---|---|---|
-| Maintenance radius | +5% | +75% |
+| Maintenance radius | +5%, or at least +10 m | +75% or at least +150 m |
 | Vehicles maintained | +10%, or at least +1 vehicle | +150% or at least +15 vehicles |
 | Pollution | -5% | -75% |
 | Noise | -5% | -75% |

@@ -225,7 +225,8 @@ local snapshotDepots = function(result : Result) : {integer : DepotSnapshot}
 end
 
 -- What a module added is levelled as if the building had had it from the start: the pool from the base pool before the module
--- plus the module's vehicles (so the vehicles tree counts every stall), the radius and the upkeep by their factors.
+-- plus the module's vehicles (so the vehicles tree counts every stall), the radius from the base radius plus what the module
+-- added, and the upkeep by its factor.
 local relevelModule = function(result : Result, values : {string : integer}, before : {integer : DepotSnapshot},
 		upkeepBefore : number, own : Own, slotId : any) : string
 	local changes : {string} = {}
@@ -253,7 +254,8 @@ local relevelModule = function(result : Result, values : {string : integer}, bef
 			end
 			local radius = depot.catchmentArea and depot.catchmentArea.radius
 			if values.radius > 0 and type(radius) == "number" and type(snap.radius) == "number" and radius ~= snap.radius then
-				depot.catchmentArea.radius = snap.radius + (radius - snap.radius) * levels.radius(1, values.radius)
+				depot.catchmentArea.radius = levels.radius(levels.baseRadius(snap.radius, values.radius) + radius - snap.radius,
+					values.radius)
 				changes[#changes + 1] = "sub=" .. tostring(index) .. " radius=" .. tostring(snap.radius) .. "+"
 					.. tostring(radius - snap.radius) .. "->" .. tostring(depot.catchmentArea.radius)
 			end

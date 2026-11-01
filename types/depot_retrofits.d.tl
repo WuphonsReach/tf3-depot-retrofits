@@ -19,6 +19,7 @@ global record DepotRetrofitsLevels
 	pool : function(basePool : number, level : integer) : integer
 	basePool : function(pool : number, level : integer) : integer
 	radius : function(baseRadius : number, level : integer) : number
+	baseRadius : function(radius : number, level : integer) : number
 	emissionFactor : function(level : integer) : number
 	upkeepFactor : function(levels : {string : integer}) : number
 	-- The update script's upkeep at some levels, in whole dollars, from the upkeep before any level.
@@ -37,4 +38,11 @@ global record DepotRetrofitsRank
 	-- The claimed rank, the earned rank and where they were read ("util", "state ..."); nil, nil and "unknown ..." when neither
 	-- read works.
 	read : function(player : Engine.Entity) : integer, integer, string
+end
+
+-- The type of the rebuild check module (depot_retrofits_1/content/rebuild_check.tl).
+global record DepotRetrofitsRebuildCheck
+	-- The rebuild proposal with these params, and whether the game would build it: true (clear), false (blocked; the reason
+	-- holds the game's messages and the entities in the way) or nil (the check itself failed; the reason says why).
+	check : function(construction : Engine.Entity, params : {string : any}) : Proposal, boolean, string
 end

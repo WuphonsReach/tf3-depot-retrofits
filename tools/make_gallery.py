@@ -7,12 +7,13 @@ row by row and adds the button, so the map between them goes too. Each card is r
 and the cut is drawn larger and scaled down, so its edges stay smooth. Cards keep their slant and position from the
 arguments, so a new set of screenshots can be laid out the same way.
 
-Usage: python3 tools/make_gallery.py OUT_FILE CARD.png[:angle[:dy[:slot]]] ...
+Usage: python3 tools/make_gallery.py [--spacing N] [--card-height N] OUT_FILE CARD.png[:angle[:dy[:slot]]] ...
 Cards are listed from the bottom of the pile to the top. angle is in degrees (positive tilts left), dy moves the card down in
-pixels, slot is its place from the left (default: its place in the list). Needs rsvg-convert, for the background.
+pixels, slot is its place from the left (default: its place in the list). --spacing (pixels between card centres, default
+560) and --card-height (default 880) fit more than three cards. Needs rsvg-convert, for the background.
 
-The current listing's 2.jpg (three Retrofit tabs) was made from the crops in tools/gallery/ with:
-python3 tools/make_gallery.py depot_retrofits_1/_metadata/2.jpg tools/gallery/maintenance_building.png:2.5:16:0 tools/gallery/train_depot.png:-2.5:22:2 tools/gallery/ship_depot.png:-1:-4:1
+The current listing's 2.jpg (four Retrofit tabs, the last one blocked) was made from the crops in tools/gallery/ with:
+python3 tools/make_gallery.py --spacing 465 --card-height 760 depot_retrofits_1/_metadata/2.jpg tools/gallery/maintenance_building.png:2.5:16:0 tools/gallery/train_depot.png:-2.5:22:2 tools/gallery/ship_depot.png:-1:-4:1 tools/gallery/road_depot_blocked.png:1.5:6:3
 """
 import subprocess
 import sys
@@ -121,9 +122,17 @@ def background():
 
 
 def main():
-    if len(sys.argv) < 3:
+    global SPACING, CARD_H
+    args = sys.argv[1:]
+    while args and args[0] in ("--spacing", "--card-height") and len(args) > 1:
+        if args[0] == "--spacing":
+            SPACING = int(args[1])
+        else:
+            CARD_H = int(args[1])
+        args = args[2:]
+    if len(args) < 2:
         sys.exit(__doc__)
-    out, specs = Path(sys.argv[1]), sys.argv[2:]
+    out, specs = Path(args[0]), args[1:]
     image = background()
     for i, spec in enumerate(specs):
         path, *rest = spec.split(":")

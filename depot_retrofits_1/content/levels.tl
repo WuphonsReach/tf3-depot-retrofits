@@ -21,6 +21,7 @@ local levels : DepotRetrofitsLevels = {
 }
 
 local radiusStep = 0.05
+local minRadiusStep = 10
 local vehiclesStep = 0.10
 local emissionStep = 0.05
 -- Each level adds this share of the base upkeep. Pollution and noise add less, since they do not change what the building
@@ -87,8 +88,18 @@ function levels.basePool(pool : number, level : integer) : integer
 	return nil
 end
 
+-- At least 10 m more per level, so small radii still grow: 5% is less than that below a base of 200 m (the Buffer Stop Depot mod's
+-- depot has 1 m; docs/design/findings.md). No base game building is that small.
 function levels.radius(baseRadius : number, level : integer) : number
-	return baseRadius * (1 + radiusStep * level)
+	return baseRadius + level * math.max(radiusStep * baseRadius, minRadiusStep)
+end
+
+-- The base radius behind a radius built at a radius level. The radius grows with the base, so exactly one gives it.
+function levels.baseRadius(radius : number, level : integer) : number
+	if radius == nil then return nil end
+	local base = radius / (1 + radiusStep * level)
+	if radiusStep * base >= minRadiusStep then return base end
+	return radius - minRadiusStep * level
 end
 
 function levels.emissionFactor(level : integer) : number

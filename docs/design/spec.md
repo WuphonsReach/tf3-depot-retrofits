@@ -17,10 +17,12 @@ Each tree has 15 levels, bought one at a time. Level *n* of a tree costs the tre
 
 | Tree | Game value changed | Per level | At level 15 |
 |---|---|---|---|
-| Maintenance radius | the depot's catchment radius | +5% | +75% |
+| Maintenance radius | the depot's catchment radius | +5%, or at least +10 m | +75% or at least +150 m |
 | Vehicles maintained | the depot's maintenance pool | +10%, or at least +1 vehicle | +150% or at least +15 vehicles |
 | Pollution | the building's pollution, in both emission states | -5% | -75% |
 | Noise | the building's noise, in both emission states | -5% | -75% |
+
+Maintenance radius at level *n* is the base radius + *n* × the larger of 5% of the base radius and 10 m. The 10 m floor only matters below a base radius of 200 m; no base game building is that small, but the Buffer Stop Depot mod's depot has 1 m, which 5% steps would leave at 1 m.
 
 Vehicles maintained at level *n* is the larger of the base pool × (1 + 0.1*n*), rounded, and the base pool + *n*. Pools below 10 grow by exactly one vehicle per level; larger pools grow by the 10% steps.
 
@@ -97,5 +99,5 @@ A tree's maximum level equals the claimed company rank. It is fixed: there is no
 - **Charging.** The one-off price is booked as depot construction (journal entry, carrier from the depot) once the rebuild has landed; a rebuild that never lands is not charged. The extra upkeep is the building's own upkeep, raised in the rebuild, so it is charged with the normal upkeep.
 - **Rank.** The rank the company window shows as reached (claimed), read through the base game's company progression script, or from the state it reads when that script cannot be loaded. Buying a level above it is refused, and so is every buy while neither read works.
 - **Modular depots.** The levels scale what the modules add (pool, radius, upkeep), and an edit to the modules keeps the levels and recounts their upkeep, so the upkeep and the prices of further levels follow the building as it is now. Levels already bought are not repriced when the building grows or shrinks: buying small and adding modules afterwards skips the one-off price of the larger building. This is accepted, since the yearly upkeep the levels add grows with the modules.
-- **No effect.** A radius level adds 5% of the base radius. Where that is under 1 m (a base radius below 20 m, such as the Buffer Stop Depot mod's 1 m), the tab shows the radius now and a greyed "No effect" button instead of the next level.
+- **Blocked.** The game refuses a rebuild that collides with what was built around the building since. The tab asks first and shows "Blocked" on every button, under a yellow warning at the top of the tab, drawn like the caution cards in the town and line windows (it names a building or a road, the two seen in the way, and says to reconnect a removed road), and asks again every 2 seconds while blocked and for 30 seconds after the way is clear, so the buttons come back by themselves and grey out again if the town builds on the cleared lot; the buy is checked again when it is sent, and nothing is charged.
 - **Where the player buys.** A Retrofit tab in the building's window, next to its depot tab (as Industry Upgrades adds an Upgrades tab to industries): one card per tree with what the next level changes, the upkeep after it, and a buy button showing the price; the building's upkeep shows once, in the game's own upkeep footer.
