@@ -190,8 +190,8 @@ end
 -- A buy is tried, not checked first: the click sends it, and the game builds the rebuild or refuses it (when something built
 -- around the building since is in its way). The tab remembers the levels it showed at the click; when they have not changed
 -- about a second later, the game refused it (nothing is charged then), and the tab says so and shows what is in the way in red
--- (the proposal viewer below), until the next click, a rebuild that lands, or what it named as in the way is gone (when it
--- named nothing, until the next click). A buy sent again replaces the refused one in the game script (retrofits.script.tl).
+-- (the proposal viewer below), until a rebuild lands or what it named as in the way is gone. A click while it shows keeps
+-- the warning up, so a retry the game refuses again does not make it blink. A buy sent again replaces the refused one in the game script (retrofits.script.tl).
 -- Kept per building for the session, so the warning is still there when the window is opened again. A check before the buy was tried and dropped: a stand-in check (in git
 -- history, rebuild_check.tl) called buildings blocked that the game rebuilds, and the game's proposal viewer previews the rebuilt
 -- building each time it asks, which regrows the greenery around it and flashes its road connection (docs/design/findings.md).
@@ -201,7 +201,7 @@ local record Try
 	step : integer -- stepCount at the click
 end
 local tries : {Engine.Entity : Try} = {}
-local refused : {Engine.Entity : string} = {} -- the levels when the buy was found refused; cleared by a click or a new level
+local refused : {Engine.Entity : string} = {} -- the levels when the buy was found refused; cleared by a new level
 local refusals : {Engine.Entity : integer} = {} -- counts the refusals, so each one places a new viewer
 -- What the viewer named as in the way after a refusal; once none of it exists any more, the warning and the red go.
 local inTheWay : {Engine.Entity : {Engine.Entity}} = {}
@@ -267,7 +267,9 @@ local readTab = function(construction : Engine.Entity) : TabState
 	local current = levels.describe(s.levels)
 	local okRefused, wasRefused = pcall(readRefused, construction, current)
 	s.refused = okRefused and wasRefused or nil
-	s.refusal = s.refused and (refusals[construction] or 0) or nil
+	-- The warning stays through a retry, as the retry is most likely refused too; the viewer goes while it is on its way, as
+	-- one still holding the old proposal flashes the building red when a rebuild lands under it.
+	s.refusal = s.refused and tries[construction] == nil and (refusals[construction] or 0) or nil
 	if companyRank ~= nil then
 		s.rank, s.earnedRank, s.rankSource = companyRank.read(api.engine.util.getPlayer())
 	else
@@ -547,7 +549,6 @@ local buyButton = function(s : TabState, tree : string) : TreeNodeId
 			if tries[s.construction] ~= nil then return end
 			local now = clockNow()
 			tries[s.construction] = { levels = levels.describe(s.levels), at = now, step = stepCount }
-			refused[s.construction] = nil
 			local area = actionAreas[s.construction]
 			if area ~= nil and area.placedRef:get() ~= "none" then
 				area.placedRef:set("none")
