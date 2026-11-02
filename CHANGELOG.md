@@ -4,7 +4,9 @@ Newest first. The number in the title is `modVersion` at the top of [mod.script.
 
 ## 1.3 (not released)
 
-Nothing yet.
+- **Cheaper pollution and noise levels.** Level 1 of the pollution retrofit now costs 6% of the build price instead of 8%, and each level after it 10% more than the one before instead of 15%, so all 15 levels cost about 1.9 times the build price instead of 3.8. Noise level 1 costs 10% instead of 12% and each level after it 12% more, about 3.7 times the build price for all 15 instead of 5.7. Even many levelled buildings move a town's rating only a little, so the late levels were priced too high for what they do. The upkeep these levels add is unchanged, so buildings levelled before keep their upkeep, and their next levels cost the new prices.
+
+Release note: `Pollution and noise levels are cheaper, above all the late ones.`
 
 ## 1.2 (2026-11-01)
 

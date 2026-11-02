@@ -2,7 +2,7 @@
 
 ## In short
 
-Depots and maintenance buildings get levels, bought one at a time in the building's own window. There are five level trees of 15 levels each, and a tree's highest level available is the company's claimed rank (the game has 15 ranks). Four trees (maintenance radius, vehicles maintained, pollution, noise) improve the building and raise its upkeep. Radius and vehicles levels cost 0.15 × the build price at level 1 and add 15% of the base upkeep each; noise costs 0.12 and adds 10%, pollution 0.08 and 5%, since those two do not change what the building does, and a town's rating spreads pollution over its whole area. In every tree, each level costs 15% more than the one before. The upkeep tree cuts the total upkeep, so it starts higher, at 0.25 × the build price, and a full upkeep tree pays for itself in about 12 game years on a building with the other four trees at 15. Version 1.0 stores, applies and sells levels by rebuilding the construction with new parameters (see [findings.md](findings.md) for what the tests showed).
+Depots and maintenance buildings get levels, bought one at a time in the building's own window. There are five level trees of 15 levels each, and a tree's highest level available is the company's claimed rank (the game has 15 ranks). Four trees (maintenance radius, vehicles maintained, pollution, noise) improve the building and raise its upkeep. Radius and vehicles levels cost 0.15 × the build price at level 1 and add 15% of the base upkeep each, and each further level costs 15% more than the one before. Noise costs 0.10, adds 10% and rises by 12% a level; pollution costs 0.06, adds 5% and rises by 10% a level, since those two do not change what the building does, and a town's rating spreads pollution over its whole area. The upkeep tree cuts the total upkeep, so it starts higher, at 0.25 × the build price and rising by 15% a level, and a full upkeep tree pays for itself in about 12 game years on a building with the other four trees at 15. Version 1.0 stores, applies and sells levels by rebuilding the construction with new parameters (see [findings.md](findings.md) for what the tests showed).
 
 ## Trees
 
@@ -11,7 +11,7 @@ There are two kinds of tree:
 - **Radius, vehicles, pollution and noise** improve the building, and each level raises its upkeep.
 - **Upkeep** cuts the building's total upkeep, so it pays for itself over time. Its levels cost more.
 
-Each tree has 15 levels, bought one at a time. Level *n* of a tree costs the tree's first-level share × the building's build price × 1.15^(*n*−1). Levels are paid in money only. A level's price does not depend on the building's other levels, so the order of purchase does not change what anything costs. All five trees at 15 cost about 36 × the build price.
+Each tree has 15 levels, bought one at a time. Level *n* of a tree costs the tree's first-level share × the building's build price × the tree's step^(*n*−1), where the step is 1.15, or 1.12 for noise and 1.10 for pollution. Levels are paid in money only. A level's price does not depend on the building's other levels, so the order of purchase does not change what anything costs. All five trees at 15 cost about 32 × the build price.
 
 ## Radius, vehicles, pollution and noise
 
@@ -35,17 +35,19 @@ Vehicles maintained at level *n* is the larger of the base pool × (1 + 0.1*n*),
 
 ### Price
 
-The first-level share is 0.15 for radius and vehicles, 0.12 for noise and 0.08 for pollution:
+The first-level share is 0.15 for radius and vehicles, 0.10 for noise and 0.06 for pollution, and the step 1.15, 1.12 and 1.10:
 
 | Level | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15 |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
 | Radius, vehicles (× build price) | 0.15 | 0.17 | 0.20 | 0.23 | 0.26 | 0.30 | 0.35 | 0.40 | 0.46 | 0.53 | 0.61 | 0.70 | 0.80 | 0.92 | 1.06 |
-| Noise | 0.12 | 0.14 | 0.16 | 0.18 | 0.21 | 0.24 | 0.28 | 0.32 | 0.37 | 0.42 | 0.49 | 0.56 | 0.64 | 0.74 | 0.85 |
-| Pollution | 0.08 | 0.09 | 0.11 | 0.12 | 0.14 | 0.16 | 0.19 | 0.21 | 0.24 | 0.28 | 0.32 | 0.37 | 0.43 | 0.49 | 0.57 |
+| Noise | 0.10 | 0.11 | 0.13 | 0.14 | 0.16 | 0.18 | 0.20 | 0.22 | 0.25 | 0.28 | 0.31 | 0.35 | 0.39 | 0.44 | 0.49 |
+| Pollution | 0.06 | 0.07 | 0.07 | 0.08 | 0.09 | 0.10 | 0.11 | 0.12 | 0.13 | 0.14 | 0.16 | 0.17 | 0.19 | 0.21 | 0.23 |
 
-A full radius or vehicles tree costs about 7.1 × the build price, a full noise tree 5.7 ×, a full pollution tree 3.8 ×, and all four about 24 ×.
+A full radius or vehicles tree costs about 7.1 × the build price, a full noise tree 3.7 ×, a full pollution tree 1.9 ×, and all four about 20 ×.
 
 Pollution and noise are cheaper because they do not change what the building does. A wider radius or a larger pool does: the building covers more vehicles, so fewer buildings are needed. Pollution is the cheapest: a town's pollution rating spreads the town's whole pollution over its area (at least 5 km²), so one building's cut barely moves it, and only many buildings together show a change (12 buildings at pollution 11 raised a town's rating by about 7 to 9 points; see [findings.md](findings.md)). Noise counts where people live and work, so a noise level near houses can matter on its own. Moving a building out of a town does not avoid this: its pollution only becomes another town's, and its vehicles tie it to where they run.
+
+Both rise more slowly than the other trees, since even many levelled buildings left a town's rating in the same band (findings): the late levels buy the least. At base game prices, pollution 1 to 9 costs about $1,800 per unit of the building's pollution removed (midway between idle and full) on a road maintenance building, $3,600 on a road depot, $5,800 on a rail or water maintenance building and $12,000 on a water depot; a rail depot's price follows its era factor (1, 3 or 9). For scale, the game's Cleaning Plant (`game_mechanics/emission/pollution_cleanup_facility.con.lua`: $100 million to build, $10 million a year) cancels 10,000 units of pollution within 700 m while producing, $10,000 a unit once and $1,000 a year.
 
 ### Upkeep
 
