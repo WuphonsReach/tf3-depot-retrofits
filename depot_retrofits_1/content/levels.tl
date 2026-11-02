@@ -30,9 +30,11 @@ local emissionStep = 0.05
 local upkeepPerLevel : {string : number} = { radius = 0.15, vehicles = 0.15, pollution = 0.05, noise = 0.10 }
 local upkeepStep = 0.05
 -- Level 1 costs this share of the build price. The upkeep tree starts higher, since it pays for itself; pollution and noise
--- start lower, for the same reason that they add less upkeep.
-local firstLevelShare : {string : number} = { radius = 0.15, vehicles = 0.15, pollution = 0.08, noise = 0.12, upkeep = 0.25 }
-local priceGrowth = 1.15 -- each further level costs this much more than the one before
+-- start lower, for the same reason that they add less upkeep, and rise more slowly, since a town's rating hardly shows the
+-- late levels.
+local firstLevelShare : {string : number} = { radius = 0.15, vehicles = 0.15, pollution = 0.06, noise = 0.10, upkeep = 0.25 }
+-- Each further level costs this much more than the one before.
+local priceGrowth : {string : number} = { radius = 1.15, vehicles = 1.15, pollution = 1.10, noise = 1.12, upkeep = 1.15 }
 local buildPricePerUpkeep = 6 -- every base depot and maintenance building costs 6 times its yearly upkeep to build
 
 local round = function(x : number) : integer
@@ -157,7 +159,7 @@ function levels.buildPrice(chargedUpkeep : number, values : {string : integer}) 
 end
 
 function levels.levelPrice(buildPrice : number, tree : string, level : integer) : integer
-	return round(firstLevelShare[tree] * buildPrice * priceGrowth ^ (level - 1))
+	return round(firstLevelShare[tree] * buildPrice * priceGrowth[tree] ^ (level - 1))
 end
 
 return levels
