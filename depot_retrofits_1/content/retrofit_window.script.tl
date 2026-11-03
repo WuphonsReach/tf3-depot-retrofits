@@ -197,22 +197,25 @@ end
 -- the warning up, so a retry the game refuses again does not make it blink. A buy sent again replaces the refused one in the game script (retrofits.script.tl).
 -- A buy the game script itself refused never reaches the game, so while waiting the tab also reads the game script's state for
 -- its click: refused there for want of money (the balance can fall between the tab's last read and the game script's check),
--- the tab says so instead, with no viewer, for about 30 seconds or until the next click or a new level.
+-- the tab says so instead, with no viewer, until the next click, a new level, or once it has shown for about 10 seconds and
+-- the money covers the clicked level again (see readShort).
 -- Kept per building for the session, so the warning is still there when the window is opened again. A check before the buy was tried and dropped: a stand-in check (in git
 -- history, rebuild_check.tl) called buildings blocked that the game rebuilds, and the game's proposal viewer previews the rebuilt
 -- building each time it asks, which regrows the greenery around it and flashes its road connection (docs/design/findings.md).
 local record Try
 	levels : string -- levels.describe of the levels the tab showed at the click
+	tree : string -- the tree whose level was bought
 	at : number -- clockNow() at the click
 	step : integer -- stepCount at the click
 	click : integer -- sent with the buy, which the game script keeps with a refusal
 end
 local tries : {Engine.Entity : Try} = {}
--- When the game script refused the buy for want of money: the levels then, and when it was found.
+-- When the game script refused the buy for want of money.
 local record Short
-	levels : string
-	at : number -- clockNow()
-	step : integer
+	levels : string -- levels.describe of the levels then
+	tree : string -- the tree of that buy
+	at : number -- clockNow() when it was found
+	step : integer -- stepCount then
 end
 local short : {Engine.Entity : Short} = {}
 local clicks = 0
@@ -232,10 +235,11 @@ local actionAreas : {Engine.Entity : ActionArea} = {}
 -- does the proposal viewer saying the rebuild would be built. The step count is only for where os.time is not available.
 local refusedAfterSeconds = 2
 local refusedAfterSteps = 120
--- How long the money note stays: long enough to read, and by then the balance has most likely moved on. Counted while the tab
--- is not showing too, as it is a clock; the steps (about 60 a second) only where os.time is not available.
-local shortSeconds = 30
-local shortSteps = 1800
+-- How long the "Not bought" note shows at least, so it can be read: nine to ten seconds, as os.time ticks whole seconds
+-- (30 seconds was found too long in game, 5 too short to read). Counted while the tab is not showing too, as it is a clock;
+-- the steps (about 60 a second) only where os.time is not available.
+local shortSeconds = 10
+local shortSteps = 600
 local stepCount = 0
 -- Real time in whole seconds. Not os.clock: that is the process's processor time, summed over the game's threads, and ran
 -- about 5 times faster than real time in game. The tab's step count where os.time is not available.
@@ -290,7 +294,7 @@ local readRefused = function(construction : Engine.Entity, current : string) : b
 		elseif reason ~= nil then
 			tries[construction] = nil
 			if reason == "noMoney" then
-				short[construction] = { levels = current, at = now, step = stepCount }
+				short[construction] = { levels = current, tree = try.tree, at = now, step = stepCount }
 				refused[construction] = nil
 				inTheWay[construction] = nil
 			end
@@ -306,14 +310,7 @@ local readRefused = function(construction : Engine.Entity, current : string) : b
 		end
 	end
 	if refused[construction] ~= nil and refused[construction] ~= current then refused[construction] = nil end
-	local note = short[construction]
-	if note ~= nil then
-		local now, isClock = clockNow()
-		if note.levels ~= current or (isClock and now - note.at >= shortSeconds)
-				or (not isClock and stepCount - note.step >= shortSteps) then
-			short[construction] = nil
-		end
-	end
+	if short[construction] ~= nil and short[construction].levels ~= current then short[construction] = nil end
 	local named = inTheWay[construction]
 	if refused[construction] ~= nil and named ~= nil and #named > 0 then
 		local gone = true
@@ -329,6 +326,21 @@ local readRefused = function(construction : Engine.Entity, current : string) : b
 	return refused[construction] ~= nil
 end
 
+-- Whether the "Not bought" note still shows: it goes once it has shown for shortSeconds and the balance covers the clicked
+-- tree's next level again, checked on each of the tab's steps, so the enabled buy button replaces it. Still short of money,
+-- it stays. Called once s.affordable is worked out; with the balance unreadable it goes after shortSeconds.
+local readShort = function(s : TabState) : boolean
+	local note = short[s.construction]
+	if note == nil then return false end
+	local now, isClock = clockNow()
+	local shown = (isClock and now - note.at >= shortSeconds) or (not isClock and stepCount - note.step >= shortSteps)
+	if shown and (s.affordable == nil or s.affordable[note.tree] ~= false) then
+		short[s.construction] = nil
+		return false
+	end
+	return true
+end
+
 local readTab = function(construction : Engine.Entity) : TabState
 	local depot = firstDepot(construction)
 	local s : TabState = { depot = depot, construction = construction }
@@ -340,7 +352,6 @@ local readTab = function(construction : Engine.Entity) : TabState
 	-- The warning stays through a retry, as the retry is most likely refused too; the viewer goes while it is on its way, as
 	-- one still holding the old proposal flashes the building red when a rebuild lands under it.
 	s.refusal = s.refused and tries[construction] == nil and (refusals[construction] or 0) or nil
-	s.short = short[construction] ~= nil or nil
 	if companyRank ~= nil then
 		s.rank, s.earnedRank, s.rankSource = companyRank.read(api.engine.util.getPlayer())
 	else
@@ -382,6 +393,8 @@ local readTab = function(construction : Engine.Entity) : TabState
 		end
 		afford = table.concat(marks)
 	end
+	local okShort, isShort = pcall(readShort, s)
+	s.short = okShort and isShort or nil
 	s.key = levels.describe(s.levels) .. " rank=" .. tostring(s.rank) .. "/" .. tostring(s.earnedRank)
 		.. " rankSource=" .. tostring(s.rankSource) .. " affordable=" .. afford
 		.. " upkeep=" .. tostring(s.chargedUpkeep) .. " pool=" .. tostring(s.pool) .. " radius=" .. tostring(s.radius)
@@ -446,7 +459,7 @@ local refusedLines = {
 	"Nothing was charged. Pause, clear it and buy again.",
 	"A road can be cut off and reconnected afterwards.",
 }
--- The dollar of the base task reward notification (mission/mission/notification.script.tl).
+-- The dollar of the base task reward notification (mission/notification.script.tl).
 local shortIcon = "::/game_mechanics/notifications/gui/icons/symbol_dollar.tga"
 local shortLines = {
 	"Not bought: not enough money at the time of the buy.",
@@ -628,7 +641,7 @@ local buyButton = function(s : TabState, tree : string) : TreeNodeId
 			-- Numbered from the clock too, so a refusal kept in the save from an earlier session does not match a new click.
 			clicks = clicks + 1
 			local click = isClock and (math.floor(now) % 100000) * 100 + clicks % 100 or clicks
-			tries[s.construction] = { levels = levels.describe(s.levels), at = now, step = stepCount, click = click }
+			tries[s.construction] = { levels = levels.describe(s.levels), tree = tree, at = now, step = stepCount, click = click }
 			short[s.construction] = nil
 			local area = actionAreas[s.construction]
 			if area ~= nil and area.placedRef:get() ~= "none" then
