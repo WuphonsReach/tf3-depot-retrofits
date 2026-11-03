@@ -8,7 +8,10 @@ Newest first. The number in the title is `modVersion` at the top of [mod.script.
 
 - **Short of money no longer shows "Not rebuilt".** When the money dropped below the price between the tab's last look and the buy (for example while vehicles were being bought), the buy was refused, as it should be, but the tab took it for a rebuild the game refused: it showed the yellow "Not rebuilt" warning for a moment and asked the game to preview the rebuild, which regrows the greenery around the building. The tab now learns why the buy was refused and says "Not bought: not enough money" instead. The note stays for about 10 seconds and then goes once the money covers that level again. Nothing is charged, as before.
 
-Release note: `Pollution and noise levels are cheaper, above all the late ones. A buy refused for money says so, instead of "Not rebuilt".`
+- **A level can no longer be missed off the bill.** The price is booked once the rebuild lands. A buy that had not landed after 3 seconds was given up, so a rebuild held up longer (for example by an autosave) gave the level for free; the wait is now 30 seconds. An error while charging one building's buy also dropped every other building's waiting buy; now each is handled on its own and tried again.
+- **Every failed buy shows a note.** A buy that failed for a reason other than money or something in the way (rare: the game script could not send the rebuild, or hit an error) did nothing visible. It now shows "Not bought: the buy could not be carried out" for about 10 seconds; nothing is charged, and the game log has the reason.
+
+Release note: `Pollution and noise levels are cheaper, above all the late ones. A buy refused for money says so, instead of "Not rebuilt". Fixes rare free levels.`
 
 ## 1.2 (2026-11-01)
 

@@ -33,6 +33,14 @@
 
 ## Later
 
+From the code review of 2026-11-03 (the charging and silent-refusal findings are fixed):
+
+- [ ] Module upkeep: `relevelModule` in construction.script.tl rounds each module's added upkeep on its own instead of through `levels.levelledUpkeep`, so `MAINTENANCE_COST` is not `round(base x factor)` and `levels.baseUpkeep` cannot invert it. The tab's upkeep preview then falls back to the factor ratio (off by $1), and the game script's `upkeep` match too. Affects only depots whose module scripts add upkeep.
+- [ ] Click numbers without `os.time`: the window then numbers clicks 1, 2, 3 from each session, so a refusal kept in the save from an earlier session can match a new click and show a stale "Not bought". `os.time` has been there in every test.
+- [ ] CI: the `teal-syntax` job parses only `content/*.tl`; add `luac -p` for `retrofits.gs.lua` and a JSON parse of `mod.json` and `_content.json`.
+- [ ] Copied helpers: `firstDepot`, `constructionParams`, `clockNow`, `say`, the settings load and `wrapperRef`/`captureKey`/`buyEvent` are copied between scripts. The copies have started to differ (`constructionParams` copies the table in retrofits.script.tl and not in the window). Move them into a shared module (levels.tl is loaded everywhere).
+- [ ] Window cost: `readTab` runs on every step of an open Retrofit tab and reads the rank, the charged upkeep, the maintained vehicle list (a fresh table each time), the balance and the footer scale. Read the slow-changing ones every N steps.
+
 - [ ] Text sizes in the tab: everything is body size for now.
 - [ ] "gameScript loaded" is logged once per Lua state, about 14 lines per load.
 
