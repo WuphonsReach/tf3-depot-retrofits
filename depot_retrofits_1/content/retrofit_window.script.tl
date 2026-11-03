@@ -32,7 +32,7 @@ local record TabState
 	upkeepScale : number -- what the footer multiplies scriptUpkeep by
 	refused : boolean -- true when the game did not rebuild the building for its last buy (see readRefused); nil otherwise
 	refusal : integer -- while refused, which refusal it is: each one places a new viewer; nil otherwise
-	short : boolean -- true when the game script refused the building's last buy for want of money; nil otherwise
+	short : string -- "money" or "failed" when the game script refused the building's last buy (see readShort); nil otherwise
 	key : string -- every field above as text; the tab redraws when it changes
 end
 
@@ -198,7 +198,9 @@ end
 -- A buy the game script itself refused never reaches the game, so while waiting the tab also reads the game script's state for
 -- its click: refused there for want of money (the balance can fall between the tab's last read and the game script's check),
 -- the tab says so instead, with no viewer, until the next click, a new level, or once it has shown for about 10 seconds and
--- the money covers the clicked level again (see readShort).
+-- the money covers the clicked level again (see readShort). Refused there for another reason (the rebuild could not be sent,
+-- an error), it says the buy was not carried out, for the same time; refused for the rank, a stale level or the highest level,
+-- it shows nothing, as those follow a click on a button the tab had just greyed out.
 -- Kept per building for the session, so the warning is still there when the window is opened again. A check before the buy was tried and dropped: a stand-in check (in git
 -- history, rebuild_check.tl) called buildings blocked that the game rebuilds, and the game's proposal viewer previews the rebuilt
 -- building each time it asks, which regrows the greenery around it and flashes its road connection (docs/design/findings.md).
@@ -210,14 +212,17 @@ local record Try
 	click : integer -- sent with the buy, which the game script keeps with a refusal
 end
 local tries : {Engine.Entity : Try} = {}
--- When the game script refused the buy for want of money.
+-- When the game script refused the buy, for want of money or for a reason the tab could not foresee.
 local record Short
 	levels : string -- levels.describe of the levels then
 	tree : string -- the tree of that buy
 	at : number -- clockNow() when it was found
 	step : integer -- stepCount then
+	money : boolean -- true for want of money
 end
 local short : {Engine.Entity : Short} = {}
+-- The game script's refusals that show nothing (see above).
+local quietRefusals : {string : boolean} = { rank = true, stale = true, maxLevel = true }
 local clicks = 0
 local refused : {Engine.Entity : string} = {} -- the levels when the buy was found refused; cleared by a new level
 local refusals : {Engine.Entity : integer} = {} -- counts the refusals, so each one places a new viewer
@@ -293,8 +298,8 @@ local readRefused = function(construction : Engine.Entity, current : string) : b
 			tries[construction] = nil
 		elseif reason ~= nil then
 			tries[construction] = nil
-			if reason == "noMoney" then
-				short[construction] = { levels = current, tree = try.tree, at = now, step = stepCount }
+			if not quietRefusals[reason] then
+				short[construction] = { levels = current, tree = try.tree, at = now, step = stepCount, money = reason == "noMoney" }
 				refused[construction] = nil
 				inTheWay[construction] = nil
 			end
@@ -326,19 +331,20 @@ local readRefused = function(construction : Engine.Entity, current : string) : b
 	return refused[construction] ~= nil
 end
 
--- Whether the "Not bought" note still shows: it goes once it has shown for shortSeconds and the balance covers the clicked
--- tree's next level again, checked on each of the tab's steps, so the enabled buy button replaces it. Still short of money,
--- it stays. Called once s.affordable is worked out; with the balance unreadable it goes after shortSeconds.
-local readShort = function(s : TabState) : boolean
+-- Which "Not bought" note still shows: "money", "failed" or nil. It goes once it has shown for shortSeconds and, for money,
+-- the balance covers the clicked tree's next level again, checked on each of the tab's steps, so the enabled buy button
+-- replaces it. Still short of money, it stays. Called once s.affordable is worked out; with the balance unreadable it goes after
+-- shortSeconds.
+local readShort = function(s : TabState) : string
 	local note = short[s.construction]
-	if note == nil then return false end
+	if note == nil then return nil end
 	local now, isClock = clockNow()
 	local shown = (isClock and now - note.at >= shortSeconds) or (not isClock and stepCount - note.step >= shortSteps)
-	if shown and (s.affordable == nil or s.affordable[note.tree] ~= false) then
+	if shown and (not note.money or s.affordable == nil or s.affordable[note.tree] ~= false) then
 		short[s.construction] = nil
-		return false
+		return nil
 	end
-	return true
+	return note.money and "money" or "failed"
 end
 
 local readTab = function(construction : Engine.Entity) : TabState
@@ -464,6 +470,12 @@ local shortIcon = "::/game_mechanics/notifications/gui/icons/symbol_dollar.tga"
 local shortLines = {
 	"Not bought: not enough money at the time of the buy.",
 	"Nothing was charged.",
+}
+-- The cross of the base industry notifications, for a refusal the tab could not foresee; the reason is in the game log.
+local failedIcon = "::/game_mechanics/notifications/gui/icons/building_industry_x.tga"
+local failedLines = {
+	"Not bought: the buy could not be carried out.",
+	"Nothing was charged. The game log (stdout.txt) has the reason.",
 }
 
 local getBannerStyles = function() : {string : StyleSheet}
@@ -761,8 +773,10 @@ local tabBody = function(s : TabState, gameCtx : GameContext) : TreeNodeId
 	local children : {TreeNodeId} = {}
 	if s.refused then
 		children[#children + 1] = banner(refusedIcon, refusedLines)
-	elseif s.short then
+	elseif s.short == "money" then
 		children[#children + 1] = banner(shortIcon, shortLines)
+	elseif s.short ~= nil then
+		children[#children + 1] = banner(failedIcon, failedLines)
 	end
 	if entityWindowUtil == nil then
 		for _, node in ipairs(cards) do children[#children + 1] = node end

@@ -89,6 +89,8 @@ local moduleLines = 0
 local maxModuleLines = 400
 
 local loadOriginal = function(own : Own) : function
+	-- Without its capture entry (another mod rewrote the capture params) the callers raise their own prefixed error.
+	if own == nil or own.fileName == nil then return nil end
 	local cached = originals[own.fileName]
 	if cached then return cached end
 	if util == nil or missing[own.fileName] then return nil end
@@ -281,7 +283,7 @@ function wrapper.update(capture : {string:any}, params : {string:any}) : Result
 	local own = capture[captureKey] as Own
 	local original = loadOriginal(own) as ConstructionFn
 	if original == nil then
-		error("DEPOT_RETROFITS original update script not found: " .. tostring(own and own.fileName))
+		error("DEPOT_RETROFITS original update script not found: " .. (own and tostring(own.fileName) or "no " .. captureKey .. " in the capture params"))
 	end
 	local result = original(originalCaptureOf(capture), params)
 	if levels == nil then return result end
@@ -298,7 +300,7 @@ function wrapper.updateModule(capture : {string:any}, result : Result, transform
 	local own = capture[captureKey] as Own
 	local original = loadOriginal(own) as ModuleFn
 	if original == nil then
-		error("DEPOT_RETROFITS original module script not found: " .. tostring(own and own.fileName))
+		error("DEPOT_RETROFITS original module script not found: " .. (own and tostring(own.fileName) or "no " .. captureKey .. " in the capture params"))
 	end
 	local originalCapture = originalCaptureOf(capture)
 	if levels == nil or type(result) ~= "table" then

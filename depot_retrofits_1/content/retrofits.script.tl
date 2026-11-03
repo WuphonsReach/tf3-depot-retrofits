@@ -25,12 +25,14 @@ local buyCheckOffsets = { 200, dayClock, 7 * dayClock, 30 * dayClock }
 -- also counts. A new buy for the same building before then replaces it, uncharged: the window (retrofit_window.script.tl) sends
 -- one buy at a time per building and says after about a second that the game refused it, so a buy sent again after clearing
 -- the way must go through. Both rebuild to the same level from the same stored levels, so at most one is charged. A rebuild
--- that has not landed after a game day, or after a few real seconds, is given up, uncharged: the game refused it. The real
--- seconds count while the game is paused, when game time stands still; a rebuild the game builds lands within a second.
+-- that has not landed after 30 real seconds (or 30 game days where os.time is not available) is given up, uncharged: the game
+-- refused it. The real seconds count while the game is paused, when game time stands still. A rebuild the game builds lands
+-- within a second, but a refused one costs nothing while it waits, so the wait is long: a rebuild held up by a stall (an
+-- autosave) is still charged when it lands. os.time ticks whole seconds, so a short wait was a second shorter than it read.
 -- The pending buy keeps only its tree and level: in a run of quick buys, two recorded with all five levels were found holding
 -- the levels from before the buy, so they never matched and went uncharged (docs/design/findings.md).
-local buyPendingClock = dayClock
-local buyPendingSeconds = 3
+local buyPendingClock = 30 * dayClock
+local buyPendingSeconds = 30
 
 local record Snapshot
 	pool : number
@@ -97,6 +99,7 @@ local record Pending
 	fileName : string
 	carrier : string -- the finance row's carrier, "ROAD", "RAIL", "TRAM", "WATER" or "AIR"
 	label : string
+	errorLogged : boolean -- true once an error checking or charging it has been logged
 end
 
 local record RetrofitState
@@ -498,30 +501,52 @@ local processWatches = function(retrofit : RetrofitState, t : number) : boolean
 	return changed
 end
 
+-- Charges the buy if its rebuild has landed, or gives it up if it did not land in time; true while it is still pending.
+local settlePending = function(p : Pending, t : number, clock : number) : boolean
+	local stored = storedLevels(p.construction)
+	if landed(p, stored) then
+		if p.price ~= nil then
+			local balance = balanceOf()
+			-- A pending buy saved before the carrier was kept falls back to the file's.
+			local carrier = tostring(p.carrier or pathCarrier(p.fileName))
+			-- Raises before the booking is sent or not at all, and nothing after it can raise, so a buy is never booked twice.
+			bookPrice(p.price, carrier)
+			say("buy charged construction=" .. tostring(p.construction) .. " bought=" .. tostring(p.label) .. " price=" .. tostring(p.price)
+				.. " carrier=" .. carrier .. " charged=true balanceBefore=" .. tostring(balance))
+		end
+		return false
+	elseif expired(p, t, clock) then
+		say("buy notLanded construction=" .. tostring(p.construction) .. " bought=" .. tostring(p.label) .. " price=" .. tostring(p.price)
+			.. " seconds=" .. (clock ~= nil and p.sentAt ~= nil and tostring(clock - p.sentAt) or "?") .. " stored=" .. levels.describe(stored) .. " expected=" .. tostring(p.tree) .. ">=" .. tostring(p.level) .. " charged=false")
+		return false
+	end
+	return true
+end
+
 -- Charges each buy whose rebuild has landed and gives up the ones that did not land in time; true when the list changed.
+-- Each buy on its own: one that raises (reading its building, booking its price) is tried again on the next update until it
+-- expires, and the others go on, so a sent rebuild is not dropped uncharged for another building's error.
 local processPending = function(retrofit : RetrofitState, t : number) : boolean
 	local changed = false
 	local pending : {Pending} = {}
 	local clock = clockNow()
 	for _, p in ipairs(retrofit.pending or {}) do
-		local stored = storedLevels(p.construction)
-		if landed(p, stored) then
-			changed = true
-			if p.price ~= nil then
-				local balance = balanceOf()
-				-- A pending buy saved before the carrier was kept falls back to the file's.
-				local carrier = p.carrier or pathCarrier(p.fileName)
-				local okCharge, chargeErr = pcall(bookPrice, p.price, carrier)
-				say("buy charged construction=" .. tostring(p.construction) .. " bought=" .. tostring(p.label) .. " price=" .. tostring(p.price)
-					.. " carrier=" .. carrier .. " charged=" .. tostring(okCharge) .. " chargeError=" .. tostring(chargeErr)
-					.. " balanceBefore=" .. tostring(balance))
+		local ok, keep = pcall(settlePending, p, t, clock)
+		if not ok then
+			local err = keep
+			keep = not expired(p, t, clock)
+			-- The first error and the drop are logged, not every update in between.
+			if not keep or not p.errorLogged then
+				say("buy pendingError construction=" .. tostring(p.construction) .. " bought=" .. tostring(p.label) .. " price="
+					.. tostring(p.price) .. " error=" .. tostring(err) .. (keep and " retry=true" or " retry=false charged=false"))
+				p.errorLogged = true
+				changed = true
 			end
-		elseif expired(p, t, clock) then
-			changed = true
-			say("buy notLanded construction=" .. tostring(p.construction) .. " bought=" .. tostring(p.label) .. " price=" .. tostring(p.price)
-				.. " seconds=" .. (clock ~= nil and p.sentAt ~= nil and tostring(clock - p.sentAt) or "?") .. " stored=" .. levels.describe(stored) .. " expected=" .. tostring(p.tree) .. ">=" .. tostring(p.level) .. " charged=false")
-		else
+		end
+		if keep then
 			pending[#pending + 1] = p
+		else
+			changed = true
 		end
 	end
 	retrofit.pending = pending
@@ -568,7 +593,8 @@ local retrofitScript : GameScript<RetrofitState> = {
 		end
 		local okPending, charged = pcall(processPending, retrofit, t)
 		if not okPending then
-			-- Dropped, so a failing charge is not retried (and possibly booked) on every update.
+			-- Each buy is guarded on its own (processPending), so this is only the list itself failing: dropped, so it is not
+			-- retried (and possibly booked) on every update.
 			say("buy pendingError error=" .. tostring(charged) .. " dropped=" .. tostring(retrofit.pending and #retrofit.pending))
 			retrofit.pending = {}
 			state:set(retrofit)
