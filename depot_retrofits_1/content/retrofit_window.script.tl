@@ -8,6 +8,8 @@
 local buyEventId = "DepotRetrofits"
 -- Copied in retrofits.script.tl; keep the copies equal.
 local buyEvent = "depotRetrofitsBuy"
+-- The game script's name as the game logs it when it adds the script to a save ("Creating entity for newly added GameScript").
+local gameScriptName = "depot_retrofits_1::/retrofits.gs"
 
 local maxShownLines = 60
 local tabSortKey = 12500 -- after the depot's own tab (12000 in gui/entity_window/make_entity_window.tl)
@@ -30,6 +32,7 @@ local record TabState
 	upkeepScale : number -- what the footer multiplies scriptUpkeep by
 	refused : boolean -- true when the game did not rebuild the building for its last buy (see readRefused); nil otherwise
 	refusal : integer -- while refused, which refusal it is: each one places a new viewer; nil otherwise
+	short : boolean -- true when the game script refused the building's last buy for want of money; nil otherwise
 	key : string -- every field above as text; the tab redraws when it changes
 end
 
@@ -192,6 +195,9 @@ end
 -- about a second later, the game refused it (nothing is charged then), and the tab says so and shows what is in the way in red
 -- (the proposal viewer below), until a rebuild lands or what it named as in the way is gone. A click while it shows keeps
 -- the warning up, so a retry the game refuses again does not make it blink. A buy sent again replaces the refused one in the game script (retrofits.script.tl).
+-- A buy the game script itself refused never reaches the game, so while waiting the tab also reads the game script's state for
+-- its click: refused there for want of money (the balance can fall between the tab's last read and the game script's check),
+-- the tab says so instead, with no viewer, until the next click or a new level.
 -- Kept per building for the session, so the warning is still there when the window is opened again. A check before the buy was tried and dropped: a stand-in check (in git
 -- history, rebuild_check.tl) called buildings blocked that the game rebuilds, and the game's proposal viewer previews the rebuilt
 -- building each time it asks, which regrows the greenery around it and flashes its road connection (docs/design/findings.md).
@@ -199,8 +205,11 @@ local record Try
 	levels : string -- levels.describe of the levels the tab showed at the click
 	at : number -- clockNow() at the click
 	step : integer -- stepCount at the click
+	click : integer -- sent with the buy, which the game script keeps with a refusal
 end
 local tries : {Engine.Entity : Try} = {}
+local short : {Engine.Entity : string} = {} -- the levels when the game script refused the buy for want of money
+local clicks = 0
 local refused : {Engine.Entity : string} = {} -- the levels when the buy was found refused; cleared by a new level
 local refusals : {Engine.Entity : integer} = {} -- counts the refusals, so each one places a new viewer
 -- What the viewer named as in the way after a refusal; once none of it exists any more, the warning and the red go.
@@ -226,14 +235,57 @@ local clockNow = function() : number, boolean
 	return stepCount, false
 end
 
--- Whether the building's last buy was refused by the game: the levels did not change within the wait after the click.
+-- The game script's state, read as company_rank.tl reads the progression script's.
+local record ScriptRefusal
+	construction : Engine.Entity
+	click : integer
+	reason : string
+end
+local record ScriptState
+	refusals : {ScriptRefusal}
+end
+local scriptErrorLogged = false
+
+-- The game script's reason for refusing the click's buy ("noMoney", "rank" and so on), or nil while it has given none.
+-- Looked up each time, not kept: the entity is the save's. Only read while a click waits, so at most two seconds at a time.
+local scriptRefusal = function(construction : Engine.Entity, click : integer) : string
+	local entity = api.engine.system.gameScriptSystem.getEntityForGameScript(gameScriptName)
+	local component = api.engine.getComponent(entity, api.type.ComponentType.GAME_SCRIPT) as Engine.Component.GameScript<ScriptState>
+	local state = component and component.state
+	for _, r in ipairs(state and state.refusals or {}) do
+		if r.construction == construction and r.click == click then return r.reason end
+	end
+	return nil
+end
+
+-- Whether the building's last buy was refused by the game: the levels did not change within the wait after the click, and
+-- the game script did not refuse it itself.
 local readRefused = function(construction : Engine.Entity, current : string) : boolean
 	stepCount = stepCount + 1
 	local try = tries[construction]
+	local reason : string = nil
+	if try ~= nil and try.levels == current then
+		local ok, result = pcall(scriptRefusal, construction, try.click)
+		if ok then
+			reason = result
+		elseif not scriptErrorLogged then
+			scriptErrorLogged = true
+			say("window scriptStateError name=" .. gameScriptName .. " error=" .. tostring(result))
+		end
+	end
 	if try ~= nil then
 		local now, isClock = clockNow()
 		if try.levels ~= current then
 			tries[construction] = nil
+		elseif reason ~= nil then
+			tries[construction] = nil
+			if reason == "noMoney" then
+				short[construction] = current
+				refused[construction] = nil
+				inTheWay[construction] = nil
+			end
+			say("window notBought construction=" .. tostring(construction) .. " levels=" .. current .. " reason=" .. reason
+				.. " waited=" .. tostring(now - try.at) .. " clock=" .. tostring(isClock))
 		elseif (isClock and now - try.at >= refusedAfterSeconds) or (not isClock and stepCount - try.step >= refusedAfterSteps) then
 			tries[construction] = nil
 			refused[construction] = current
@@ -244,6 +296,7 @@ local readRefused = function(construction : Engine.Entity, current : string) : b
 		end
 	end
 	if refused[construction] ~= nil and refused[construction] ~= current then refused[construction] = nil end
+	if short[construction] ~= nil and short[construction] ~= current then short[construction] = nil end
 	local named = inTheWay[construction]
 	if refused[construction] ~= nil and named ~= nil and #named > 0 then
 		local gone = true
@@ -270,6 +323,7 @@ local readTab = function(construction : Engine.Entity) : TabState
 	-- The warning stays through a retry, as the retry is most likely refused too; the viewer goes while it is on its way, as
 	-- one still holding the old proposal flashes the building red when a rebuild lands under it.
 	s.refusal = s.refused and tries[construction] == nil and (refusals[construction] or 0) or nil
+	s.short = short[construction] ~= nil or nil
 	if companyRank ~= nil then
 		s.rank, s.earnedRank, s.rankSource = companyRank.read(api.engine.util.getPlayer())
 	else
@@ -316,7 +370,7 @@ local readTab = function(construction : Engine.Entity) : TabState
 		.. " upkeep=" .. tostring(s.chargedUpkeep) .. " pool=" .. tostring(s.pool) .. " radius=" .. tostring(s.radius)
 		.. " maintained=" .. tostring(s.maintained) .. " accumulated=" .. tostring(s.accumulated)
 		.. " upkeepScript=" .. tostring(s.scriptUpkeep) .. " upkeepScale=" .. tostring(s.upkeepScale)
-		.. " refused=" .. tostring(s.refused) .. " refusal=" .. tostring(s.refusal)
+		.. " refused=" .. tostring(s.refused) .. " refusal=" .. tostring(s.refusal) .. " short=" .. tostring(s.short)
 	return s
 end
 
@@ -369,11 +423,17 @@ end
 -- after a failure, and the banner falls back to plain lines.
 local bannerStyles : {string : StyleSheet} = nil
 local caution = { 1, 0.769, 0.047 }
-local bannerIcon = "::/game_mechanics/notifications/gui/icons/building_industry_bulldozer.tga"
+local refusedIcon = "::/game_mechanics/notifications/gui/icons/building_industry_bulldozer.tga"
 local refusedLines = {
 	"Not rebuilt: a building or a road is in the way (in red).",
 	"Nothing was charged. Pause, clear it and buy again.",
 	"A road can be cut off and reconnected afterwards.",
+}
+-- The dollar of the base task reward notification (mission/mission/notification.script.tl).
+local shortIcon = "::/game_mechanics/notifications/gui/icons/symbol_dollar.tga"
+local shortLines = {
+	"Not bought: not enough money at the time of the buy.",
+	"Nothing was charged.",
 }
 
 local getBannerStyles = function() : {string : StyleSheet}
@@ -411,8 +471,8 @@ local getBannerStyles = function() : {string : StyleSheet}
 	return bannerStyles ~= nil and bannerStyles.card ~= nil and bannerStyles or nil
 end
 
--- Above the scrolling cards, so it shows whatever the scroll; after a buy the game refused (see readRefused).
-local banner = function(bannerLines : {string}) : TreeNodeId
+-- Above the scrolling cards, so it shows whatever the scroll; after a buy the game or the game script refused (see readRefused).
+local banner = function(bannerIcon : string, bannerLines : {string}) : TreeNodeId
 	local lines : {TreeNodeId} = {}
 	for _, line in ipairs(bannerLines) do
 		lines[#lines + 1] = builtin.TextView{ meta = { class = "font-scale-body" }, text = line, tooltipWhenClipped = line }
@@ -547,8 +607,12 @@ local buyButton = function(s : TabState, tree : string) : TreeNodeId
 			if not enabled then return end
 			-- One buy at a time per building: a second click before the first lands or is refused is ignored.
 			if tries[s.construction] ~= nil then return end
-			local now = clockNow()
-			tries[s.construction] = { levels = levels.describe(s.levels), at = now, step = stepCount }
+			local now, isClock = clockNow()
+			-- Numbered from the clock too, so a refusal kept in the save from an earlier session does not match a new click.
+			clicks = clicks + 1
+			local click = isClock and (math.floor(now) % 100000) * 100 + clicks % 100 or clicks
+			tries[s.construction] = { levels = levels.describe(s.levels), at = now, step = stepCount, click = click }
+			short[s.construction] = nil
 			local area = actionAreas[s.construction]
 			if area ~= nil and area.placedRef:get() ~= "none" then
 				area.placedRef:set("none")
@@ -556,10 +620,10 @@ local buyButton = function(s : TabState, tree : string) : TreeNodeId
 			end
 			if logFull then
 				say("window buy construction=" .. tostring(s.construction) .. " tree=" .. tree .. " from=" .. tostring(level)
-					.. " shownPrice=" .. tostring(price))
+					.. " shownPrice=" .. tostring(price) .. " click=" .. tostring(click))
 			end
 			api.cmd.sendCommand(api.cmd.makeScriptingSendEventCmd("", buyEventId, buyEvent,
-				{ construction = s.construction, tree = tree, from = level }))
+				{ construction = s.construction, tree = tree, from = level, click = click }))
 		end,
 	}
 end
@@ -665,7 +729,11 @@ local tabBody = function(s : TabState, gameCtx : GameContext) : TreeNodeId
 	local cards : {TreeNodeId} = { card("Summary", summary, gameCtx) }
 	for _, tree in ipairs(levels.trees) do cards[#cards + 1] = treeCard(s, tree, gameCtx) end
 	local children : {TreeNodeId} = {}
-	if s.refused then children[#children + 1] = banner(refusedLines) end
+	if s.refused then
+		children[#children + 1] = banner(refusedIcon, refusedLines)
+	elseif s.short then
+		children[#children + 1] = banner(shortIcon, shortLines)
+	end
 	if entityWindowUtil == nil then
 		for _, node in ipairs(cards) do children[#children + 1] = node end
 		return builtin.BoxLayout{ orientation = builtin.type.Orientation.Vertical, children = children }

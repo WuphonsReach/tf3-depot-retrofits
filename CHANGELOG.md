@@ -6,7 +6,9 @@ Newest first. The number in the title is `modVersion` at the top of [mod.script.
 
 - **Cheaper pollution and noise levels.** Level 1 of the pollution retrofit now costs 6% of the build price instead of 8%, and each level after it 10% more than the one before instead of 15%, so all 15 levels cost about 1.9 times the build price instead of 3.8. Noise level 1 costs 10% instead of 12% and each level after it 12% more, about 3.7 times the build price for all 15 instead of 5.7. Even many levelled buildings move a town's rating only a little, so the late levels were priced too high for what they do. The upkeep these levels add is unchanged, so buildings levelled before keep their upkeep, and their next levels cost the new prices.
 
-Release note: `Pollution and noise levels are cheaper, above all the late ones.`
+- **Short of money no longer shows "Not rebuilt".** When the money dropped below the price between the tab's last look and the buy (for example while vehicles were being bought), the buy was refused, as it should be, but the tab took it for a rebuild the game refused: it showed the yellow "Not rebuilt" warning for a moment and asked the game to preview the rebuild, which regrows the greenery around the building. The tab now learns why the buy was refused and says "Not bought: not enough money" instead. Nothing is charged, as before.
+
+Release note: `Pollution and noise levels are cheaper, above all the late ones. A buy refused for money says so, instead of "Not rebuilt".`
 
 ## 1.2 (2026-11-01)
 
