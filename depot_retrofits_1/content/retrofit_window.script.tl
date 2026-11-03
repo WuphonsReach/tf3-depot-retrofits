@@ -197,7 +197,7 @@ end
 -- the warning up, so a retry the game refuses again does not make it blink. A buy sent again replaces the refused one in the game script (retrofits.script.tl).
 -- A buy the game script itself refused never reaches the game, so while waiting the tab also reads the game script's state for
 -- its click: refused there for want of money (the balance can fall between the tab's last read and the game script's check),
--- the tab says so instead, with no viewer, until the next click or a new level.
+-- the tab says so instead, with no viewer, for about 30 seconds or until the next click or a new level.
 -- Kept per building for the session, so the warning is still there when the window is opened again. A check before the buy was tried and dropped: a stand-in check (in git
 -- history, rebuild_check.tl) called buildings blocked that the game rebuilds, and the game's proposal viewer previews the rebuilt
 -- building each time it asks, which regrows the greenery around it and flashes its road connection (docs/design/findings.md).
@@ -208,7 +208,13 @@ local record Try
 	click : integer -- sent with the buy, which the game script keeps with a refusal
 end
 local tries : {Engine.Entity : Try} = {}
-local short : {Engine.Entity : string} = {} -- the levels when the game script refused the buy for want of money
+-- When the game script refused the buy for want of money: the levels then, and when it was found.
+local record Short
+	levels : string
+	at : number -- clockNow()
+	step : integer
+end
+local short : {Engine.Entity : Short} = {}
 local clicks = 0
 local refused : {Engine.Entity : string} = {} -- the levels when the buy was found refused; cleared by a new level
 local refusals : {Engine.Entity : integer} = {} -- counts the refusals, so each one places a new viewer
@@ -226,6 +232,10 @@ local actionAreas : {Engine.Entity : ActionArea} = {}
 -- does the proposal viewer saying the rebuild would be built. The step count is only for where os.time is not available.
 local refusedAfterSeconds = 2
 local refusedAfterSteps = 120
+-- How long the money note stays: long enough to read, and by then the balance has most likely moved on. Counted while the tab
+-- is not showing too, as it is a clock; the steps (about 60 a second) only where os.time is not available.
+local shortSeconds = 30
+local shortSteps = 1800
 local stepCount = 0
 -- Real time in whole seconds. Not os.clock: that is the process's processor time, summed over the game's threads, and ran
 -- about 5 times faster than real time in game. The tab's step count where os.time is not available.
@@ -280,7 +290,7 @@ local readRefused = function(construction : Engine.Entity, current : string) : b
 		elseif reason ~= nil then
 			tries[construction] = nil
 			if reason == "noMoney" then
-				short[construction] = current
+				short[construction] = { levels = current, at = now, step = stepCount }
 				refused[construction] = nil
 				inTheWay[construction] = nil
 			end
@@ -296,7 +306,14 @@ local readRefused = function(construction : Engine.Entity, current : string) : b
 		end
 	end
 	if refused[construction] ~= nil and refused[construction] ~= current then refused[construction] = nil end
-	if short[construction] ~= nil and short[construction] ~= current then short[construction] = nil end
+	local note = short[construction]
+	if note ~= nil then
+		local now, isClock = clockNow()
+		if note.levels ~= current or (isClock and now - note.at >= shortSeconds)
+				or (not isClock and stepCount - note.step >= shortSteps) then
+			short[construction] = nil
+		end
+	end
 	local named = inTheWay[construction]
 	if refused[construction] ~= nil and named ~= nil and #named > 0 then
 		local gone = true
