@@ -6,7 +6,8 @@
 -- the price as depot construction under the depot's carrier; a rebuild that never lands costs nothing. It logs each
 -- buy and its outcome; at logLevel "full" (settings.tl) also the building before, and after 1 game hour, 1 day, 7 days and
 -- 30 days with the values the formulas in levels.tl predict and the pollution and noise in dB at the building (the later checks
--- show the map's averaged pollution settling). Log lines start with "DEPOT_RETROFITS".
+-- show the map's averaged pollution settling). Log lines start with "DEPOT_RETROFITS". A buy it refuses is kept in its state
+-- for the window to read, so the tab can tell a buy refused here (short of money) from a rebuild the game refused.
 --
 -- The random levelling that tested the formulas across a whole save (probe 0.4) is in git history; its results are in
 -- docs/design/findings.md.
@@ -62,7 +63,18 @@ local record Buy
 	construction : Engine.Entity
 	tree : string
 	from : integer
+	click : integer -- the window's number for the click that sent it; nil from a window without one
 end
+
+-- A buy refused here, kept for the window (retrofit_window.script.tl), which reads it from this script's state: the tab only
+-- sees that the levels did not change, and the balance can fall between its last read and the check here.
+local record Refusal
+	construction : Engine.Entity
+	click : integer
+	reason : string -- the reason's first word: "noMoney", "rank", "stale" and so on
+end
+-- One per building, the newest last; the window looks only for the click it is waiting on.
+local maxRefusals = 16
 
 local record Watch
 	construction : Engine.Entity
@@ -92,6 +104,7 @@ local record RetrofitState
 	buys : {Buy}
 	watches : {Watch}
 	pending : {Pending}
+	refusals : {Refusal}
 end
 
 local say = function(text : string)
@@ -413,6 +426,16 @@ local replacePending = function(retrofit : RetrofitState, construction : Engine.
 	retrofit.pending = kept
 end
 
+local recordRefusal = function(retrofit : RetrofitState, buy : Buy, reason : string)
+	local kept : {Refusal} = {}
+	for _, r in ipairs(retrofit.refusals or {}) do
+		if r.construction ~= buy.construction then kept[#kept + 1] = r end
+	end
+	kept[#kept + 1] = { construction = buy.construction, click = buy.click, reason = reason:match("^%S+") or reason }
+	while #kept > maxRefusals do table.remove(kept, 1) end
+	retrofit.refusals = kept
+end
+
 -- Returns the reason a buy was refused, or nil when it was carried out.
 local processBuy = function(retrofit : RetrofitState, buy : Buy, t : number) : string
 	if levels.paramKeys[buy.tree] == nil then return "unknownTree" end
@@ -536,8 +559,10 @@ local retrofitScript : GameScript<RetrofitState> = {
 			state:set(retrofit)
 			local ok, refused = pcall(processBuy, retrofit, buy, t)
 			if not ok or refused ~= nil then
+				local reason = ok and refused or ("error " .. tostring(refused))
 				say("buy refused construction=" .. tostring(buy.construction) .. " tree=" .. tostring(buy.tree) .. " from=" .. tostring(buy.from)
-					.. " reason=" .. tostring(ok and refused or ("error " .. tostring(refused))))
+					.. " reason=" .. reason .. " click=" .. tostring(buy.click))
+				if buy.click ~= nil then recordRefusal(retrofit, buy, reason) end
 			end
 			state:set(retrofit)
 		end
@@ -567,6 +592,7 @@ local retrofitScript : GameScript<RetrofitState> = {
 			construction = math.floor(tonumber(p.construction) or -1) as Engine.Entity,
 			tree = tostring(p.tree),
 			from = math.floor(tonumber(p.from) or -1),
+			click = tonumber(p.click) and math.floor(tonumber(p.click)) or nil,
 		}
 		local retrofit = loadState(state)
 		retrofit.buys = retrofit.buys or {}
@@ -574,7 +600,7 @@ local retrofitScript : GameScript<RetrofitState> = {
 		state:set(retrofit)
 		if logFull then
 			say("buy queued src=" .. tostring(src) .. " id=" .. tostring(id) .. " construction=" .. tostring(buy.construction)
-				.. " tree=" .. buy.tree .. " from=" .. tostring(buy.from) .. " queued=" .. tostring(#retrofit.buys))
+				.. " tree=" .. buy.tree .. " from=" .. tostring(buy.from) .. " click=" .. tostring(buy.click) .. " queued=" .. tostring(#retrofit.buys))
 		end
 	end,
 }
