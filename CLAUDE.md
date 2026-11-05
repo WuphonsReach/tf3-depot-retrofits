@@ -40,7 +40,7 @@ Run `tl check` on each script you touch.
 
 ## CI and repo rules
 
-`.github/workflows/checks.yml` runs on every PR and every push to `main`: a `python-checks` job (`check_content_list.py`, `check_repo.py --strict`, `py_compile` of `tools/`) and a `teal-syntax` job (`tl gen` on each `.tl` file under `content/`, which fails on syntax errors only). CI cannot run `tl check` because the game's type definitions are not in the repo, so the type check stays a local step. Actions are pinned to full commit SHAs with the version in a trailing comment (`uses: actions/checkout@<sha> # v7.0.1`), at the latest release when added or bumped; look the SHA up with `gh api repos/<owner>/<action>/git/ref/tags/<tag>` and never use a floating tag like `@v4`.
+`.github/workflows/checks.yml` runs on every PR and every push to `main`: a `python-checks` job (`check_content_list.py`, `check_repo.py --strict`, `py_compile` of `tools/`) and a `teal-syntax` job (`tl gen` on each `.tl` file under `content/`, which fails on syntax errors only, then `luac5.1 -p` on each `.lua` file there and a JSON parse of `mod.json`, `_content.json` and `modinfo.json`). CI cannot run `tl check` because the game's type definitions are not in the repo, so the type check stays a local step. Actions are pinned to full commit SHAs with the version in a trailing comment (`uses: actions/checkout@<sha> # v7.0.1`), at the latest release when added or bumped; look the SHA up with `gh api repos/<owner>/<action>/git/ref/tags/<tag>` and never use a floating tag like `@v4`.
 
 The rulesets match Best Before's and have no bypass actors, so they bind the owner too:
 
