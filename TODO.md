@@ -3,7 +3,7 @@
 ## In short
 
 - **Where it stands.** 1.2 is on mod.io (mod id 6495416) and tagged `v1.2`; the gallery shows "Not rebuilt". `main` reads `1.3-dev`. Test results are in [docs/design/findings.md](docs/design/findings.md).
-- **Next.** Nothing planned for 1.3 yet. The checks below are optional; the ideas at the bottom are not planned.
+- **Next.** Release 1.3 (cheaper pollution and noise levels, "Not bought" notes, no free levels). Two sessions of 1.3-dev (365 buys) matched the new prices; still to do: set `logLevel` back to `"summary"`, `modVersion` to `1.3`, date the changelog entry, then [docs/publishing.md](docs/publishing.md). The checks below are optional; the rest of "Later" and the ideas are not planned.
 
 ## Release 1.0
 
@@ -37,7 +37,6 @@ From the code review of 2026-11-03 (the charging and silent-refusal findings are
 
 - [ ] Module upkeep: `relevelModule` in construction.script.tl rounds each module's added upkeep on its own instead of through `levels.levelledUpkeep`, so `MAINTENANCE_COST` is not `round(base x factor)` and `levels.baseUpkeep` cannot invert it. The tab's upkeep preview then falls back to the factor ratio (off by $1), and the game script's `upkeep` match too. Affects only depots whose module scripts add upkeep.
 - [ ] Click numbers without `os.time`: the window then numbers clicks 1, 2, 3 from each session, so a refusal kept in the save from an earlier session can match a new click and show a stale "Not bought". `os.time` has been there in every test.
-- [ ] CI: the `teal-syntax` job parses only `content/*.tl`; add `luac -p` for `retrofits.gs.lua` and a JSON parse of `mod.json` and `_content.json`.
 - [ ] Copied helpers: `firstDepot`, `constructionParams`, `clockNow`, `say`, the settings load and `wrapperRef`/`captureKey`/`buyEvent` are copied between scripts. The copies have started to differ (`constructionParams` copies the table in retrofits.script.tl and not in the window). Move them into a shared module (levels.tl is loaded everywhere).
 - [ ] Window cost: `readTab` runs on every step of an open Retrofit tab and reads the rank, the charged upkeep, the maintained vehicle list (a fresh table each time), the balance and the footer scale. Read the slow-changing ones every N steps.
 

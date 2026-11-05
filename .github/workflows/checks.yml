@@ -33,7 +33,7 @@ jobs:
       - name: Install the Teal compiler
         run: |
           sudo apt-get update
-          sudo apt-get install -y luarocks
+          sudo apt-get install -y luarocks lua5.1
           sudo luarocks install tl 0.24.8
       # tl gen stops only on syntax errors; the type check (tl check) needs the game's tealdef folders, so it stays a local step.
       - name: Teal files parse
@@ -41,4 +41,17 @@ jobs:
           for f in depot_retrofits_1/content/*.tl; do
             echo "== $f"
             tl gen "$f" -o /dev/null
+          done
+      # The game script is plain Lua, which tl does not see; a syntax error there breaks the game script's load.
+      - name: Lua files parse
+        run: |
+          for f in depot_retrofits_1/content/*.lua; do
+            echo "== $f"
+            luac5.1 -p "$f"
+          done
+      - name: JSON files parse
+        run: |
+          for f in depot_retrofits_1/mod.json depot_retrofits_1/_content.json depot_retrofits_1/_metadata/modinfo.json; do
+            echo "== $f"
+            python3 -m json.tool "$f" > /dev/null
           done
