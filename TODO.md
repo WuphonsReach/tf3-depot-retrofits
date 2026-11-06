@@ -24,6 +24,24 @@
 - [x] mod.io gallery: the update did not replace images under names mod.io already had, so the gallery is now `<n>-<name>.jpg` and a second update sent all six.
 - [x] Optional: in "333", bulldoze only the buildings around Berkeley Road Depot (88894) and leave the road. The tab stayed blocked until the road was cut off, so the own-road rule does not clear that road; whether the game would refuse the rebuild is for the probe.
 
+## Screenshots still to take
+
+For later gallery and info-card updates. Take them with the current prices (1.3-dev or later; the earlier ones are evicted from `local/gallery/2026-11-05-cards/`, which has only the "Not bought" note and one window crop). Take the full 4K shot, so the cards and the building both show; the window sits at about x 2870-3790.
+
+- [ ] "Not rebuilt" with the house in red, as in the gallery's 3-not-rebuilt.jpg but with the 1.3 prices (Berkeley Maintenance Building in "333", house standing).
+- [ ] "Not bought: the buy could not be carried out" (the industry cross icon). Rare; needs a temporary refusal in the game script, as the noise test did for the money note.
+- [ ] A mix of company ranks, each with a full tab and the Summary card showing the rank (the rank decides how many boxes are grey, how many dark, and which buttons read "Rank N"):
+  - [ ] Low rank (1 to 4): few buyable boxes, most of the row dark, most buttons greyed as "Rank N".
+  - [ ] Mid rank (5 to 9): some levels bought, some buyable, some dark.
+  - [ ] High rank (10 to 14): nearly all buyable; the "Rank N" button only at the last levels.
+  - [ ] Max rank (15): no dark boxes; one retrofit at level 15 reading "Highest level" with all 15 boxes white, the others partly bought.
+  - [ ] Mixed levels at one rank: the five retrofits at different levels (for example radius 12, vehicles 3, pollution 0, noise 7, upkeep 15), some at the rank's limit and some below it.
+- [ ] A buy button greyed out for money, with the price still shown (balance below the next level).
+- [ ] The money note at its start, with the yellow "Not bought: not enough money" note over the cards.
+- [ ] One full Retrofit tab per building type at a mid level on the 1.3 prices (a different rank for each, from the mix above): road depot, tram depot, rail depot, ship depot, boathouse, road maintenance, rail maintenance. Pollution and noise cards matter most, since their prices changed.
+- [ ] A modular depot (Roundhouse) with stalls and levels, to show the vehicles card counting the modules.
+- [ ] The tab beside a level-0 building (no white boxes, every price at its level 1) as the "before" card.
+
 ## Optional checks
 
 - [ ] Roundhouse: add a stall to one with a vehicles level and check the `module` line's `baseSource` (`recorded` means the game hands the modules the wrapper's own table; `inverted` is the fallback) and that the pool is the formula's.
