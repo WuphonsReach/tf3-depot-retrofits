@@ -68,6 +68,7 @@ The wrapper reference, capture key and buy event name are copied into the script
 
 ## In-game test loop
 
+- `local/machine.md` (gitignored) says where the game, its log, the saves, the screenshots and the sibling repos are on this machine; read it (skill `machine`) before searching the disk. To review a test session from the log and screenshots, use the skill `review-test-session`. The game loads the branch this checkout has out.
 - The mod folder is symlinked into the game's `staging_area/` folder, so edits show up without copying, but the game must be restarted to reload scripts and `mod.json`.
 - The game log is `crash_dump/stdout.txt` beside that folder. It is overwritten at each launch and written live. Copy it to `local/logs/` (gitignored) before reading it. Log timestamps are UTC.
 - Every line the mod writes starts with `DEPOT_RETROFITS` and carries `key=value` fields. Log the state before and after every action (entity ids, pool, radius, vehicles) at `logLevel` `"full"`; keep `"summary"` to errors, start-up lines and one line per player action.
