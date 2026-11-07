@@ -9,11 +9,14 @@
 
 local modVersion = "1.3-dev"
 
--- wrapperRef is copied in retrofits.script.tl, captureKey in construction.script.tl; keep the copies equal.
-local wrapperRef = "depot_retrofits_1::/construction.script@update"
+-- wrapperRef is copied in retrofits.script.tl, captureKey in construction.script.tl and retrofits.script.tl; keep the copies
+-- equal. Both refs name construction_wrapper.script.lua, a .lua file defining data() that hands the calls to
+-- construction.script.tl: a mod that wraps ours and loads the script itself as a .lua file (TRM: Industry Emissions) can then
+-- load it (docs/compatibility.md). Both go through the one file so that update and updateModule share the wrapper's state.
+local wrapperRef = "depot_retrofits_1::/construction_wrapper.script@update"
 local captureKey = "depotRetrofits"
 
-local moduleWrapperRef = "depot_retrofits_1::/construction.script@updateModule"
+local moduleWrapperRef = "depot_retrofits_1::/construction_wrapper.script@updateModule"
 
 -- The building window with the Retrofit tab (retrofit_window.script.tl); set only where the construction has none of its own.
 local windowRef = "depot_retrofits_1::/retrofit_window.script@entityWindowFn"

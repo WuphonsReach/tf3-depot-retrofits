@@ -21,6 +21,7 @@ A Transport Fever 3 script mod: depots and maintenance buildings get levels that
 - [docs/user-guide.md](docs/user-guide.md): how to buy levels, what they do and what they cost.
 - [docs/design/spec.md](docs/design/spec.md): the five retrofits, prices, upkeep and rank gate.
 - [docs/design/findings.md](docs/design/findings.md): what is verified about depots in the base game and what a mod can change, with source files.
+- [docs/compatibility.md](docs/compatibility.md): known incompatibilities and mods that overlap, with workarounds.
 - [docs/publishing.md](docs/publishing.md): how a version is uploaded to mod.io and released.
 - [CHANGELOG.md](CHANGELOG.md): what each version changed.
 - [TODO.md](TODO.md): what is left to do.

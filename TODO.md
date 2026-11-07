@@ -4,6 +4,22 @@
 
 - **Where it stands.** 1.2 is on mod.io (mod id 6495416) and tagged `v1.2`; the gallery shows "Not rebuilt". `main` reads `1.3-dev`. Test results are in [docs/design/findings.md](docs/design/findings.md).
 - **Next.** Release 1.3 (cheaper pollution and noise levels, "Not bought" notes, no free levels). Two sessions of 1.3-dev (365 buys) matched the new prices; still to do: set `logLevel` back to `"summary"`, `modVersion` to `1.3`, date the changelog entry, then [docs/publishing.md](docs/publishing.md). The checks below are optional; the rest of "Later" and the ideas are not planned.
+- **Compatibility.** TRM: Industry Emissions loaded after Depot Retrofits blocks placing new depots ([docs/compatibility.md](docs/compatibility.md)). The fix is in 1.3-dev and passes the synthetic tests; the in-game test is below.
+
+## Compatibility
+
+TRM: Industry Emissions blocks placing new depots when it loads after Depot Retrofits ([docs/compatibility.md](docs/compatibility.md)). No dependency on TRM (decided 2026-11-07).
+
+- [ ] Reproduce in game: "Transport Building Emissions" at "Rebalanced", TRM after Depot Retrofits, on 1.2 (the published copy) or with the old wrapper reference; place a road depot; look for TRM's load error in the log. The synthetic test shows it (tools/test_wrapper_load.py, "1.2 wrapper reference").
+- [x] Fix, part 1: `construction_wrapper.script.lua` defines `data()` and returns `update` and `updateModule` from construction.script.tl; `wrapperRef` (mod.script.tl and its copy in retrofits.script.tl) and `moduleWrapperRef` name it; listed in `_content.json`. `moduleWrapperRef` moved too, unlike first planned: `update` and `updateModule` share the module's state (`basePools`), so both go through the one file.
+- [x] Fix, part 2: `isWrapped` in retrofits.script.tl (through `runsWrapper`) also counts a definition whose `updateScript.params` hold our `depotRetrofits` entry, so buys work with TRM's wrapper outside ours.
+- [x] Synthetic tests: `python3 tools/test_wrapper_load.py`, 67 checks on the generated code with a stand-in engine loader and a TRM-like wrapper (both orders, without TRM, a shared or separate script cache, a Roundhouse-like stall, `runsWrapper`).
+- [ ] Station Retrofits' notes name our wrapper reference as one way to spot a building we wrap; after the fix only the `depotRetrofits` capture key holds. Tell that repo when the fix lands.
+- [x] Test the fix in game with TRM: Industry Emissions after us (2026-11-07, `local/logs/2026-11-07-trm-after-stdout.txt`): a new road depot and a new rail depot placed, 43 buys each charged once with every first check matching, levels kept across rebuilds, no load errors; a levelled depot's pollution is lower than an unlevelled one's with TRM active (subtle; seen on the map layer, not measured).
+- [x] The Roundhouse stall and the known-risk order, TRM after us (2026-11-07, `local/logs/2026-11-07-1974-trm-after-stdout.txt`, the 1974 save): a new Roundhouse placed, then a base road depot; 1,016 `module` lines with `baseSource=recorded`; 70 buys charged once, every first check matching; no TRM "has no function" error, no stack overflow, no load errors. Not yet tried: TRM first, Base Game.
+- [ ] Test the fix in game, both orders: a base road depot places; a buy on it lands and is charged once; a levelled depot's emissions get both reductions (pollution level n × 0.5); levels survive a later rebuild; a Roundhouse stall is still levelled (`module` line, `baseSource=recorded`); nothing changes with TRM first or at "Base Game".
+- [ ] The known risk, in game, with TRM after us: place a depot TRM does not wrap first (the Roundhouse or Modern Railway Depot), then a base road depot. If the game's loader shares `ug_require`'s cache, TRM's load of our file can be served from the cache and pick up another file's `data()`: look for TRM's "has no function" error or a stack overflow (findings, "Unknowns"; the synthetic test shows the failure under that condition). Nothing on our side can prevent it.
+- [ ] With the 1.3 release: a compatibility line in the user guide and the listing (works with TRM: Industry Emissions in either order; up to 1.2, load Depot Retrofits after it), and a reply to the mod.io comment.
 
 ## Release 1.0
 
@@ -23,6 +39,11 @@
 - [x] Release 1.2 ([docs/publishing.md](docs/publishing.md)): published copy tested, `v1.2` on `c02773a`.
 - [x] mod.io gallery: the update did not replace images under names mod.io already had, so the gallery is now `<n>-<name>.jpg` and a second update sent all six.
 - [x] Optional: in "333", bulldoze only the buildings around Berkeley Road Depot (88894) and leave the road. The tab stayed blocked until the road was cut off, so the own-road rule does not clear that road; whether the game would refuse the rebuild is for the probe.
+
+## Money format
+
+- [x] `money()` in retrofit_window.script.tl calls the game's `api.util.formatMoney` under `pcall`. If that fails, it falls back to the old `$1,234` form and logs one `window formatMoneyError` line.
+- [x] Tested in game (2026-11-07, `local/logs/2026-11-07-trm-after-stdout.txt`): the tab followed the game's money setting, short first and then full, with no `formatMoneyError` in the log.
 
 ## Screenshots still to take
 

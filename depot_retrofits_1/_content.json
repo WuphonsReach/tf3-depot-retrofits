@@ -3,6 +3,7 @@
     "files": [
         "company_rank.tl",
         "construction.script.tl",
+        "construction_wrapper.script.lua",
         "levels.tl",
         "mod.script.tl",
         "retrofits.gs.lua",

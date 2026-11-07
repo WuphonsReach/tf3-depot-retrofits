@@ -14,8 +14,10 @@
 
 local stateVersion = 6 -- a state from an older version (the probes used 1 to 4; 5 kept all five levels per pending buy) is set aside, not continued
 
--- wrapperRef is copied in mod.script.tl, buyEvent in retrofit_window.script.tl; keep the copies equal.
-local wrapperRef = "depot_retrofits_1::/construction.script@update"
+-- wrapperRef and captureKey are copied in mod.script.tl (captureKey in construction.script.tl too), buyEvent in
+-- retrofit_window.script.tl; keep the copies equal.
+local wrapperRef = "depot_retrofits_1::/construction_wrapper.script@update"
+local captureKey = "depotRetrofits"
 local buyEvent = "depotRetrofitsBuy"
 
 -- Clock units: a game day at calendar speed 1x is 4,000, a game year 1,461,000.
@@ -201,13 +203,25 @@ local storedLevels = function(construction : Engine.Entity) : {string : integer}
 	return con and levels.read(constructionParams(con)) or nil
 end
 
+-- Whether a construction definition's update script runs our wrapper: it names the wrapper, or another mod wrapped ours and
+-- kept our capture params, as TRM: Industry Emissions does (it adds its own keys beside them; docs/compatibility.md). nil when
+-- the definition cannot be read.
+local runsWrapper = function(script : ScriptRef) : boolean
+	if script == nil then return nil end
+	if script.fileName == wrapperRef then return true end
+	local params = script.params as {string : any}
+	if params == nil then return false end
+	if type(params) ~= "table" then return nil end
+	return params[captureKey] ~= nil
+end
+
 -- true when the construction's definition runs our wrapper; nil when the definition cannot be read.
 local isWrapped = function(con : Engine.Component.Construction) : boolean
-	local ok, ref = pcall(function() : string
-		return api.res.constructionRep.findAndGet(con.fileName).updateScript.fileName
+	local ok, wrapped = pcall(function() : boolean
+		return runsWrapper(api.res.constructionRep.findAndGet(con.fileName).updateScript)
 	end)
 	if not ok then return nil end
-	return ref == wrapperRef
+	return wrapped
 end
 
 local upkeepOf = function(entity : Engine.Entity) : number
