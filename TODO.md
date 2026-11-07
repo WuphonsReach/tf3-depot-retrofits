@@ -11,8 +11,10 @@
 TRM: Industry Emissions blocks placing new depots when it loads after Depot Retrofits ([docs/compatibility.md](docs/compatibility.md)). No dependency on TRM (decided 2026-11-07).
 
 - [ ] Reproduce: TRM subscribed (done), "Transport Building Emissions" at "Rebalanced", TRM after Depot Retrofits; place a road depot; look for TRM's load error in the log.
-- [ ] Fix: a `.lua` wrapper file that defines `data()` and returns `update` and `updateModule` from the `.tl` wrapper; point `wrapperRef` and `moduleWrapperRef` at it (the copy in retrofits.script.tl too); add it to `_content.json`.
-- [ ] Test the fix in both orders: a new depot places; a levelled depot's emissions get both reductions (pollution level n × 0.5); levels survive a later rebuild; nothing changes with TRM first or at "Base Game".
+- [ ] Fix, part 1: a `.lua` wrapper file under its own name (for example `construction_wrapper.script.lua`; a `construction.script.lua` beside the `.tl` would make our own reference ambiguous) that defines `data()` and returns `update` from the `.tl` wrapper. Point `wrapperRef` at it in mod.script.tl and in the copy in retrofits.script.tl, and add the file to `_content.json`. Leave `moduleWrapperRef` alone: TRM does not wrap modules.
+- [ ] Fix, part 2: `isWrapped` in retrofits.script.tl compares the outermost `updateScript.fileName` with `wrapperRef`. With TRM loaded after us that is TRM's script, so every buy on a base depot would be refused. Also count a building as wrapped when its `updateScript.params` hold our `depotRetrofits` entry (TRM keeps the params and adds only its `be*` keys), as mod.script.tl's `alreadyWrapped` check does.
+- [ ] Station Retrofits' notes name our wrapper reference as one way to spot a building we wrap; after the fix, only the `depotRetrofits` capture key holds. Tell that repo when the fix lands.
+- [ ] Test the fix in both orders: a base road depot places; a buy on it lands and is charged once; a levelled depot's emissions get both reductions (pollution level n × 0.5); levels survive a later rebuild; nothing changes with TRM first or at "Base Game". With TRM after us, look in the log for a stack overflow or "has no function" error from TRM: its `ug_require` then reads the global `data`, which could belong to another file if the load was cached (findings, "Unknowns").
 - [ ] Until the fix ships: a "load Depot Retrofits after TRM: Industry Emissions" line in the user guide's and the listing's compatibility parts, and a reply to the mod.io comment.
 
 ## Release 1.0
