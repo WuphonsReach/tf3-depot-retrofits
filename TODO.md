@@ -4,18 +4,20 @@
 
 - **Where it stands.** 1.2 is on mod.io (mod id 6495416) and tagged `v1.2`; the gallery shows "Not rebuilt". `main` reads `1.3-dev`. Test results are in [docs/design/findings.md](docs/design/findings.md).
 - **Next.** Release 1.3 (cheaper pollution and noise levels, "Not bought" notes, no free levels). Two sessions of 1.3-dev (365 buys) matched the new prices; still to do: set `logLevel` back to `"summary"`, `modVersion` to `1.3`, date the changelog entry, then [docs/publishing.md](docs/publishing.md). The checks below are optional; the rest of "Later" and the ideas are not planned.
-- **Compatibility.** TRM: Industry Emissions loaded after Depot Retrofits blocks placing new depots ([docs/compatibility.md](docs/compatibility.md)); the fix is below.
+- **Compatibility.** TRM: Industry Emissions loaded after Depot Retrofits blocks placing new depots ([docs/compatibility.md](docs/compatibility.md)). The fix is in 1.3-dev and passes the synthetic tests; the in-game test is below.
 
 ## Compatibility
 
 TRM: Industry Emissions blocks placing new depots when it loads after Depot Retrofits ([docs/compatibility.md](docs/compatibility.md)). No dependency on TRM (decided 2026-11-07).
 
-- [ ] Reproduce: TRM subscribed (done), "Transport Building Emissions" at "Rebalanced", TRM after Depot Retrofits; place a road depot; look for TRM's load error in the log.
-- [ ] Fix, part 1: a `.lua` wrapper file under its own name (for example `construction_wrapper.script.lua`; a `construction.script.lua` beside the `.tl` would make our own reference ambiguous) that defines `data()` and returns `update` from the `.tl` wrapper. Point `wrapperRef` at it in mod.script.tl and in the copy in retrofits.script.tl, and add the file to `_content.json`. Leave `moduleWrapperRef` alone: TRM does not wrap modules.
-- [ ] Fix, part 2: `isWrapped` in retrofits.script.tl compares the outermost `updateScript.fileName` with `wrapperRef`. With TRM loaded after us that is TRM's script, so every buy on a base depot would be refused. Also count a building as wrapped when its `updateScript.params` hold our `depotRetrofits` entry (TRM keeps the params and adds only its `be*` keys), as mod.script.tl's `alreadyWrapped` check does.
-- [ ] Station Retrofits' notes name our wrapper reference as one way to spot a building we wrap; after the fix, only the `depotRetrofits` capture key holds. Tell that repo when the fix lands.
-- [ ] Test the fix in both orders: a base road depot places; a buy on it lands and is charged once; a levelled depot's emissions get both reductions (pollution level n × 0.5); levels survive a later rebuild; nothing changes with TRM first or at "Base Game". With TRM after us, look in the log for a stack overflow or "has no function" error from TRM: its `ug_require` then reads the global `data`, which could belong to another file if the load was cached (findings, "Unknowns").
-- [ ] Until the fix ships: a "load Depot Retrofits after TRM: Industry Emissions" line in the user guide's and the listing's compatibility parts, and a reply to the mod.io comment.
+- [ ] Reproduce in game: "Transport Building Emissions" at "Rebalanced", TRM after Depot Retrofits, on 1.2 (the published copy) or with the old wrapper reference; place a road depot; look for TRM's load error in the log. The synthetic test shows it (tools/test_wrapper_load.py, "1.2 wrapper reference").
+- [x] Fix, part 1: `construction_wrapper.script.lua` defines `data()` and returns `update` and `updateModule` from construction.script.tl; `wrapperRef` (mod.script.tl and its copy in retrofits.script.tl) and `moduleWrapperRef` name it; listed in `_content.json`. `moduleWrapperRef` moved too, unlike first planned: `update` and `updateModule` share the module's state (`basePools`), so both go through the one file.
+- [x] Fix, part 2: `isWrapped` in retrofits.script.tl (through `runsWrapper`) also counts a definition whose `updateScript.params` hold our `depotRetrofits` entry, so buys work with TRM's wrapper outside ours.
+- [x] Synthetic tests: `python3 tools/test_wrapper_load.py`, 67 checks on the generated code with a stand-in engine loader and a TRM-like wrapper (both orders, without TRM, a shared or separate script cache, a Roundhouse-like stall, `runsWrapper`).
+- [ ] Station Retrofits' notes name our wrapper reference as one way to spot a building we wrap; after the fix only the `depotRetrofits` capture key holds. Tell that repo when the fix lands.
+- [ ] Test the fix in game, both orders: a base road depot places; a buy on it lands and is charged once; a levelled depot's emissions get both reductions (pollution level n × 0.5); levels survive a later rebuild; a Roundhouse stall is still levelled (`module` line, `baseSource=recorded`); nothing changes with TRM first or at "Base Game".
+- [ ] The known risk, in game, with TRM after us: place a depot TRM does not wrap first (the Roundhouse or Modern Railway Depot), then a base road depot. If the game's loader shares `ug_require`'s cache, TRM's load of our file can be served from the cache and pick up another file's `data()`: look for TRM's "has no function" error or a stack overflow (findings, "Unknowns"; the synthetic test shows the failure under that condition). Nothing on our side can prevent it.
+- [ ] With the 1.3 release: a compatibility line in the user guide and the listing (works with TRM: Industry Emissions in either order; up to 1.2, load Depot Retrofits after it), and a reply to the mod.io comment.
 
 ## Release 1.0
 

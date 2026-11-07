@@ -111,7 +111,7 @@ The rail depot's upkeep and cost are multiplied by its template's year coefficie
 
 - Why one click on a tram depot was never queued when it came in the same second as the previous buy's rebuild landed (see the last test below); the tab then showed a brief "Not rebuilt" with nothing in the way.
 - How the game picks the building a vehicle is assigned to.
-- Whether TRM: Industry Emissions can load our wrapper when the wrapper reference names a `.lua` file that defines `data()` and hands each call to the `.tl` wrapper. TRM reads the global `data` after its `ug_require`, so a load the game has cached could hand it another file's table. Also unknown: whether TRM's `ug_require` goes through `loadScript` modifiers.
+- Whether TRM: Industry Emissions can load our wrapper when the wrapper reference names a `.lua` file that defines `data()` and hands each call to the `.tl` wrapper. TRM reads the global `data` after its `ug_require`, so a load the game has cached could hand it another file's table. The synthetic test (`tools/test_wrapper_load.py`) loads it in both orders and fails only under that condition. Also unknown: whether TRM's `ug_require` goes through `loadScript` modifiers.
 - Whether TRM: Industry Emissions' emissions script keeps the levels' share of the reduction on built buildings when it undoes its own factor (`beScale`).
 - What a rebuild sent with `ignoreErrors` on does when it collides: whether it overlaps or removes the colliding entities. A one-off probe on a copy of the "333" save (one forced rebuild of Berkeley Road Depot, 88894) would show it.
 - How much of the pollution beside a busy depot comes from its vehicles rather than the building.
