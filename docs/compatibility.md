@@ -17,7 +17,7 @@
 - **Why only TRM trips on it.** Among the subscribed mods (about 700, 2026-11-07), eight `loadConstruction` modifiers swap a construction's `updateScript` for their own wrapper. Six of them load the original with base `util.useFn`, as Depot Retrofits does; it takes a `.tl` or a `.lua` script. TRM is the only one that loads it itself, and one more mod replaces the script outright without loading the original. Every one of those wrappers, and every base depot and station script, is a `.lua` file that defines `data()`. Ours is the only `.tl` one, so TRM's way of loading works on everything except us.
 - **The other order works.** When Depot Retrofits runs second, it wraps TRM's wrapper and loads it with base `util.useFn`, which handles both kinds of script. TRM passes the capture params on unchanged (it only adds its own `be*` keys), so our wrapper finds its `depotRetrofits` entry, runs TRM's script, and scales the result. The two reductions multiply: pollution level 15 with TRM gives 0.25 × 0.5 of the base. TRM marks each list it scaled with its factor (`beScale`) so that its emissions script can undo the factor later. Whether that script keeps our share of the reduction on built buildings is not checked.
 - **Workarounds.** Load Depot Retrofits after TRM: Industry Emissions, or set TRM's "Transport Building Emissions" to "Base Game" (the reporter found both).
-- **Status.** Cause read from TRM's code; not yet reproduced here. Fix planned (TODO.md).
+- **Status.** Cause read from TRM's code; not yet reproduced here. Fix planned on our side (TODO.md). TRM's source is not public (no GitHub user or repository found, 2026-11-07), so no bug is filed upstream.
 
 ## Overlapping mods, expected to stack (read from their code, not tested)
 
