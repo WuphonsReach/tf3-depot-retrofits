@@ -38,6 +38,11 @@ TRM: Industry Emissions blocks placing new depots when it loads after Depot Retr
 - [x] mod.io gallery: the update did not replace images under names mod.io already had, so the gallery is now `<n>-<name>.jpg` and a second update sent all six.
 - [x] Optional: in "333", bulldoze only the buildings around Berkeley Road Depot (88894) and leave the road. The tab stayed blocked until the road was cut off, so the own-road rule does not clear that road; whether the game would refuse the rebuild is for the probe.
 
+## Money format
+
+- [x] `money()` in retrofit_window.script.tl calls the game's `api.util.formatMoney` under `pcall`. If that fails, it falls back to the old `$1,234` form and logs one `window formatMoneyError` line.
+- [ ] Test in game with the game's short money setting off and then on. Check that the prices on the buy buttons and the upkeep lines read like the rest of the window (the depot tab and the upkeep footer), that the buttons still line up, and that the log has no `formatMoneyError`. Nobody has seen the short form yet.
+
 ## Screenshots still to take
 
 For later gallery and info-card updates. Take them with the current prices (1.3-dev or later; the earlier ones are evicted from `local/gallery/2026-11-05-cards/`, which has only the "Not bought" note and one window crop). Take the full 4K shot, so the cards and the building both show; the window sits at about x 2870-3790.

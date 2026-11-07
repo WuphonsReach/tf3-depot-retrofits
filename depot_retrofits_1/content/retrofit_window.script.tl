@@ -128,9 +128,20 @@ local shownKeys : {string : boolean} = {}
 local maxOpenLines = 60
 local openLines = 0
 
+-- Money as the game writes it (api.util.formatMoney, declared in the game's api/tealdef/api/util.d.tl): in the player's
+-- currency, full or short as set in the game's settings, as in the rest of the window. "$1,292,000" when the game's formatter
+-- fails; its first failure is logged.
+local moneyErrorLogged = false
 local money = function(amount : number) : string
 	if amount == nil then return "?" end
-	local digits = tostring(math.floor(amount + 0.5))
+	local rounded = math.floor(amount + 0.5)
+	local ok, formatted = pcall(api.util.formatMoney, rounded)
+	if ok and type(formatted) == "string" and formatted ~= "" then return formatted end
+	if not moneyErrorLogged then
+		moneyErrorLogged = true
+		say("window formatMoneyError error=" .. tostring(formatted))
+	end
+	local digits = tostring(rounded)
 	local sign = ""
 	if digits:sub(1, 1) == "-" then sign, digits = "-", digits:sub(2) end
 	local grouped = digits:reverse():gsub("(%d%d%d)", "%1,"):reverse():gsub("^,", "")
