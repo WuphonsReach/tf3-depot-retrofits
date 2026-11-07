@@ -4,6 +4,16 @@
 
 - **Where it stands.** 1.2 is on mod.io (mod id 6495416) and tagged `v1.2`; the gallery shows "Not rebuilt". `main` reads `1.3-dev`. Test results are in [docs/design/findings.md](docs/design/findings.md).
 - **Next.** Release 1.3 (cheaper pollution and noise levels, "Not bought" notes, no free levels). Two sessions of 1.3-dev (365 buys) matched the new prices; still to do: set `logLevel` back to `"summary"`, `modVersion` to `1.3`, date the changelog entry, then [docs/publishing.md](docs/publishing.md). The checks below are optional; the rest of "Later" and the ideas are not planned.
+- **Compatibility.** TRM: Industry Emissions loaded after Depot Retrofits blocks placing new depots ([docs/compatibility.md](docs/compatibility.md)); the fix is below.
+
+## Compatibility
+
+TRM: Industry Emissions blocks placing new depots when it loads after Depot Retrofits ([docs/compatibility.md](docs/compatibility.md)). No dependency on TRM (decided 2026-11-07).
+
+- [ ] Reproduce: TRM subscribed (done), "Transport Building Emissions" at "Rebalanced", TRM after Depot Retrofits; place a road depot; look for TRM's load error in the log.
+- [ ] Fix: a `.lua` wrapper file that defines `data()` and returns `update` and `updateModule` from the `.tl` wrapper; point `wrapperRef` and `moduleWrapperRef` at it (the copy in retrofits.script.tl too); add it to `_content.json`.
+- [ ] Test the fix in both orders: a new depot places; a levelled depot's emissions get both reductions (pollution level n × 0.5); levels survive a later rebuild; nothing changes with TRM first or at "Base Game".
+- [ ] Until the fix ships: a "load Depot Retrofits after TRM: Industry Emissions" line in the user guide's and the listing's compatibility parts, and a reply to the mod.io comment.
 
 ## Release 1.0
 

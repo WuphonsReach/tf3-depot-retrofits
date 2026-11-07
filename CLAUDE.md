@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-A Transport Fever 3 script mod: depots and maintenance buildings get levels for maintenance radius, vehicles maintained, pollution, noise and upkeep, bought in the building's window. The player-facing guide is [docs/user-guide.md](docs/user-guide.md). The design docs are in `docs/design/`: the spec is [docs/design/spec.md](docs/design/spec.md); the verified game facts and the open unknowns are in [docs/design/findings.md](docs/design/findings.md). Read findings before changing mechanics.
+A Transport Fever 3 script mod: depots and maintenance buildings get levels for maintenance radius, vehicles maintained, pollution, noise and upkeep, bought in the building's window. The player-facing guide is [docs/user-guide.md](docs/user-guide.md). The design docs are in `docs/design/`: the spec is [docs/design/spec.md](docs/design/spec.md); the verified game facts and the open unknowns are in [docs/design/findings.md](docs/design/findings.md). Read findings before changing mechanics. Known incompatibilities and overlapping mods are in [docs/compatibility.md](docs/compatibility.md).
 
 The repo is public on GitHub ([WuphonsReach/tf3-depot-retrofits](https://github.com/WuphonsReach/tf3-depot-retrofits), MIT); the mod is on mod.io as [Depot Retrofits](https://mod.io/g/transportfever3/m/depot-retrofits), mod id 6495416. `main` takes changes only through a pull request (see "CI and repo rules"): branch from `origin/main` as `<YYYY-MM-DD>-<slug>`, and push or open a PR only when the user asks. The name avoids "Upgrades" (too close to another mod's "Industry Upgrades"); inside the mod the terms are "level" and "retrofit".
 
