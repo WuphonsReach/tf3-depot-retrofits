@@ -15,6 +15,8 @@ TRM: Industry Emissions blocks placing new depots when it loads after Depot Retr
 - [x] Fix, part 2: `isWrapped` in retrofits.script.tl (through `runsWrapper`) also counts a definition whose `updateScript.params` hold our `depotRetrofits` entry, so buys work with TRM's wrapper outside ours.
 - [x] Synthetic tests: `python3 tools/test_wrapper_load.py`, 67 checks on the generated code with a stand-in engine loader and a TRM-like wrapper (both orders, without TRM, a shared or separate script cache, a Roundhouse-like stall, `runsWrapper`).
 - [ ] Station Retrofits' notes name our wrapper reference as one way to spot a building we wrap; after the fix only the `depotRetrofits` capture key holds. Tell that repo when the fix lands.
+- [x] Test the fix in game with TRM: Industry Emissions after us (2026-11-07, `local/logs/2026-11-07-trm-after-stdout.txt`): a new road depot and a new rail depot placed, 43 buys each charged once with every first check matching, levels kept across rebuilds, no load errors; a levelled depot's pollution is lower than an unlevelled one's with TRM active (subtle; seen on the map layer, not measured).
+- [x] The Roundhouse stall and the known-risk order, TRM after us (2026-11-07, `local/logs/2026-11-07-1974-trm-after-stdout.txt`, the 1974 save): a new Roundhouse placed, then a base road depot; 1,016 `module` lines with `baseSource=recorded`; 70 buys charged once, every first check matching; no TRM "has no function" error, no stack overflow, no load errors. Not yet tried: TRM first, Base Game.
 - [ ] Test the fix in game, both orders: a base road depot places; a buy on it lands and is charged once; a levelled depot's emissions get both reductions (pollution level n × 0.5); levels survive a later rebuild; a Roundhouse stall is still levelled (`module` line, `baseSource=recorded`); nothing changes with TRM first or at "Base Game".
 - [ ] The known risk, in game, with TRM after us: place a depot TRM does not wrap first (the Roundhouse or Modern Railway Depot), then a base road depot. If the game's loader shares `ug_require`'s cache, TRM's load of our file can be served from the cache and pick up another file's `data()`: look for TRM's "has no function" error or a stack overflow (findings, "Unknowns"; the synthetic test shows the failure under that condition). Nothing on our side can prevent it.
 - [ ] With the 1.3 release: a compatibility line in the user guide and the listing (works with TRM: Industry Emissions in either order; up to 1.2, load Depot Retrofits after it), and a reply to the mod.io comment.
@@ -41,7 +43,7 @@ TRM: Industry Emissions blocks placing new depots when it loads after Depot Retr
 ## Money format
 
 - [x] `money()` in retrofit_window.script.tl calls the game's `api.util.formatMoney` under `pcall`. If that fails, it falls back to the old `$1,234` form and logs one `window formatMoneyError` line.
-- [ ] Test in game with the game's short money setting off and then on. Check that the prices on the buy buttons and the upkeep lines read like the rest of the window (the depot tab and the upkeep footer), that the buttons still line up, and that the log has no `formatMoneyError`. Nobody has seen the short form yet.
+- [x] Tested in game (2026-11-07, `local/logs/2026-11-07-trm-after-stdout.txt`): the tab followed the game's money setting, short first and then full, with no `formatMoneyError` in the log.
 
 ## Screenshots still to take
 
