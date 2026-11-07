@@ -9,7 +9,9 @@
 -- modules' upkeep in here (params.modules carries their metadata), and updateModule wraps the update script of every module
 -- under a depots folder and re-levels what the module added to the pool, radius or upkeep.
 
--- Copied in mod.script.tl; keep the copies equal.
+-- The game reaches this module through construction_wrapper.script.lua, the file the wrapped constructions name.
+--
+-- Copied in mod.script.tl and retrofits.script.tl; keep the copies equal.
 local captureKey = "depotRetrofits"
 
 -- The wrapper runs for every preview while the player places a depot, so the calls without levels are logged only at first.
