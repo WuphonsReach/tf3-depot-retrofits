@@ -2,12 +2,13 @@
 
 ## In short
 
-- **Where it stands.** 1.2 is on mod.io (mod id 6495416) and tagged `v1.2`. `main` reads `1.3-dev`. Test results are in [docs/design/findings.md](docs/design/findings.md) and [docs/compatibility.md](docs/compatibility.md); the finished items are in git history.
-- **Next.** Release 1.3 (release PR open, `modVersion` 1.3, changelog dated): cheaper pollution and noise levels, "Not bought" notes, no free levels, works with TRM: Industry Emissions in either order, prices in the game's money format. Merge, then upload and test the published copy ([docs/publishing.md](docs/publishing.md)). After it: the "<", ">" and ">|" buttons for 1.4, on branch `2026-11-08-step-buttons`. The checks below are optional; "Later" and the ideas are not planned.
+- **Where it stands.** 1.3 is on mod.io (mod id 6495416) and tagged `v1.3`. `main` reads `1.4-dev`. Test results are in [docs/design/findings.md](docs/design/findings.md) and [docs/compatibility.md](docs/compatibility.md); the finished items are in git history.
+- **Next.** 1.4: the "<", ">" and ">|" buttons, on branch `2026-11-08-step-buttons`, rebased once this is on `main`. The checks below are optional; "Later" and the ideas are not planned.
 
 ## Release 1.3
 
-- [ ] Release ([docs/publishing.md](docs/publishing.md)), then reply to the mod.io comment about TRM: Industry Emissions.
+- [x] Release ([docs/publishing.md](docs/publishing.md)): published copy tested, `v1.3` on `fa989e1`.
+- [ ] Reply to the mod.io comment about TRM: Industry Emissions.
 - [ ] Next session with TRM: Industry Emissions after us: the `buy sent` lines read `wrapped=true` (our capture key found under TRM's wrapper), not `wrapped=unknown`.
 
 ## Screenshots still to take
