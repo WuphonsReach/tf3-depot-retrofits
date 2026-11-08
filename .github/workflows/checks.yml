@@ -49,6 +49,9 @@ jobs:
             echo "== $f"
             luac5.1 -p "$f"
           done
+      # How other mods load the depot wrapper (the TRM: Industry Emissions fix), on the generated code; needs tl and lua5.1 only.
+      - name: Wrapper load tests
+        run: python3 tools/test_wrapper_load.py
       - name: JSON files parse
         run: |
           for f in depot_retrofits_1/mod.json depot_retrofits_1/_content.json depot_retrofits_1/_metadata/modinfo.json; do
