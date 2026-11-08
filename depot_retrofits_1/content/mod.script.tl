@@ -7,7 +7,7 @@
 -- with a rebuild. Each wrapped construction keeps its own params and the original script's reference in its updateScript
 -- params, so the wrapper knows what to call. Log lines start with "DEPOT_RETROFITS".
 
-local modVersion = "1.3-dev"
+local modVersion = "1.3"
 
 -- wrapperRef is copied in retrofits.script.tl, captureKey in construction.script.tl and retrofits.script.tl; keep the copies
 -- equal. Both refs name construction_wrapper.script.lua, a .lua file defining data() that hands the calls to

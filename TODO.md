@@ -3,7 +3,7 @@
 ## In short
 
 - **Where it stands.** 1.2 is on mod.io (mod id 6495416) and tagged `v1.2`. `main` reads `1.3-dev`. Test results are in [docs/design/findings.md](docs/design/findings.md) and [docs/compatibility.md](docs/compatibility.md); the finished items are in git history.
-- **Next.** Release 1.3 (cheaper pollution and noise levels, "Not bought" notes, no free levels, works with TRM: Industry Emissions in either order, prices in the game's money format): set `logLevel` back to `"summary"`, `modVersion` to `1.3`, date the changelog entry, then [docs/publishing.md](docs/publishing.md). The checks below are optional; "Later" and the ideas are not planned.
+- **Next.** Release 1.3 (release PR open, `modVersion` 1.3, changelog dated): cheaper pollution and noise levels, "Not bought" notes, no free levels, works with TRM: Industry Emissions in either order, prices in the game's money format. Merge, then upload and test the published copy ([docs/publishing.md](docs/publishing.md)). After it: the "<", ">" and ">|" buttons for 1.4, on branch `2026-11-08-step-buttons`. The checks below are optional; "Later" and the ideas are not planned.
 
 ## Release 1.3
 
