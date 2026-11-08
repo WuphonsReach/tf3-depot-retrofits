@@ -8,9 +8,7 @@
 ## Release 1.3
 
 - [ ] Release ([docs/publishing.md](docs/publishing.md)), then reply to the mod.io comment about TRM: Industry Emissions.
-- [ ] Pass the Station Retrofits handoff on (written 2026-11-07): its notes name our wrapper reference as one way to spot a building we wrap; now only the `depotRetrofits` capture key holds.
 - [ ] Next session with TRM: Industry Emissions after us: the `buy sent` lines read `wrapped=true` (our capture key found under TRM's wrapper), not `wrapped=unknown`.
-- [ ] Optional: reproduce the TRM bug on 1.2 (the published copy, TRM after Depot Retrofits, place a road depot, look for TRM's load error). The synthetic test shows it (`tools/test_wrapper_load.py`, "1.2 wrapper reference").
 
 ## Screenshots still to take
 
