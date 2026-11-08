@@ -7,7 +7,7 @@
 - **What it costs.** Each level costs more than the one before. Every level except the upkeep levels also raises the building's upkeep.
 - **Limit.** A retrofit's highest level is your company rank.
 - **One catch.** Buying a level rebuilds the building. The game then reassigns the vehicles it maintained; some or all of them may go to another building in range.
-- **Status.** Version 1.2: when the game cannot rebuild the building, the tab shows "Not rebuilt" and what is in the way in red.
+- **Status.** Version 1.3: cheaper pollution and noise levels, a note when a level is not bought, prices in the game's money format, and it works with TRM: Industry Emissions in either load order.
 
 ## Which buildings
 
@@ -68,4 +68,5 @@ The upkeep retrofit cuts the total by 5% per level, so level 15 leaves a quarter
   ![The town's Pollution Rating graph from the 12-building test. Top: a point from before the levels were bought, at 41%, on a line that stayed flat for 20 years. Middle: 1976, at 50%. Bottom: 1978, back to 47%.](images/town-pollution-graph.png)
 - **Levels are saved with the game.**
 - **The game's own rebuilds keep the levels**, for example electrifying a rail depot, using the catenary tool on a tram depot, or adding or removing Roundhouse stalls.
+- **Other mods.** The mod works with TRM: Industry Emissions in either load order, and both mods' cuts to pollution and noise apply. With version 1.2 or earlier, load Depot Retrofits after it. More in [compatibility.md](compatibility.md).
 - **Not checked yet.** What happens to levelled buildings when the mod is removed from a save. Keep a backup of any save you play with the mod.
