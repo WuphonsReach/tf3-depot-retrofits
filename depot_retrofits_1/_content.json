@@ -8,6 +8,7 @@
         "mod.script.tl",
         "retrofits.gs.lua",
         "retrofits.script.tl",
+        "retrofit_window.css.lua",
         "retrofit_window.script.tl",
         "settings.tl"
     ]

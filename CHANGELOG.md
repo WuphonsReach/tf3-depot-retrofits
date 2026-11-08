@@ -4,7 +4,9 @@ Newest first. The number in the title is `modVersion` at the top of [mod.script.
 
 ## 1.4 (not released)
 
-Nothing yet.
+- **Buy all levels at once, and remove a level.** Each retrofit's buy button is now three small buttons, as in Station Retrofits: **>** buys the next level, **>|** buys every level your rank and your money allow in one rebuild (for the same total as buying them one by one), and **<** removes the top level and gives back 80% of what that level costs today. A mistaken buy can now be undone for a fifth of its price. The next level's price, or "Rank N", stays beside the buttons; hover over a button for what it buys or gives back. Removing a level rebuilds the building, as a buy does.
+
+Release note: `New buttons: >| buys all levels you can at once, < removes a level for 80% back.`
 
 ## 1.3 (2026-11-08)
 

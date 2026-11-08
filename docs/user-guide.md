@@ -3,11 +3,11 @@
 ## In short
 
 - **What it does.** Depots and maintenance buildings get levels. A level widens the maintenance radius, raises the number of vehicles maintained, or cuts pollution, noise or upkeep.
-- **Where to buy.** Open the building's window and choose the Retrofit tab. Each level is bought on its own, for money.
+- **Where to buy.** Open the building's window and choose the Retrofit tab. Buy the next level, or every level you can in one click. A level can be removed again for 80% of its price.
 - **What it costs.** Each level costs more than the one before. Every level except the upkeep levels also raises the building's upkeep.
 - **Limit.** A retrofit's highest level is your company rank.
 - **One catch.** Buying a level rebuilds the building. The game then reassigns the vehicles it maintained; some or all of them may go to another building in range.
-- **Status.** Version 1.3: cheaper pollution and noise levels, a note when a level is not bought, prices in the game's money format, and it works with TRM: Industry Emissions in either load order.
+- **Status.** Version 1.4: buttons to buy all levels at once and to remove a level.
 
 ## Which buildings
 
@@ -17,19 +17,24 @@ On a depot built from modules, such as the Roundhouse mod's, the levels also cov
 
 A newly placed building starts at level 0 in every retrofit. The build menu has no level options.
 
-## Buying a level
+## Buying and removing levels
 
 The Retrofit tab sits next to the building's own tab. From top to bottom:
 
 - **Summary**: your company rank, the building's radius, and its vehicles (maintained / maximum). If you have earned a higher rank but not claimed it yet, the Summary says so.
-- **One card per retrofit**: the retrofit's icon and a row of 15 boxes, one per level. White is a level bought, grey a level you can buy at your rank, dark a level that needs a higher rank; hover over the boxes to see the levels bought and how many your rank allows, for example "Level 4/7 (max 15)". Then the upkeep after the next level, what the next level changes (for example "400 m -> 420 m"), and a buy button with the price.
+- **One card per retrofit**: the retrofit's icon and a row of 15 boxes, one per level. White is a level bought, grey a level you can buy at your rank, dark a level that needs a higher rank; hover over the boxes to see the levels bought and how many your rank allows, for example "Level 4/7 (max 15)". Then the upkeep after the next level, what the next level changes (for example "400 m -> 420 m"), the next level's price, and three buttons:
+  - **<** removes the top level and gives back 80% of what that level costs today.
+  - **>** buys the next level.
+  - **>|** buys every level your rank and your money allow, in one go. It costs the same as buying those levels one by one.
+
+  Hover over a button to see what it buys or gives back, and for how much.
 - **Upkeep footer**: the building's upkeep now, as in the building's own tab.
 
 The upkeep figures, in the cards and in the footer, include a running cost for the vehicles the building maintains, which goes up and down as vehicles come and go. Buying a level rebuilds the building and resets that cost to zero, so right after a buy the footer can read a little below the figure the card showed. The upkeep retrofit does not cut this running cost.
 
-The buy button shows "Rank N" and is greyed out when the next level needs a higher company rank. It is also greyed out, with the price still shown, when you do not have enough money for the level. If your money drops below the price just as you click (for example while vehicles are being bought), the level is not bought, nothing is charged, and a yellow note at the top of the tab says "Not bought: not enough money". It stays for about 10 seconds and then goes once you have the money for that level again, or at once when you click again. In the rare case that the buy fails for another reason, the note says "Not bought: the buy could not be carried out", nothing is charged, and the game log (stdout.txt) has the reason. Sometimes the game cannot rebuild the building, because something built after it stands in the way: a town building on the lot next door, or a road rebuilt in front of it. Then the level is not bought and nothing is charged. About two seconds after the click, a yellow warning at the top of the tab says so, and what is in the way shows in red. Pause the game and clear it. Once what was shown in red is gone, the warning goes by itself; buy again while still paused, so the town cannot build there again first. The building's own entrance can show in red too without being in the way. If you cut a road off, build it again once the levels are bought, so the building is connected again. A retrofit at level 15 shows "Highest level".
+When the next level needs a higher company rank, "Rank N" shows in place of the price, and > and >| are greyed out. When you do not have enough money for the next level, the price stays and both are greyed out too. < is greyed out at level 0. If your money drops below the price just as you click (for example while vehicles are being bought), the level is not bought, nothing is charged, and a yellow note at the top of the tab says "Not bought: not enough money". It stays for about 10 seconds and then goes once you have the money for that level again, or at once when you click again. In the rare case that the buy fails for another reason, the note says "Not bought: the buy could not be carried out", nothing is charged, and the game log (stdout.txt) has the reason. Sometimes the game cannot rebuild the building, because something built after it stands in the way: a town building on the lot next door, or a road rebuilt in front of it. Then the level is not bought (or not removed) and nothing is charged or given back. About two seconds after the click, a yellow warning at the top of the tab says so, and what is in the way shows in red. Pause the game and clear it. Once what was shown in red is gone, the warning goes by itself; click again while still paused, so the town cannot build there again first. The building's own entrance can show in red too without being in the way. If you cut a road off, build it again once the levels are bought, so the building is connected again. A retrofit at level 15 shows "Highest level".
 
-Levels cannot be sold or lowered.
+Removing a level rebuilds the building too, so the game reassigns its vehicles again. A level above your rank can be removed. The money back is 80% of what the level would cost to buy now, not of what you paid: prices follow the building's build price, which rises over the years, so a level bought long ago can give back more than it cost.
 
 ## The five retrofits
 
@@ -51,7 +56,7 @@ The noise and pollution retrofits cost less, and their prices rise more slowly: 
 
 The upkeep retrofit costs more, since it pays for itself: level 1 costs 25% of the build price, level 15 about 1.8 times it, and all 15 levels about 12 times it.
 
-The order you buy in does not change any price.
+The order you buy in does not change any price, and neither does buying several levels with >|.
 
 ## Upkeep
 
@@ -61,7 +66,7 @@ The upkeep retrofit cuts the total by 5% per level, so level 15 leaves a quarter
 
 ## Good to know
 
-- **Vehicles move after a buy.** The game reassigns the building's vehicles within a game day. Each one may come back or go to another building in range. Lines are not affected.
+- **Vehicles move after a buy or a removal.** The game reassigns the building's vehicles within a game day. Each one may come back or go to another building in range. Lines are not affected.
 - **The pollution map moves only a little.** Pollution and noise levels lower only what the building itself gives off. Vehicles keep their own pollution and noise, which still add to the area. The pollution overlay map uses a decibel scale and averages over a few minutes of play, so at the full 75% reduction the pollution map shows only 2 to 3 steps less next to the building, out of its 12. Hover over the change line on the Pollution or Noise card for a reminder.
 - **The town window shows the effect best.** The Pollution Rating graph at the bottom of a town's pollution card follows the whole town's pollution; hover over a point to see its value. Expect a real but small change: stations and tracks often give off most of a town's pollution, and the mod does not change them. In a test, pollution level 11 on all 12 depots and maintenance buildings inside a town's borders raised the town's rating from about 41% to 50% over the next two years. The town stayed at Mediocre, and as its industries grew the rating slipped back to 47%. At today's prices those 132 levels cost about $7.4 million and add about $1.1 million a year to the 12 buildings' upkeep. In a smaller town, pollution level 9 on three buildings raised the rating from about 80% to 88%. The list of pollution sources above the graph shows depots and maintenance buildings on their own rows, but as shares of the town's total: they jump whenever an industry starts or stops producing, even when the depots do not change.
 

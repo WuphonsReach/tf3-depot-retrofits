@@ -9,6 +9,13 @@
 -- show the map's averaged pollution settling). Log lines start with "DEPOT_RETROFITS". A buy it refuses is kept in its state
 -- for the window to read, so the tab can tell a buy refused here (short of money) from a rebuild the game refused.
 --
+-- A buy event can carry a target level "to": the tab's ">|" buys every level up to it in one rebuild, for the sum of the
+-- single prices (levels.runPrice), checked against the rank and the money as a whole. A "to" one below "from" removes the top
+-- level (the tab's "<"): no rank or money check, the stored level must still be the one the tab saw and above 0, and once the
+-- rebuild one level lower has landed (the stored level is at most the one left), levels.refund's 80% of the level's price at
+-- today's build price is booked as a positive depot construction entry; a rebuild that never lands refunds nothing.
+-- Ported from Station Retrofits' retrofits.script.tl (same author), where buying and removing this way are tested in game.
+--
 -- The random levelling that tested the formulas across a whole save (probe 0.4) is in git history; its results are in
 -- docs/design/findings.md.
 
@@ -23,8 +30,8 @@ local buyEvent = "depotRetrofitsBuy"
 -- Clock units: a game day at calendar speed 1x is 4,000, a game year 1,461,000.
 local dayClock = 4000
 local buyCheckOffsets = { 200, dayClock, 7 * dayClock, 30 * dayClock }
--- A buy is charged when its rebuild lands: the stored level in its tree is at least the one bought, so a later buy landing first
--- also counts. A new buy for the same building before then replaces it, uncharged: the window (retrofit_window.script.tl) sends
+-- A buy is charged when its rebuild lands: the stored level in its tree is at least the one bought (a removal is refunded when
+-- it is at most the one left), so a later buy landing first also counts. A new buy for the same building before then replaces it, uncharged: the window (retrofit_window.script.tl) sends
 -- one buy at a time per building and says after about a second that the game refused it, so a buy sent again after clearing
 -- the way must go through. Both rebuild to the same level from the same stored levels, so at most one is charged. A rebuild
 -- that has not landed after 30 real seconds (or 30 game days where os.time is not available) is given up, uncharged: the game
@@ -67,6 +74,7 @@ local record Buy
 	construction : Engine.Entity
 	tree : string
 	from : integer
+	to : integer -- the level to buy up to in one rebuild, or from - 1 to remove a level; nil (a tab without it) means from + 1
 	click : integer -- the window's number for the click that sent it; nil from a window without one
 end
 
@@ -84,6 +92,7 @@ local record Watch
 	construction : Engine.Entity
 	depot : Engine.Entity
 	label : string
+	down : boolean -- true for a removal
 	startedAt : number
 	checksDone : integer
 	from : {string : integer}
@@ -94,10 +103,11 @@ end
 local record Pending
 	construction : Engine.Entity
 	tree : string
-	level : integer
+	level : integer -- the level the rebuild sets
+	down : boolean -- true for a removal; nil for a buy (also in a save from before removals)
 	untilT : number
 	sentAt : number -- os.time() when the rebuild was sent; nil where os.time is not available
-	price : integer -- charged when the rebuild lands
+	price : integer -- charged when the rebuild lands; for a removal, the refund booked then
 	fileName : string
 	carrier : string -- the finance row's carrier, "ROAD", "RAIL", "TRAM", "WATER" or "AIR"
 	label : string
@@ -408,7 +418,7 @@ local journalCarrier = function(name : string) : JournalEntry.Carrier
 	return byName[name] or c.ROAD
 end
 
--- Books a level's price as depot construction.
+-- Books a level's price as depot construction; a negative amount (a removal's refund) books a positive entry.
 local bookPrice = function(amount : integer, carrier : string) : string
 	local entry = api.type.JournalEntry.new()
 	entry.amount = -amount
@@ -420,8 +430,21 @@ local bookPrice = function(amount : integer, carrier : string) : string
 	return nil
 end
 
+-- A buy has landed once the stored level is at least the one bought, a removal once it is at most the one left: the old
+-- level already passes the other test, so a removal would be refunded before (or without) its rebuild.
 local landed = function(p : Pending, stored : {string : integer}) : boolean
-	return stored ~= nil and (stored[p.tree] or 0) >= p.level
+	if stored == nil then return false end
+	local level = stored[p.tree] or 0
+	if p.down then return level <= p.level end
+	return level >= p.level
+end
+
+-- "bought=noise5 price=1200" or "removed=noise5 refund=960 direction=down" for a log line.
+local describePending = function(p : Pending) : string
+	if p.down then
+		return "removed=" .. tostring(p.label) .. " refund=" .. tostring(p.price) .. " direction=down"
+	end
+	return "bought=" .. tostring(p.label) .. " price=" .. tostring(p.price)
 end
 
 local expired = function(p : Pending, t : number, clock : number) : boolean
@@ -437,8 +460,7 @@ local replacePending = function(retrofit : RetrofitState, construction : Engine.
 	local kept : {Pending} = {}
 	for _, p in ipairs(retrofit.pending or {}) do
 		if p.construction == construction and stillPending(p, t) then
-			say("buy notLanded construction=" .. tostring(p.construction) .. " bought=" .. tostring(p.label) .. " price=" .. tostring(p.price)
-				.. " reason=replaced charged=false")
+			say("buy notLanded construction=" .. tostring(p.construction) .. " " .. describePending(p) .. " reason=replaced charged=false")
 		else
 			kept[#kept + 1] = p
 		end
@@ -467,34 +489,51 @@ local processBuy = function(retrofit : RetrofitState, buy : Buy, t : number) : s
 	if not exists(depot) then return "noDepot" end
 	local from = levels.read(constructionParams(con))
 	if from[buy.tree] ~= buy.from then return "stale stored=" .. tostring(from[buy.tree]) end
-	if buy.from >= levels.maxLevel then return "maxLevel" end
-	local rank, _, rankSource = readRank()
-	if rank == nil then return "rankUnknown rankSource=" .. rankSource end
-	if buy.from + 1 > rank then return "rank rank=" .. tostring(rank) end
+	local target = buy.to or buy.from + 1
+	local down = target < buy.from
+	local rank, rankSource : integer, string = nil, "notRead"
+	if down then
+		-- One level per removal, and no rank or money check: a level above a lower rank can be removed too.
+		if buy.from <= 0 then return "noLevel" end
+		if target ~= buy.from - 1 then return "badTarget to=" .. tostring(buy.to) end
+	else
+		if buy.from >= levels.maxLevel then return "maxLevel" end
+		if target <= buy.from or target > levels.maxLevel then return "badTarget to=" .. tostring(buy.to) end
+		local readLevel, _, readSource = readRank()
+		rank, rankSource = readLevel, readSource
+		if rank == nil then return "rankUnknown rankSource=" .. rankSource end
+		if target > rank then return "rank rank=" .. tostring(rank) end
+	end
 	local charged = chargedUpkeepOf(depot)
 	if charged == nil then return "noUpkeep" end
-	local price = levels.levelPrice(levels.buildPrice(charged, from), buy.tree, buy.from + 1)
+	local buildPrice = levels.buildPrice(charged, from)
+	local price = down and levels.refund(buildPrice, buy.tree, buy.from) or levels.runPrice(buildPrice, buy.tree, buy.from, target)
 	local balance = balanceOf()
-	if balance ~= nil and balance < price then return "noMoney balance=" .. tostring(balance) .. " price=" .. tostring(price) end
+	if not down and balance ~= nil and balance < price then
+		return "noMoney balance=" .. tostring(balance) .. " price=" .. tostring(price)
+	end
 
-	local to = levels.withLevel(from, buy.tree, buy.from + 1)
+	local to = levels.withLevel(from, buy.tree, target)
 	local before = logFull and readSnapshot(depot, buy.construction) or nil
 	local ran, result = sendRebuild(buy.construction, to)
 	if not ran then return "rebuild " .. result end
-	local label = buy.tree .. tostring(buy.from + 1)
+	-- The level bought up to, or the level removed.
+	local label = buy.tree .. tostring(down and buy.from or target)
 	local carrier, carrierSource = carrierFor(depot, con.fileName)
+	local amount = down and (" direction=down levelsRemoved=1 refund=" .. tostring(price))
+		or (" levelsBought=" .. tostring(target - buy.from) .. " price=" .. tostring(price))
 	say("buy sent construction=" .. tostring(buy.construction) .. " depot=" .. tostring(depot) .. " tree=" .. buy.tree
-		.. " level=" .. tostring(buy.from + 1) .. " price=" .. tostring(price) .. " balanceBefore=" .. tostring(balance)
+		.. " level=" .. tostring(target) .. amount .. " balanceBefore=" .. tostring(balance)
 		.. " rank=" .. tostring(rank) .. " rankSource=" .. rankSource .. " carrier=" .. carrier .. " carrierSource=" .. carrierSource
 		.. " from=" .. levels.describe(from) .. " to=" .. levels.describe(to)
 		.. " wrapped=" .. (wrapped and "true" or "unknown")
 		.. (before ~= nil and (" " .. describeSnapshot(before)) or ""))
 	replacePending(retrofit, buy.construction, t)
-	table.insert(retrofit.pending, { construction = buy.construction, tree = buy.tree, level = buy.from + 1,
+	table.insert(retrofit.pending, { construction = buy.construction, tree = buy.tree, level = target, down = down or nil,
 		untilT = t + buyPendingClock, sentAt = clockNow(), price = price, fileName = con.fileName, carrier = carrier, label = label })
 	if before ~= nil then
 		retrofit.watches = retrofit.watches or {}
-		table.insert(retrofit.watches, { construction = buy.construction, depot = depot, label = label,
+		table.insert(retrofit.watches, { construction = buy.construction, depot = depot, label = label, down = down or nil,
 			startedAt = t, checksDone = 0, from = from, to = to, before = before })
 	end
 	return nil
@@ -509,7 +548,8 @@ local processWatches = function(retrofit : RetrofitState, t : number) : boolean
 			watch.checksDone = n
 			changed = true
 			local snap = readSnapshot(watch.depot, watch.construction)
-			say("buy after check=" .. tostring(n) .. " construction=" .. tostring(watch.construction) .. " bought=" .. watch.label
+			say("buy after check=" .. tostring(n) .. " construction=" .. tostring(watch.construction)
+				.. (watch.down and " removed=" or " bought=") .. watch.label
 				.. " balance=" .. tostring(balanceOf()) .. " " .. describeSnapshot(snap) .. " maintainedBefore=" .. tostring(watch.before.maintained)
 				.. " pollutionDbBefore=" .. formatDb(watch.before.pollutionDb) .. "/" .. formatDb(watch.before.pollutionDbAverage)
 				.. " " .. compare(snap, expectedAfter(watch.before, watch.from, watch.to), watch.to))
@@ -529,14 +569,15 @@ local settlePending = function(p : Pending, t : number, clock : number) : boolea
 			-- A pending buy saved before the carrier was kept falls back to the file's.
 			local carrier = tostring(p.carrier or pathCarrier(p.fileName))
 			-- Raises before the booking is sent or not at all, and nothing after it can raise, so a buy is never booked twice.
-			bookPrice(p.price, carrier)
-			say("buy charged construction=" .. tostring(p.construction) .. " bought=" .. tostring(p.label) .. " price=" .. tostring(p.price)
+			bookPrice(p.down and -p.price or p.price, carrier)
+			say("buy " .. (p.down and "refunded" or "charged") .. " construction=" .. tostring(p.construction) .. " " .. describePending(p)
 				.. " carrier=" .. carrier .. " charged=true balanceBefore=" .. tostring(balance))
 		end
 		return false
 	elseif expired(p, t, clock) then
-		say("buy notLanded construction=" .. tostring(p.construction) .. " bought=" .. tostring(p.label) .. " price=" .. tostring(p.price)
-			.. " seconds=" .. (clock ~= nil and p.sentAt ~= nil and tostring(clock - p.sentAt) or "?") .. " stored=" .. levels.describe(stored) .. " expected=" .. tostring(p.tree) .. ">=" .. tostring(p.level) .. " charged=false")
+		say("buy notLanded construction=" .. tostring(p.construction) .. " " .. describePending(p)
+			.. " seconds=" .. (clock ~= nil and p.sentAt ~= nil and tostring(clock - p.sentAt) or "?") .. " stored=" .. levels.describe(stored)
+			.. " expected=" .. tostring(p.tree) .. (p.down and "<=" or ">=") .. tostring(p.level) .. " charged=false")
 		return false
 	end
 	return true
@@ -556,8 +597,8 @@ local processPending = function(retrofit : RetrofitState, t : number) : boolean
 			keep = not expired(p, t, clock)
 			-- The first error and the drop are logged, not every update in between.
 			if not keep or not p.errorLogged then
-				say("buy pendingError construction=" .. tostring(p.construction) .. " bought=" .. tostring(p.label) .. " price="
-					.. tostring(p.price) .. " error=" .. tostring(err) .. (keep and " retry=true" or " retry=false charged=false"))
+				say("buy pendingError construction=" .. tostring(p.construction) .. " " .. describePending(p) .. " error=" .. tostring(err)
+					.. (keep and " retry=true" or " retry=false charged=false"))
 				p.errorLogged = true
 				changed = true
 			end
@@ -605,7 +646,7 @@ local retrofitScript : GameScript<RetrofitState> = {
 			if not ok or refused ~= nil then
 				local reason = ok and refused or ("error " .. tostring(refused))
 				say("buy refused construction=" .. tostring(buy.construction) .. " tree=" .. tostring(buy.tree) .. " from=" .. tostring(buy.from)
-					.. " reason=" .. reason .. " click=" .. tostring(buy.click))
+					.. " to=" .. tostring(buy.to) .. " reason=" .. reason .. " click=" .. tostring(buy.click))
 				if buy.click ~= nil then recordRefusal(retrofit, buy, reason) end
 			end
 			state:set(retrofit)
@@ -637,6 +678,7 @@ local retrofitScript : GameScript<RetrofitState> = {
 			construction = math.floor(tonumber(p.construction) or -1) as Engine.Entity,
 			tree = tostring(p.tree),
 			from = math.floor(tonumber(p.from) or -1),
+			to = tonumber(p.to) and math.floor(tonumber(p.to)) or nil,
 			click = tonumber(p.click) and math.floor(tonumber(p.click)) or nil,
 		}
 		local retrofit = loadState(state)
@@ -645,7 +687,8 @@ local retrofitScript : GameScript<RetrofitState> = {
 		state:set(retrofit)
 		if logFull then
 			say("buy queued src=" .. tostring(src) .. " id=" .. tostring(id) .. " construction=" .. tostring(buy.construction)
-				.. " tree=" .. buy.tree .. " from=" .. tostring(buy.from) .. " click=" .. tostring(buy.click) .. " queued=" .. tostring(#retrofit.buys))
+				.. " tree=" .. buy.tree .. " from=" .. tostring(buy.from) .. " to=" .. tostring(buy.to)
+				.. " direction=" .. ((buy.to ~= nil and buy.to < buy.from) and "down" or "up") .. " click=" .. tostring(buy.click) .. " queued=" .. tostring(#retrofit.buys))
 		end
 	end,
 }
