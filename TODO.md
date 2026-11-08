@@ -2,53 +2,19 @@
 
 ## In short
 
-- **Where it stands.** 1.2 is on mod.io (mod id 6495416) and tagged `v1.2`; the gallery shows "Not rebuilt". `main` reads `1.3-dev`. Test results are in [docs/design/findings.md](docs/design/findings.md).
-- **Next.** Release 1.3 (cheaper pollution and noise levels, "Not bought" notes, no free levels). Two sessions of 1.3-dev (365 buys) matched the new prices; still to do: set `logLevel` back to `"summary"`, `modVersion` to `1.3`, date the changelog entry, then [docs/publishing.md](docs/publishing.md). The checks below are optional; the rest of "Later" and the ideas are not planned.
-- **Compatibility.** TRM: Industry Emissions loaded after Depot Retrofits blocks placing new depots ([docs/compatibility.md](docs/compatibility.md)). The fix is in 1.3-dev and works in game with TRM in either order; left for the release are the compatibility line and the code review.
+- **Where it stands.** 1.2 is on mod.io (mod id 6495416) and tagged `v1.2`. `main` reads `1.3-dev`. Test results are in [docs/design/findings.md](docs/design/findings.md) and [docs/compatibility.md](docs/compatibility.md); the finished items are in git history.
+- **Next.** Release 1.3 (cheaper pollution and noise levels, "Not bought" notes, no free levels, works with TRM: Industry Emissions in either order, prices in the game's money format): set `logLevel` back to `"summary"`, `modVersion` to `1.3`, date the changelog entry, then [docs/publishing.md](docs/publishing.md). The checks below are optional; "Later" and the ideas are not planned.
 
-## Compatibility
+## Release 1.3
 
-TRM: Industry Emissions blocks placing new depots when it loads after Depot Retrofits ([docs/compatibility.md](docs/compatibility.md)). No dependency on TRM (decided 2026-11-07).
-
-- [ ] Reproduce in game: "Transport Building Emissions" at "Rebalanced", TRM after Depot Retrofits, on 1.2 (the published copy) or with the old wrapper reference; place a road depot; look for TRM's load error in the log. The synthetic test shows it (tools/test_wrapper_load.py, "1.2 wrapper reference").
-- [x] Fix, part 1: `construction_wrapper.script.lua` defines `data()` and returns `update` and `updateModule` from construction.script.tl; `wrapperRef` (mod.script.tl and its copy in retrofits.script.tl) and `moduleWrapperRef` name it; listed in `_content.json`. `moduleWrapperRef` moved too, unlike first planned: `update` and `updateModule` share the module's state (`basePools`), so both go through the one file.
-- [x] Fix, part 2: `isWrapped` in retrofits.script.tl (through `runsWrapper`) also counts a definition whose `updateScript.params` hold our `depotRetrofits` entry, so buys work with TRM's wrapper outside ours.
-- [x] Synthetic tests: `python3 tools/test_wrapper_load.py`, 69 checks on the generated code with a stand-in engine loader and a TRM-like wrapper (both orders, without TRM, a shared or separate script cache, a Roundhouse-like stall, `runsWrapper` with table and userdata params); CI runs them.
-- [x] After the code review (2026-11-07): `runsWrapper` reads the capture key by indexing the params, so userdata params count. In game with TRM after us (2026-11-08, `local/logs/2026-11-08-runswrapper-stdout.txt`): 59 buys on a rail depot, a tram depot and the rail and water maintenance buildings, each charged once, none refused, no errors; the last buy on each building matched the formulas (the game was paused for most of the buys, so the earlier checks saw the final levels). That log does not say whether the check found the key or could not tell (both let the buy through); the "buy sent" line now carries `wrapped=true` or `wrapped=unknown`, so the next test with TRM after us shows it.
-- [ ] Station Retrofits' notes name our wrapper reference as one way to spot a building we wrap; after the fix only the `depotRetrofits` capture key holds. Tell that repo when the fix lands (handoff written 2026-11-07, for the user to pass on).
-- [x] Test the fix in game with TRM: Industry Emissions after us (2026-11-07, `local/logs/2026-11-07-trm-after-stdout.txt`): a new road depot and a new rail depot placed, 43 buys each charged once with every first check matching, levels kept across rebuilds, no load errors; a levelled depot's pollution is lower than an unlevelled one's with TRM active (subtle; seen on the map layer, not measured).
-- [x] The Roundhouse stall and the known-risk order, TRM after us (2026-11-07, `local/logs/2026-11-07-1974-trm-after-stdout.txt`, the 1974 save): a new Roundhouse placed, then a base road depot; 1,016 `module` lines with `baseSource=recorded`; 70 buys charged once, every first check matching; no TRM "has no function" error, no stack overflow, no load errors.
-- [x] Test the fix in game with TRM first (2026-11-07, `local/logs/2026-11-07-trm-first-stdout.txt`, the 1974 save): our wrapper wraps TRM's on all seven base depots and maintenance buildings; a new Roundhouse and a new rail depot placed; 84 buys on two road depots, the Roundhouse and the rail depot, each charged once with every first check matching; the rail depot's pollution gets both reductions (TRM's 50/60 to 37.5/45 at pollution level 5); the Roundhouse kept its levels across 49 rebuilds; no load errors.
-- [x] The known risk, in game, with TRM after us (2026-11-07, did not show; the Roundhouse session above): place a depot TRM does not wrap first (the Roundhouse or Modern Railway Depot), then a base road depot. If the game's loader shares `ug_require`'s cache, TRM's load of our file can be served from the cache and pick up another file's `data()`: look for TRM's "has no function" error or a stack overflow (findings, "Unknowns"; the synthetic test shows the failure under that condition). Nothing on our side can prevent it.
-- [ ] With the 1.3 release: a compatibility line in the user guide and the listing (works with TRM: Industry Emissions in either order; up to 1.2, load Depot Retrofits after it), and a reply to the mod.io comment.
-
-## Release 1.0
-
-- [x] Upload 1.0 ([docs/publishing.md](docs/publishing.md)): page public, gallery `1.jpg` to `5.jpg` in order, `mod.io_fileid.txt` committed.
-- [x] Test the published copy with the staging link removed: `version 1.0 logLevel=summary`, files identical to `v1.0`, no load errors.
-- [x] Tag `v1.0` (on `478003d`, the uploaded code) and publish the GitHub release.
-- [x] 1.1: before a rebuild, ask the game whether it would collide (`api.engine.util.proposal.makeProposalData`); refuse at once with `reason=blocked` and log the game's messages, and in the tab grey the buy buttons as "Blocked" under a yellow warning at the top of the tab (greyed buttons show no tooltip). The window checks on opening, after each click and every 2 seconds while blocked and for 30 seconds after, so removing the obstacle clears it; the game script checks again on every buy (docs/design/findings.md).
-- [x] 1.1 gallery: `2.jpg` has a fourth card, Berkeley Road Depot's blocked tab (`tools/gallery/road_depot_blocked.png`), and the new `6.jpg` is the tram building's blocked tab beside the house and garden the bulldozer highlights. At the upload, check that the dialog's gallery shows `6.jpg` after `5.jpg`.
-- [x] Check that the page lists the console file too: both files show since the 1.1 upload.
-- [x] 1.1.1: a collision only with the building's own entrance road counts as clear. Released (`v1.1.1` on `c194f37`); the published copy took a level on Peterlee Road Depot.
-- [x] After 1.1.1: probe the base game's `ProposalViewer` with the real replace proposal. It agreed with the game everywhere the stand-in check did not, but each viewer previews the rebuild in the world (regrown greenery, a blue or red flash), so 1.2 tries the buy and places the viewer only after a refusal (docs/design/findings.md).
-
-## Release 1.2
-
-- [x] Test that "Not rebuilt" stays through a retry on a building the game still refuses (Berkeley Maintenance Building in "333" with the house standing), and goes once the house is bulldozed.
-- [x] Gallery: `2.jpg` (its fourth card, now `tools/gallery/maintenance_not_rebuilt.png`) and `6.jpg` showed the 1.1 "Blocked" tab. Both are retaken from Berkeley Maintenance Building with "Not rebuilt" and the house in red.
-- [x] Release 1.2 ([docs/publishing.md](docs/publishing.md)): published copy tested, `v1.2` on `c02773a`.
-- [x] mod.io gallery: the update did not replace images under names mod.io already had, so the gallery is now `<n>-<name>.jpg` and a second update sent all six.
-- [x] Optional: in "333", bulldoze only the buildings around Berkeley Road Depot (88894) and leave the road. The tab stayed blocked until the road was cut off, so the own-road rule does not clear that road; whether the game would refuse the rebuild is for the probe.
-
-## Money format
-
-- [x] `money()` in retrofit_window.script.tl calls the game's `api.util.formatMoney` under `pcall`. If that fails, it falls back to the old `$1,234` form and logs one `window formatMoneyError` line.
-- [x] Tested in game (2026-11-07, `local/logs/2026-11-07-trm-after-stdout.txt`): the tab followed the game's money setting, short first and then full, with no `formatMoneyError` in the log.
+- [ ] Release ([docs/publishing.md](docs/publishing.md)), then reply to the mod.io comment about TRM: Industry Emissions.
+- [ ] Pass the Station Retrofits handoff on (written 2026-11-07): its notes name our wrapper reference as one way to spot a building we wrap; now only the `depotRetrofits` capture key holds.
+- [ ] Next session with TRM: Industry Emissions after us: the `buy sent` lines read `wrapped=true` (our capture key found under TRM's wrapper), not `wrapped=unknown`.
+- [ ] Optional: reproduce the TRM bug on 1.2 (the published copy, TRM after Depot Retrofits, place a road depot, look for TRM's load error). The synthetic test shows it (`tools/test_wrapper_load.py`, "1.2 wrapper reference").
 
 ## Screenshots still to take
 
-For later gallery and info-card updates. Take them with the current prices (1.3-dev or later; the earlier ones are evicted from `local/gallery/2026-11-05-cards/`, which has only the "Not bought" note and one window crop). Take the full 4K shot, so the cards and the building both show; the window sits at about x 2870-3790.
+For later gallery and info-card updates. Take them with the current prices (1.3-dev or later; the earlier ones are evicted from `local/gallery/2026-11-05-cards/`, which has only the "Not bought" note and one window crop). Take them with the TRM mods off, since TRM: Infrastructure Upkeep changes the upkeep figures. Take the full 4K shot, so the cards and the building both show; the window sits at about x 2870-3790.
 
 - [ ] "Not rebuilt" with the house in red, as in the gallery's 3-not-rebuilt.jpg but with the 1.3 prices (Berkeley Maintenance Building in "333", house standing).
 - [ ] "Not bought: the buy could not be carried out" (the industry cross icon). Rare; needs a temporary refusal in the game script, as the noise test did for the money note.
@@ -66,7 +32,6 @@ For later gallery and info-card updates. Take them with the current prices (1.3-
 
 ## Optional checks
 
-- [ ] Roundhouse: add a stall to one with a vehicles level and check the `module` line's `baseSource` (`recorded` means the game hands the modules the wrapper's own table; `inverted` is the fallback) and that the pool is the formula's.
 - [ ] Roundhouse: check whether the pollution and noise retrofits cut the chimney's emissions; the wrapper only scales the depot subconstruction's.
 - [ ] Confirm that the upkeep retrofit leaves the accumulated costs in the upkeep footer alone: on two like buildings servicing similar vehicles, one with upkeep levels, they should grow at the same rate.
 - [ ] The Modern Railway Depot mod's depot (modular, its modules are wrapped); in a save before 2015, turn on its "Available from 1900" setting.
