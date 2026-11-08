@@ -330,7 +330,17 @@ do
 	check("another mod's construction", runsWrapper({ fileName = "other::/x.script@updateFn", params = { foo = 1 } }) == false)
 	check("no params", runsWrapper({ fileName = "other::/x.script@updateFn" }) == false)
 	check("no update script: unknown", runsWrapper(nil) == nil)
-	check("params not a table: unknown", runsWrapper({ fileName = "other::/x.script@updateFn", params = 5 }) == nil)
+	check("params that cannot be indexed: unknown", runsWrapper({ fileName = "other::/x.script@updateFn", params = 5 }) == nil)
+	-- The game's objects come back as userdata that index like tables; newproxy makes one in Lua 5.1.
+	local function userdataParams(fields)
+		local proxy = newproxy(true)
+		getmetatable(proxy).__index = fields
+		return proxy
+	end
+	check("userdata params with our capture: wrapped",
+		runsWrapper({ fileName = "trm::/build.script@updateFn", params = userdataParams({ depotRetrofits = { fileName = "x" } }) }) == true)
+	check("userdata params without it: not wrapped",
+		runsWrapper({ fileName = "other::/x.script@updateFn", params = userdataParams({ foo = 1 }) }) == false)
 	local _, _, def = build({ "us", "trm" })
 	check("the definition TRM leaves after us counts as wrapped", runsWrapper(def.updateScript) == true)
 	local old = def.updateScript.fileName == wrapperRef

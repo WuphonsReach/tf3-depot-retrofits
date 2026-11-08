@@ -205,14 +205,16 @@ end
 
 -- Whether a construction definition's update script runs our wrapper: it names the wrapper, or another mod wrapped ours and
 -- kept our capture params, as TRM: Industry Emissions does (it adds its own keys beside them; docs/compatibility.md). nil when
--- the definition cannot be read.
+-- the definition cannot be read. The params are read by indexing them, not by checking their type: the game can hand its
+-- own objects back as userdata, which index like tables. Only params that cannot be indexed give nil.
 local runsWrapper = function(script : ScriptRef) : boolean
 	if script == nil then return nil end
 	if script.fileName == wrapperRef then return true end
 	local params = script.params as {string : any}
 	if params == nil then return false end
-	if type(params) ~= "table" then return nil end
-	return params[captureKey] ~= nil
+	local ok, entry = pcall(function() : any return params[captureKey] end)
+	if not ok then return nil end
+	return entry ~= nil
 end
 
 -- true when the construction's definition runs our wrapper; nil when the definition cannot be read.
