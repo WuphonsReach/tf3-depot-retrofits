@@ -217,7 +217,8 @@ local runsWrapper = function(script : ScriptRef) : boolean
 	return entry ~= nil
 end
 
--- true when the construction's definition runs our wrapper; nil when the definition cannot be read.
+-- true when the construction's definition runs our wrapper; nil when the definition cannot be read. The "buy sent" line logs
+-- it as wrapped=true or wrapped=unknown: with another mod's wrapper outside ours, true means our capture key was found.
 local isWrapped = function(con : Engine.Component.Construction) : boolean
 	local ok, wrapped = pcall(function() : boolean
 		return runsWrapper(api.res.constructionRep.findAndGet(con.fileName).updateScript)
@@ -460,7 +461,8 @@ local processBuy = function(retrofit : RetrofitState, buy : Buy, t : number) : s
 	if levels.paramKeys[buy.tree] == nil then return "unknownTree" end
 	local con = getConstruction(buy.construction)
 	if con == nil then return "noConstruction" end
-	if isWrapped(con) == false then return "notWrapped fileName=" .. tostring(con.fileName) end
+	local wrapped = isWrapped(con)
+	if wrapped == false then return "notWrapped fileName=" .. tostring(con.fileName) end
 	local depot = firstDepot(buy.construction)
 	if not exists(depot) then return "noDepot" end
 	local from = levels.read(constructionParams(con))
@@ -485,6 +487,7 @@ local processBuy = function(retrofit : RetrofitState, buy : Buy, t : number) : s
 		.. " level=" .. tostring(buy.from + 1) .. " price=" .. tostring(price) .. " balanceBefore=" .. tostring(balance)
 		.. " rank=" .. tostring(rank) .. " rankSource=" .. rankSource .. " carrier=" .. carrier .. " carrierSource=" .. carrierSource
 		.. " from=" .. levels.describe(from) .. " to=" .. levels.describe(to)
+		.. " wrapped=" .. (wrapped and "true" or "unknown")
 		.. (before ~= nil and (" " .. describeSnapshot(before)) or ""))
 	replacePending(retrofit, buy.construction, t)
 	table.insert(retrofit.pending, { construction = buy.construction, tree = buy.tree, level = buy.from + 1,
