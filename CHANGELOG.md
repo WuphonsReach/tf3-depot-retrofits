@@ -2,7 +2,7 @@
 
 Newest first. The number in the title is `modVersion` at the top of [mod.script.tl](depot_retrofits_1/content/mod.script.tl), which the game log prints at every load as `DEPOT_RETROFITS version <number>` (between releases it reads the next number with "-dev", for example `1.1-dev`). Each entry's last line is the one-liner for the Changelog field of the in-game uploader ([how to release](docs/publishing.md#releasing-a-version)). mod.io labels every uploaded file "1.0", whatever the number here is, so the number in this file and in the log is the one that tells builds apart.
 
-## 1.3 (not released)
+## 1.3 (2026-11-08)
 
 - **Cheaper pollution and noise levels.** Level 1 of the pollution retrofit now costs 6% of the build price instead of 8%, and each level after it 10% more than the one before instead of 15%, so all 15 levels cost about 1.9 times the build price instead of 3.8. Noise level 1 costs 10% instead of 12% and each level after it 12% more, about 3.7 times the build price for all 15 instead of 5.7. Even many levelled buildings move a town's rating only a little, so the late levels were priced too high for what they do. The upkeep these levels add is unchanged, so buildings levelled before keep their upkeep, and their next levels cost the new prices.
 
