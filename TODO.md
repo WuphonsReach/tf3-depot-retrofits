@@ -3,7 +3,7 @@
 ## In short
 
 - **Where it stands.** 1.3 is on mod.io (mod id 6495416) and tagged `v1.3`. `main` reads `1.4-dev`. Test results are in [docs/design/findings.md](docs/design/findings.md) and [docs/compatibility.md](docs/compatibility.md); the finished items are in git history.
-- **Next.** 1.4: the "<", ">" and ">|" buttons, on branch `2026-11-08-step-buttons` (not yet tested in game). The checks below are optional; "Later" and the ideas are not planned.
+- **Next.** 1.4: the "<", ">" and ">|" buttons, on branch `2026-11-08-step-buttons`. Buying and removing work in game (38 buys and 8 removals, each charged or refunded once, [docs/design/findings.md](docs/design/findings.md)); five checks are left. The checks below are optional; "Later" and the ideas are not planned.
 
 ## Release 1.3
 
@@ -13,12 +13,15 @@
 
 ## Release 1.4: the "<", ">" and ">|" buttons
 
-- [ ] In-game test of the buttons (ported from Station Retrofits, not yet run here), at `logLevel` `"full"`:
-  - [ ] The three buttons fit on every card and line up from card to card (the shared minimum width of `retrofit_window.css.lua`), with the longest price and effect text ("-25% -> -30% of total") on a rail depot.
-  - [ ] ">|" buys several levels in one rebuild, charged once at the sum its tooltip shows (`buy sent ... levelsBought=`, `buy charged`); short of money it stops where the money ends; with one level left it does what ">" does.
-  - [ ] "<" removes the top level, refunded once at the tooltip's amount (`buy refunded ... direction=down`); greyed at level 0; works above the rank; how the Finances tab shows the positive entry.
+- [ ] In-game test of the buttons, at `logLevel` `"full"`. Done: sessions of 2026-11-08 and 2026-11-12 to 13 (logs `local/logs/2026-11-09-0721-step-buttons-stdout.txt` and `2026-11-14-0139-step-buttons-stdout.txt`), results in [docs/design/findings.md](docs/design/findings.md). Left:
+  - [x] The three buttons line up from card to card; "<" greyed at level 0.
+  - [ ] The buttons with the longest effect text ("-25% -> -30% of total") on a rail depot.
+  - [x] ">|" buys up to the rank in one rebuild, charged once at the sum of the single prices, the price the tab showed (`levelsBought=`; ranks 4, 5, 7 and 8; road, tram and maintenance buildings).
+  - [ ] ">|" short of money stops where the money ends (needs a save with little money). With one level left it sends the same buy as ">" (the log cannot tell the two buttons apart).
+  - [x] "<" removes the top level and refunds once 80% of that level's price today, the amount the tab showed (`buy refunded ... direction=down`; 8 in a row down to level 0, none lost or refused); the last removal's after-check (`removed=`) matches the formulas.
+  - [ ] How the Finances tab shows a refund (no screenshot yet).
+  - [ ] "<" on a level above the rank (needs a building levelled above the current rank).
   - [ ] A refused rebuild for a removal: "Not rebuilt" with the removal wording ("The level was kept and nothing was refunded"), and nothing refunded.
-  - [ ] The after-buy checks (`buy after check=`) of a removal read `removed=` and match the formulas.
 - [ ] Retake the gallery's `2-retrofit-tabs.jpg` (and `3-not-rebuilt.jpg`, which shows a card) with the new buttons, under new file names, since mod.io keeps a picture under a name it already has.
 
 ## Screenshots still to take
