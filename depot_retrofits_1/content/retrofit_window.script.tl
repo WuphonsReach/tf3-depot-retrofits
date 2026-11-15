@@ -1,9 +1,11 @@
 -- The building window of every wrapped depot and maintenance building (mod.script.tl names it as the construction's
 -- entityWindowScript). It returns the base construction window with the depot's own tab, as the game would show it, plus a
 -- Retrofit tab, the way the base Cleaning Plant adds its tab (game_mechanics/emission/pollution_cleanup_facility_hud.script.tl).
--- The Retrofit tab shows each tree's level, what the next level changes, and a button that buys it: the button sends a buy
--- event to the game script (retrofits.script.tl), which checks it, charges the price and rebuilds the building. Prices follow
--- levels.tl from the upkeep the game charges for the building now. Log lines start with "DEPOT_RETROFITS".
+-- The Retrofit tab shows each tree's level, what the next level changes, its price and three buttons: "<" removes the top level
+-- for levels.refund's 80%, ">" buys the next level, ">|" buys every level the rank allows and the balance pays for. Each sends a
+-- buy event to the game script (retrofits.script.tl), which checks it, rebuilds the building and books the price or the refund
+-- once the rebuild lands. Prices follow levels.tl from the upkeep the game charges for the building now. The buttons are those
+-- of Station Retrofits' card (same author). Log lines start with "DEPOT_RETROFITS".
 
 local buyEventId = "DepotRetrofits"
 -- Copied in retrofits.script.tl; keep the copies equal.
@@ -24,6 +26,7 @@ local record TabState
 	chargedUpkeep : number
 	buildPrice : number
 	affordable : {string : boolean} -- per tree, whether the balance covers the next level; nil when unreadable
+	reach : {string : integer} -- per tree, the highest level ">|" buys up to: the rank's limit, or as far as the balance goes
 	pool : number
 	radius : number
 	maintained : integer
@@ -31,6 +34,7 @@ local record TabState
 	scriptUpkeep : number -- the MAINTENANCE_COST upkeep, the update script's value with the levels applied
 	upkeepScale : number -- what the footer multiplies scriptUpkeep by
 	refused : boolean -- true when the game did not rebuild the building for its last buy (see readRefused); nil otherwise
+	refusedDown : boolean -- while refused, true when that buy was a removal, for the banner's wording
 	refusal : integer -- while refused, which refusal it is: each one places a new viewer; nil otherwise
 	short : string -- "money" or "failed" when the game script refused the building's last buy (see readShort); nil otherwise
 	key : string -- every field above as text; the tab redraws when it changes
@@ -84,13 +88,11 @@ say("window loaded ready=" .. tostring(ready) .. " constructionWindow=" .. tostr
 	.. " companyRank=" .. tostring(companyRank ~= nil) .. " entityWindowUtil=" .. tostring(entityWindowUtil ~= nil)
 	.. " styleutil=" .. tostring(styleutil ~= nil))
 
--- Stock icons: the upkeep symbol of the game's own upkeep footer (gui/entity_window/entity_window_util.tl, MaintenanceBar), the
--- shopping cart of the vehicle store's buy button (gui/line_vehicle_mgmt/vehicle_store_window.tl), and in front of each
--- tree's level the symbol of what it changes: the depot tab's pool-usage tools (entity_window_util.tl), the vehicle window's
+-- Stock icons: the upkeep symbol of the game's own upkeep footer (gui/entity_window/entity_window_util.tl, MaintenanceBar), and
+-- in front of each tree's level the symbol of what it changes: the depot tab's pool-usage tools (entity_window_util.tl), the vehicle window's
 -- pollution and noise (gui/entity_window/vehicle/vehicle.tl) and the upkeep symbol. The game has no radius icon; the line
 -- manager's standard-priority dot stands in for the circle the game draws on the map.
 local upkeepIcon = "::/gui/entity_window/icons/symbol_dollar_gear.tga"
-local buyIcon = "::/gui/line_vehicle_mgmt/icons/symbol_shopping_cart.tga"
 local treeIcons : {string : string} = {
 	radius = "::/gui/entity_window/icons/prio_standard.tga",
 	vehicles = "::/gui/entity_window/icons/symbol_tools.tga",
@@ -109,7 +111,7 @@ local boxColors : {string : {number}} = {
 }
 local drawnStyles : {string : StyleSheet} = nil
 
-local buyTooltip = "Buy the next level. The building is rebuilt, and the game reassigns its vehicles."
+local rebuildLine = "\nThe building is rebuilt, and the game reassigns its vehicles."
 -- On the line with the percentages: the map shows a level as a few decibels, averaged over minutes, so it barely moves
 -- (docs/design/findings.md). A plain tooltip does not wrap (in game it ran as one line the width of the window), so the
 -- lines are broken by hand, as the base game does, one sentence a line.
@@ -218,6 +220,7 @@ end
 local record Try
 	levels : string -- levels.describe of the levels the tab showed at the click
 	tree : string -- the tree whose level was bought
+	down : boolean -- true for a removal ("<")
 	at : number -- clockNow() at the click
 	step : integer -- stepCount at the click
 	click : integer -- sent with the buy, which the game script keeps with a refusal
@@ -233,9 +236,10 @@ local record Short
 end
 local short : {Engine.Entity : Short} = {}
 -- The game script's refusals that show nothing (see above).
-local quietRefusals : {string : boolean} = { rank = true, stale = true, maxLevel = true }
+local quietRefusals : {string : boolean} = { rank = true, stale = true, maxLevel = true, noLevel = true }
 local clicks = 0
 local refused : {Engine.Entity : string} = {} -- the levels when the buy was found refused; cleared by a new level
+local refusedDown : {Engine.Entity : boolean} = {} -- whether that buy was a removal, for the banner's wording
 local refusals : {Engine.Entity : integer} = {} -- counts the refusals, so each one places a new viewer
 -- What the viewer named as in the way after a refusal; once none of it exists any more, the warning and the red go.
 local inTheWay : {Engine.Entity : {Engine.Entity}} = {}
@@ -319,6 +323,7 @@ local readRefused = function(construction : Engine.Entity, current : string) : b
 		elseif (isClock and now - try.at >= refusedAfterSeconds) or (not isClock and stepCount - try.step >= refusedAfterSteps) then
 			tries[construction] = nil
 			refused[construction] = current
+			refusedDown[construction] = try.down
 			inTheWay[construction] = nil
 			refusals[construction] = (refusals[construction] or 0) + 1
 			say("window notRebuilt construction=" .. tostring(construction) .. " levels=" .. current
@@ -366,6 +371,7 @@ local readTab = function(construction : Engine.Entity) : TabState
 	local current = levels.describe(s.levels)
 	local okRefused, wasRefused = pcall(readRefused, construction, current)
 	s.refused = okRefused and wasRefused or nil
+	s.refusedDown = s.refused and refusedDown[construction] or nil
 	-- The warning stays through a retry, as the retry is most likely refused too; the viewer goes while it is on its way, as
 	-- one still holding the old proposal flashes the building red when a rebuild lands under it.
 	s.refusal = s.refused and tries[construction] == nil and (refusals[construction] or 0) or nil
@@ -399,25 +405,46 @@ local readTab = function(construction : Engine.Entity) : TabState
 	s.buildPrice = s.chargedUpkeep and levels.buildPrice(s.chargedUpkeep, s.levels) or nil
 	-- Kept as one yes/no per tree, not the balance itself, so the tab redraws only when one of them changes.
 	local okBalance, balance = pcall(api.engine.util.finance.getPlayersBalance, api.engine.util.getPlayer())
+	local cash = okBalance and tonumber(balance) or nil
 	local afford = "?"
-	if okBalance and tonumber(balance) ~= nil and s.buildPrice ~= nil then
+	if cash ~= nil and s.buildPrice ~= nil then
 		s.affordable = {}
 		local marks : {string} = {}
 		for _, tree in ipairs(levels.trees) do
 			local level = s.levels[tree]
-			s.affordable[tree] = level >= levels.maxLevel or tonumber(balance) >= levels.levelPrice(s.buildPrice, tree, level + 1)
+			s.affordable[tree] = level >= levels.maxLevel or cash >= levels.levelPrice(s.buildPrice, tree, level + 1)
 			marks[#marks + 1] = s.affordable[tree] and "y" or "n"
 		end
 		afford = table.concat(marks)
 	end
+	-- How far ">|" buys in each tree: up to the rank's limit, or as far as the balance goes. With the balance unreadable, up to
+	-- the rank: the game script checks the money again. Also one number per tree, so the tab redraws only when one changes.
+	local reachText = "?"
+	if s.rank ~= nil and s.buildPrice ~= nil then
+		s.reach = {}
+		local marks : {string} = {}
+		local limit = math.min(s.rank, levels.maxLevel)
+		for _, tree in ipairs(levels.trees) do
+			local target = s.levels[tree]
+			local total = 0
+			for n = target + 1, limit do
+				total = total + levels.levelPrice(s.buildPrice, tree, n)
+				if cash ~= nil and cash < total then break end
+				target = n
+			end
+			s.reach[tree] = target
+			marks[#marks + 1] = tostring(target)
+		end
+		reachText = table.concat(marks, "/")
+	end
 	local okShort, isShort = pcall(readShort, s)
 	s.short = okShort and isShort or nil
 	s.key = levels.describe(s.levels) .. " rank=" .. tostring(s.rank) .. "/" .. tostring(s.earnedRank)
-		.. " rankSource=" .. tostring(s.rankSource) .. " affordable=" .. afford
+		.. " rankSource=" .. tostring(s.rankSource) .. " affordable=" .. afford .. " reach=" .. reachText
 		.. " upkeep=" .. tostring(s.chargedUpkeep) .. " pool=" .. tostring(s.pool) .. " radius=" .. tostring(s.radius)
 		.. " maintained=" .. tostring(s.maintained) .. " accumulated=" .. tostring(s.accumulated)
 		.. " upkeepScript=" .. tostring(s.scriptUpkeep) .. " upkeepScale=" .. tostring(s.upkeepScale)
-		.. " refused=" .. tostring(s.refused) .. " refusal=" .. tostring(s.refusal) .. " short=" .. tostring(s.short)
+		.. " refused=" .. tostring(s.refused) .. " refusedDown=" .. tostring(s.refusedDown) .. " refusal=" .. tostring(s.refusal) .. " short=" .. tostring(s.short)
 	return s
 end
 
@@ -447,6 +474,9 @@ local getDrawnStyles = function() : {string : StyleSheet}
 		local ok, styles = pcall(function() : {string : StyleSheet}
 			local result : {string : StyleSheet} = {
 				gap = styleutil.makeStyle{ size = { 3, 16 } },
+				-- Between the price and the buttons, and between the buttons, as in Station Retrofits' card.
+				priceGap = styleutil.makeStyle{ size = { 8, 0 } },
+				stepGap = styleutil.makeStyle{ size = { 4, 0 } },
 				rowHeight = styleutil.makeStyle{ size = { 0, 24 } },
 				rowGap = styleutil.makeStyle{ size = { 0, 6 } },
 			}
@@ -476,6 +506,11 @@ local refusedLines = {
 	"Nothing was charged. Pause, clear it and buy again.",
 	"A road can be cut off and reconnected afterwards.",
 }
+local refusedDownLines = {
+	"Not rebuilt: a building or a road is in the way (in red).",
+	"The level was kept and nothing was refunded. Pause, clear it and try again.",
+	"A road can be cut off and reconnected afterwards.",
+}
 -- The dollar of the base task reward notification (mission/notification.script.tl).
 local shortIcon = "::/game_mechanics/notifications/gui/icons/symbol_dollar.tga"
 local shortLines = {
@@ -486,7 +521,7 @@ local shortLines = {
 local failedIcon = "::/game_mechanics/notifications/gui/icons/building_industry_x.tga"
 local failedLines = {
 	"Not bought: the buy could not be carried out.",
-	"Nothing was charged. The game log (stdout.txt) has the reason.",
+	"Nothing was charged or refunded. The game log (stdout.txt) has the reason.",
 }
 
 local getBannerStyles = function() : {string : StyleSheet}
@@ -624,63 +659,6 @@ local logShown = function(s : TabState)
 		.. " buildPrice=" .. tostring(s.buildPrice) .. " nextPrices=" .. table.concat(prices, "/"))
 end
 
--- The stock shopping cart and the price; a rank too low (or unknown) replaces the price. Short of money the price stays and the
--- button is greyed out, as the game script refuses the buy.
--- The game shows no tooltip on a disabled button, so only an enabled button's tooltip is ever seen (docs/design/findings.md).
--- No "buying" state: the rebuild lands within a second, paused or not, and the tab redraws with the new level. A second click
--- before that is ignored (tries), and the game script refuses a stale level, so nothing is charged twice. A rebuild the game
--- refuses shows as the yellow warning a few seconds later (readRefused); the buttons stay, so the buy can be sent again.
-local buyButton = function(s : TabState, tree : string) : TreeNodeId
-	local level = s.levels[tree]
-	local nextLevel = level + 1
-	local label, tooltip : string, string
-	local enabled = false
-	local price = s.buildPrice and levels.levelPrice(s.buildPrice, tree, nextLevel) or nil
-	if price == nil then
-		label, tooltip = "?", "Price unknown"
-	elseif s.rank == nil then
-		label, tooltip = "Rank ?", "The company rank could not be read, so no level can be bought (see the game log)"
-	elseif nextLevel > s.rank then
-		label, tooltip = "Rank " .. tostring(nextLevel), "Needs company rank " .. tostring(nextLevel)
-	elseif s.affordable ~= nil and not s.affordable[tree] then
-		label, tooltip = money(price), "Not enough money"
-	else
-		label, tooltip = money(price), buyTooltip
-		enabled = true
-	end
-	return builtin.Button{
-		-- "primary" is the class the base game's dialog buttons use (gui/line_vehicle_mgmt/feedback_list_util.tl); its disabled
-		-- style greys the icon and the text (gui/main/default.css.lua).
-		meta = { class = "primary", enabled = enabled, tooltip = tooltip, localKey = "depot_retrofits_buy_" .. tree },
-		content = builtin.Component{ layout = builtin.BoxLayout{
-			orientation = builtin.type.Orientation.Horizontal,
-			children = { icon(buyIcon), text(label) },
-		} },
-		onClick = function()
-			if not enabled then return end
-			-- One buy at a time per building: a second click before the first lands or is refused is ignored.
-			if tries[s.construction] ~= nil then return end
-			local now, isClock = clockNow()
-			-- Numbered from the clock too, so a refusal kept in the save from an earlier session does not match a new click.
-			clicks = clicks + 1
-			local click = isClock and (math.floor(now) % 100000) * 100 + clicks % 100 or clicks
-			tries[s.construction] = { levels = levels.describe(s.levels), tree = tree, at = now, step = stepCount, click = click }
-			short[s.construction] = nil
-			local area = actionAreas[s.construction]
-			if area ~= nil and area.placedRef:get() ~= "none" then
-				area.placedRef:set("none")
-				pcall(area.setActionFn, nil)
-			end
-			if logFull then
-				say("window buy construction=" .. tostring(s.construction) .. " tree=" .. tree .. " from=" .. tostring(level)
-					.. " shownPrice=" .. tostring(price) .. " click=" .. tostring(click))
-			end
-			api.cmd.sendCommand(api.cmd.makeScriptingSendEventCmd("", buyEventId, buyEvent,
-				{ construction = s.construction, tree = tree, from = level, click = click }))
-		end,
-	}
-end
-
 -- A row with one item at the left edge and one at the right; the base windows push items apart with the
 -- "horizontal-spacer" class (gui_react_util.makeHorizontalSpacer in gui/main/gui_react_util.tl).
 local spreadRow = function(left : TreeNodeId, right : TreeNodeId) : TreeNodeId
@@ -690,7 +668,7 @@ local spreadRow = function(left : TreeNodeId, right : TreeNodeId) : TreeNodeId
 	}
 end
 
--- A summary row, as far apart as the tree cards' rows (24 pixels, set there by the icons and the buy buttons): an empty piece
+-- A summary row, as far apart as the tree cards' rows (24 pixels, set there by the icons and the buttons): an empty piece
 -- of that height at the left edge holds the row open.
 local summaryRow = function(left : string, right : string) : TreeNodeId
 	local styles = getDrawnStyles()
@@ -719,7 +697,7 @@ local card = function(title : string, rows : {TreeNodeId}, gameCtx : GameContext
 end
 
 -- One card per tree. First row: the level row at the left, the upkeep after the next level at the right.
--- Second row: what the next level changes at the left, the buy button at the right. The upkeep counts what the game's upkeep
+-- Second row: what the next level changes at the left, the next level's price and the buttons "<", ">", ">|" at the right. The upkeep counts what the game's upkeep
 -- footer counts.
 -- The upkeep the game will charge at other levels, rounded as the footer rounds it: the update script's upkeep at those levels
 -- (construction.script.tl rounds it to whole dollars) times the footer's scale. That upkeep is worked out the wrapper's way,
@@ -738,11 +716,135 @@ local upkeepAfter = function(s : TabState, values : {string : integer}) : number
 	return nil
 end
 
--- A tree card's two rows, 6 pixels apart so the upkeep figure does not touch the buy button below it.
+-- A tree card's two rows, 6 pixels apart so the upkeep figure does not touch the buttons below it.
 local twoRows = function(first : TreeNodeId, second : TreeNodeId) : {TreeNodeId}
 	local styles = getDrawnStyles()
 	if styles == nil then return { first, second } end
 	return { first, builtin.Component{ meta = { styleSheet = styles.rowGap } }, second }
+end
+
+-- Sends a buy for levels level + 1 to target, or with target level - 1 a removal of the top level (amount is then the refund
+-- shown). No "buying" state: the rebuild lands within a second, paused or not, and the tab redraws with the new level. A
+-- second click before that is ignored (tries), and the game script refuses a stale level, so nothing is charged or refunded
+-- twice. A rebuild the game refuses shows as the yellow warning a few seconds later (readRefused); the buttons stay, so the
+-- buy can be sent again.
+local sendBuy = function(s : TabState, tree : string, target : integer, amount : integer)
+	-- One buy at a time per building: a second click before the first lands or is refused is ignored.
+	if tries[s.construction] ~= nil then return end
+	local level = s.levels[tree]
+	local down = target < level
+	local now, isClock = clockNow()
+	-- Numbered from the clock too, so a refusal kept in the save from an earlier session does not match a new click.
+	clicks = clicks + 1
+	local click = isClock and (math.floor(now) % 100000) * 100 + clicks % 100 or clicks
+	tries[s.construction] = { levels = levels.describe(s.levels), tree = tree, down = down, at = now, step = stepCount, click = click }
+	short[s.construction] = nil
+	local area = actionAreas[s.construction]
+	if area ~= nil and area.placedRef:get() ~= "none" then
+		area.placedRef:set("none")
+		pcall(area.setActionFn, nil)
+	end
+	if logFull then
+		say("window buy construction=" .. tostring(s.construction) .. " tree=" .. tree .. " from=" .. tostring(level)
+			.. " to=" .. tostring(target) .. (down and " direction=down shownRefund=" or " shownPrice=") .. tostring(amount)
+			.. " click=" .. tostring(click))
+	end
+	api.cmd.sendCommand(api.cmd.makeScriptingSendEventCmd("", buyEventId, buyEvent,
+		{ construction = s.construction, tree = tree, from = level, to = target, click = click }))
+end
+
+-- Whether the next level can be bought, the label beside the buttons (its price, or "Rank N" when the rank is too low or
+-- unknown; short of money the price stays and ">" is greyed out, as the game script refuses the buy), a sentence with the price
+-- or why not, and the price.
+local nextStatus = function(s : TabState, tree : string) : boolean, string, string, integer
+	local level = s.levels[tree]
+	local nextLevel = level + 1
+	if level >= levels.maxLevel then return false, nil, "Highest level reached.", nil end
+	local price = s.buildPrice and levels.levelPrice(s.buildPrice, tree, nextLevel) or nil
+	if price == nil then return false, "?", "Price unknown (see the game log).", nil end
+	local named = "Level " .. tostring(nextLevel)
+	if s.rank == nil then
+		return false, "Rank ?", "The company rank could not be read, so no level can be bought (see the game log).", price
+	end
+	if nextLevel > s.rank then
+		return false, "Rank " .. tostring(nextLevel), named .. " needs company rank " .. tostring(nextLevel) .. ".", price
+	end
+	if s.affordable ~= nil and not s.affordable[tree] then
+		return false, money(price), named .. " costs " .. money(price) .. ": not enough money.", price
+	end
+	return true, money(price), "Buy level " .. tostring(nextLevel) .. " for " .. money(price) .. "." .. rebuildLine, price
+end
+
+-- Whether the top level can be removed, a sentence with the refund and the upkeep after it (or why not), and the refund.
+-- No rank or money check: a level above the rank (a rank that went down, or a save from another company) can be removed too.
+local downStatus = function(s : TabState, tree : string) : boolean, string, integer
+	local level = s.levels[tree]
+	if level <= 0 then return false, "No level to remove.", nil end
+	local refund = s.buildPrice and levels.refund(s.buildPrice, tree, level) or nil
+	if refund == nil then return false, "Refund unknown (see the game log).", nil end
+	local after = upkeepAfter(s, levels.withLevel(s.levels, tree, level - 1))
+	local upkeepLine = after and ("\nUpkeep after removing it: " .. perYear(after + s.accumulated) .. ".") or ""
+	return true, "Remove level " .. tostring(level) .. " for a refund of " .. money(refund) .. "." .. upkeepLine .. rebuildLine,
+		refund
+end
+
+-- How far ">|" buys: every level the rank allows and the balance pays for, in one rebuild, for the sum of their prices (what
+-- buying them one by one costs). Short of the rank's limit for want of money, it buys as far as the money goes. Offered
+-- whenever it would buy at least one level, so with one level left it does what ">" does. The target level and the price, or
+-- nil.
+local maxReach = function(s : TabState, tree : string) : integer, integer
+	local level = s.levels[tree]
+	local target = s.reach ~= nil and s.reach[tree] or level
+	if s.buildPrice == nil or target < level + 1 then return nil, nil end
+	return target, levels.runPrice(s.buildPrice, tree, level, target)
+end
+
+-- "level 9" or "levels 9 to 13", for what ">|" buys.
+local levelsText = function(level : integer, target : integer) : string
+	if target == level + 1 then return "level " .. tostring(target) end
+	return "levels " .. tostring(level + 1) .. " to " .. tostring(target)
+end
+
+-- A small button with a text label ("<", ">", ">|"). "primary" is the class the base game's dialog buttons use
+-- (gui/line_vehicle_mgmt/feedback_list_util.tl); its disabled style greys the text (gui/main/default.css.lua).
+-- "depot-retrofits-step" gives the three the same minimum width (retrofit_window.css.lua), so the cards line up. The game
+-- shows no tooltip on a disabled button (docs/design/findings.md), so the price label beside them says why ">" is greyed.
+local stepButton = function(label : string, enabled : boolean, tooltip : string, key : string, onClick : function()) : TreeNodeId
+	return builtin.Button{
+		meta = { class = "primary, depot-retrofits-step", enabled = enabled, tooltip = tooltip, localKey = key },
+		content = text(label),
+		onClick = function()
+			if enabled then onClick() end
+		end,
+	}
+end
+
+-- The price of the next level (or "Rank N"), then "<" (remove the top level for a refund), ">" (buy the next level) and ">|"
+-- (buy every level it can).
+local treeControls = function(s : TabState, tree : string) : TreeNodeId
+	local level = s.levels[tree]
+	local key = "depot_retrofits_" .. tree
+	local canBuy, priceLabel, buyText, price = nextStatus(s, tree)
+	local canRemove, downText, refund = downStatus(s, tree)
+	local target, runPrice = maxReach(s, tree)
+	local buttons : {TreeNodeId} = {
+		stepButton("<", canRemove, downText, key .. "_down", function() sendBuy(s, tree, level - 1, refund) end),
+		stepButton(">", canBuy, buyText, key .. "_buy", function() sendBuy(s, tree, level + 1, price) end),
+		stepButton(">|", target ~= nil,
+			target and ("Buy " .. levelsText(level, target) .. " for " .. money(runPrice) .. "." .. rebuildLine) or nil,
+			key .. "_max", function() sendBuy(s, tree, target, runPrice) end),
+	}
+	local styles = getDrawnStyles()
+	local children : {TreeNodeId} = {}
+	if priceLabel ~= nil then
+		children[#children + 1] = text(priceLabel, buyText)
+		if styles ~= nil then children[#children + 1] = builtin.Component{ meta = { styleSheet = styles.priceGap } } end
+	end
+	for n, node in ipairs(buttons) do
+		if n > 1 and styles ~= nil then children[#children + 1] = builtin.Component{ meta = { styleSheet = styles.stepGap } } end
+		children[#children + 1] = node
+	end
+	return builtin.BoxLayout{ orientation = builtin.type.Orientation.Horizontal, children = children }
 end
 
 local treeCard = function(s : TabState, tree : string, gameCtx : GameContext) : TreeNodeId
@@ -751,7 +853,7 @@ local treeCard = function(s : TabState, tree : string, gameCtx : GameContext) : 
 	if level >= levels.maxLevel then
 		return card(levels.names[tree], twoRows(
 			spreadRow(levelText, text("Highest level")),
-			spreadRow(text(effect(s, tree, level), effectTooltips[tree]), builtin.Component{})
+			spreadRow(text(effect(s, tree, level), effectTooltips[tree]), treeControls(s, tree))
 		), gameCtx)
 	end
 	-- Build only the node that is shown: a recipe called but left out of the tree costs the game log a "Preserved props"
@@ -765,7 +867,7 @@ local treeCard = function(s : TabState, tree : string, gameCtx : GameContext) : 
 	end
 	return card(levels.names[tree], twoRows(
 		spreadRow(levelText, nextUpkeep),
-		spreadRow(text(effect(s, tree, level, level + 1), effectTooltips[tree]), buyButton(s, tree))
+		spreadRow(text(effect(s, tree, level, level + 1), effectTooltips[tree]), treeControls(s, tree))
 	), gameCtx)
 end
 
@@ -783,7 +885,7 @@ local tabBody = function(s : TabState, gameCtx : GameContext) : TreeNodeId
 	for _, tree in ipairs(levels.trees) do cards[#cards + 1] = treeCard(s, tree, gameCtx) end
 	local children : {TreeNodeId} = {}
 	if s.refused then
-		children[#children + 1] = banner(refusedIcon, refusedLines)
+		children[#children + 1] = banner(refusedIcon, s.refusedDown and refusedDownLines or refusedLines)
 	elseif s.short == "money" then
 		children[#children + 1] = banner(shortIcon, shortLines)
 	elseif s.short ~= nil then

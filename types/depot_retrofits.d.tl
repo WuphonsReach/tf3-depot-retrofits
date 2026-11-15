@@ -31,6 +31,12 @@ global record DepotRetrofitsLevels
 	buildPrice : function(chargedUpkeep : number, levels : {string : integer}) : number
 	-- The price of level n of a tree, rounded to whole money.
 	levelPrice : function(buildPrice : number, tree : string, level : integer) : integer
+	-- The price of levels from + 1 to to in one rebuild: the sum of their single prices.
+	runPrice : function(buildPrice : number, tree : string, from : integer, to : integer) : integer
+	-- The share of a level's price that removing it refunds (0.8).
+	refundShare : number
+	-- What removing level n of a tree refunds: refundShare of its price at today's build price.
+	refund : function(buildPrice : number, tree : string, level : integer) : integer
 end
 
 -- The type of the company rank module (depot_retrofits_1/content/company_rank.tl).

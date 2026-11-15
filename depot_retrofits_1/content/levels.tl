@@ -162,4 +162,20 @@ function levels.levelPrice(buildPrice : number, tree : string, level : integer) 
 	return round(firstLevelShare[tree] * buildPrice * priceGrowth[tree] ^ (level - 1))
 end
 
+-- The price of levels from + 1 up to to in one rebuild (the ">|" button): the sum of their single prices, what buying them one
+-- by one costs, as the build price does not change with the levels.
+function levels.runPrice(buildPrice : number, tree : string, from : integer, to : integer) : integer
+	local total = 0
+	for level = from + 1, to do total = total + levels.levelPrice(buildPrice, tree, level) end
+	return total
+end
+
+-- Removing a level (the "<" button) refunds this share of its price at today's build price, what buying it back now would
+-- cost. Nothing records what a level cost or when it was bought (docs/design/spec.md, "Removing a level").
+levels.refundShare = 0.8
+
+function levels.refund(buildPrice : number, tree : string, level : integer) : integer
+	return round(levels.refundShare * levels.levelPrice(buildPrice, tree, level))
+end
+
 return levels
