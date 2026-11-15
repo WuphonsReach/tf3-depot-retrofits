@@ -3,7 +3,7 @@
 ## In short
 
 - **Where it stands.** 1.3 is on mod.io (mod id 6495416) and tagged `v1.3`. `main` reads `1.4-dev`. Test results are in [docs/design/findings.md](docs/design/findings.md) and [docs/compatibility.md](docs/compatibility.md); the finished items are in git history.
-- **Next.** 1.4: the "<", ">" and ">|" buttons, on branch `2026-11-08-step-buttons`. Buying and removing work in game (38 buys and 8 removals, each charged or refunded once, [docs/design/findings.md](docs/design/findings.md)); five checks are left. The checks below are optional; "Later" and the ideas are not planned.
+- **Next.** 1.4: the "<", ">" and ">|" buttons, on branch `2026-11-08-step-buttons`. Buying and removing work in game (70 buys and 18 removals over three sessions, each charged or refunded once, [docs/design/findings.md](docs/design/findings.md) has the first two); four checks are left. The checks below are optional; "Later" and the ideas are not planned.
 
 ## Release 1.3
 
@@ -13,35 +13,35 @@
 
 ## Release 1.4: the "<", ">" and ">|" buttons
 
-- [ ] In-game test of the buttons, at `logLevel` `"full"`. Done: sessions of 2026-11-08 and 2026-11-12 to 13 (logs `local/logs/2026-11-09-0721-step-buttons-stdout.txt` and `2026-11-14-0139-step-buttons-stdout.txt`), results in [docs/design/findings.md](docs/design/findings.md). Left:
+- [ ] In-game test of the buttons, at `logLevel` `"full"`. Done: sessions of 2026-11-08, 2026-11-12 to 13 and 2026-11-14 (logs `local/logs/2026-11-09-0721-step-buttons-stdout.txt`, `2026-11-14-0139-step-buttons-stdout.txt` and `2026-11-14-1356-step-buttons-stdout.txt`); results of the first two in [docs/design/findings.md](docs/design/findings.md). Left:
   - [x] The three buttons line up from card to card; "<" greyed at level 0.
-  - [ ] The buttons with the longest effect text ("-25% -> -30% of total") on a rail depot.
-  - [x] ">|" buys up to the rank in one rebuild, charged once at the sum of the single prices, the price the tab showed (`levelsBought=`; ranks 4, 5, 7 and 8; road, tram and maintenance buildings).
+  - [x] The buttons with the longest effect text on a rail depot: "-40% -> -45% of total" beside "Rank 9" fits, buttons lined up (2026-11-14, shots 07:05:28 and 07:40:39 EST).
+  - [x] ">|" buys up to the rank in one rebuild, charged once at the sum of the single prices, the price the tab showed (`levelsBought=`; ranks 4, 5, 7 and 8; road, tram and rail depots and maintenance buildings), also from part way up (pollution 3 → 8, upkeep 4 → 8).
   - [ ] ">|" short of money stops where the money ends (needs a save with little money). With one level left it sends the same buy as ">" (the log cannot tell the two buttons apart).
-  - [x] "<" removes the top level and refunds once 80% of that level's price today, the amount the tab showed (`buy refunded ... direction=down`; 8 in a row down to level 0, none lost or refused); the last removal's after-check (`removed=`) matches the formulas.
+  - [x] "<" removes the top level and refunds once 80% of that level's price today, the amount the tab showed (`buy refunded ... direction=down`; 18 removals on three retrofits down to level 0, two clicks in one second both landed, none lost or refused); the last removal's after-check (`removed=`) matches the formulas.
   - [ ] How the Finances tab shows a refund (no screenshot yet).
   - [ ] "<" on a level above the rank (needs a building levelled above the current rank).
   - [ ] A refused rebuild for a removal: "Not rebuilt" with the removal wording ("The level was kept and nothing was refunded"), and nothing refunded.
-- [ ] Retake the gallery's `2-retrofit-tabs.jpg` (and `3-not-rebuilt.jpg`, which shows a card) with the new buttons, under new file names, since mod.io keeps a picture under a name it already has.
+- [ ] Retake the gallery's `2-retrofit-tabs.jpg` (and `3-not-rebuilt.jpg`, which shows a card) with the new buttons, under new file names, since mod.io keeps a picture under a name it already has. Cards for 2-retrofit-tabs.jpg so far: a rail depot and a road maintenance building at rank 8 (2026-11-14 shots, below).
 
 ## Screenshots still to take
 
-For later gallery and info-card updates. Take them with the current prices (1.3-dev or later; the earlier ones are evicted from `local/gallery/2026-11-05-cards/`, which has only the "Not bought" note and one window crop). Take them with the TRM mods off, since TRM: Infrastructure Upkeep changes the upkeep figures. Take the full 4K shot, so the cards and the building both show; the window sits at about x 2870-3790.
+For later gallery and info-card updates. Take them with the current prices (1.3-dev or later; the earlier ones are evicted from `local/gallery/2026-11-05-cards/`, which has only the "Not bought" note and one window crop). Take them with the TRM mods off, since TRM: Infrastructure Upkeep changes the upkeep figures. Take the full 4K shot, so the cards and the building both show; the window sits at about x 2870-3790. Shots with the "<", ">" and ">|" buttons: one of 2026-11-08 (16:31 EST) and five of 2026-11-14 (07:05 to 07:40 EST, rank 8, no TRM); the earlier ones show the 1.3 buy button.
 
 - [ ] "Not rebuilt" with the house in red, as in the gallery's 3-not-rebuilt.jpg but with the 1.3 prices (Berkeley Maintenance Building in "333", house standing).
 - [ ] "Not bought: the buy could not be carried out" (the industry cross icon). Rare; needs a temporary refusal in the game script, as the noise test did for the money note.
 - [ ] A mix of company ranks, each with a full tab and the Summary card showing the rank (the rank decides how many boxes are grey, how many dark, and which cards read "Rank N" in place of the price):
   - [ ] Low rank (1 to 4): few buyable boxes, most of the row dark, most cards greyed with "Rank N".
-  - [ ] Mid rank (5 to 9): some levels bought, some buyable, some dark.
+  - [x] Mid rank (5 to 9): some levels bought, some buyable, some dark (rank 8: Artesia Maintenance Building 07:40:10, Quemado Oil Refinery Train Depot 07:40:39, 2026-11-14).
   - [ ] High rank (10 to 14): nearly all buyable; "Rank N" only at the last levels.
   - [ ] Max rank (15): no dark boxes; one retrofit at level 15 reading "Highest level" with all 15 boxes white, the others partly bought.
-  - [ ] Mixed levels at one rank: the five retrofits at different levels (for example radius 12, vehicles 3, pollution 0, noise 7, upkeep 15), some at the rank's limit and some below it.
+  - [ ] Mixed levels at one rank: the five retrofits at different levels (for example radius 12, vehicles 3, pollution 0, noise 7, upkeep 15), some at the rank's limit and some below it. Partly: the rail depot at 07:40:39 has upkeep at the limit, pollution 4, the rest 0.
 - [ ] The buy buttons greyed out for money, with the price still shown (balance below the next level).
 - [ ] A ">|" tooltip ("Buy levels 4 to 9 for $X.") and a "<" tooltip (the refund and the upkeep after it).
 - [ ] The money note at its start, with the yellow "Not bought: not enough money" note over the cards.
-- [ ] One full Retrofit tab per building type at a mid level on the 1.3 prices (a different rank for each, from the mix above): road depot, tram depot, rail depot, ship depot, boathouse, road maintenance, rail maintenance. Pollution and noise cards matter most, since their prices changed.
+- [ ] One full Retrofit tab per building type at a mid level on the 1.3 prices (a different rank for each, from the mix above): road depot, tram depot, rail depot, ship depot, boathouse, road maintenance, rail maintenance. Pollution and noise cards matter most, since their prices changed. Have: rail depot and road maintenance (rank 8, 2026-11-14).
 - [ ] A modular depot (Roundhouse) with stalls and levels, to show the vehicles card counting the modules.
-- [ ] The tab beside a level-0 building (no white boxes, every price at its level 1) as the "before" card.
+- [x] The tab beside a level-0 building (no white boxes, every price at its level 1) as the "before" card (rail depot 07:05:22, maintenance building 07:39:51, 2026-11-14).
 
 ## Optional checks
 
