@@ -7,6 +7,7 @@
 - **Fixed in 1.3, tested in game in both orders:** the wrapper is now loadable the way TRM loads a script, and a buy counts a depot as ours when TRM's wrapper sits outside ours. New depots place, buys land and are charged once, and the levels and TRM's halving multiply, with TRM before or after Depot Retrofits (test results below). The one risk left from reading the code, TRM picking up the wrong table from `ug_require`'s cache, did not show. Depot Retrofits takes no dependency on TRM.
 - **Expected to stack, from reading their code (not tested):** Station, Warehouse & Capacity Tuner and Noise & Pollution Tuner multiply the values a depot has, so their factors and the levels multiply. TRM: Infrastructure Upkeep leaves depots alone.
 - **Tested in game:** the Roundhouse, Modern Railway Depot and Boathouse mods' depots (docs/design/findings.md, "Other mods").
+- **Not wrapped on purpose:** airports, airfields and heliports. They have a depot (the hangar), but they are left to Station Retrofits, the sibling mod for stations (in development), so the two mods never wrap the same building.
 
 ## Known incompatibilities
 
@@ -27,6 +28,12 @@
 - **Noise & Pollution Tuner** (`edgar_noise_pollution_1`) multiplies the emissions the base emissions script sends for depots by a global factor, in its game script. The levels apply first, then its factor.
 - **TRM: Infrastructure Upkeep** (`trm_upkeep_rebalance_1`) skips everything under `depots/` when it changes upkeep.
 - **CRH EMU Maintenance Depot** is wrapped (it sits under `depots/`). The vehicles, radius and upkeep levels apply to the whole building, but its only emissions are on a warehouse part, and the wrapper scales emissions only on parts with a depot, so its pollution and noise levels do nothing.
+
+## Left to Station Retrofits: airports, airfields and heliports
+
+- **What they are.** Base airports and airfields get a depot from their hangar module, and the heliport from its own script; the facts are in docs/design/findings.md ("Air buildings have a depot too"). Depot Retrofits does not wrap them: they carry none of its depot markers.
+- **Why they stay out.** These buildings are mostly station. Their upkeep, build price and emissions come from all their modules, so levels priced and applied as for a depot would act on the runways and terminals too. A depot window script would also stop the station window from opening.
+- **Who covers them.** [Station Retrofits](https://github.com/WuphonsReach/tf3-station-retrofits), in development, lists them for a later version; the hangar's radius and vehicles would then be part of its card. Neither mod wraps a construction the other wraps: if both did, each would wrap the other's wrapper and both sets of levels would rebuild the same building.
 
 ## Declaring an incompatibility
 
