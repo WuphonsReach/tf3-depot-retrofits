@@ -13,6 +13,8 @@
 
 All road, tram, rail and water depots and maintenance buildings, including ones built before the mod was added. Depots from other mods get the tab too when they use the game's depot icons, are marked as a depot in their construction file, or sit in a `depots/` folder.
 
+Airports, airfields and heliports have a depot too, but get no Retrofit tab: they are mostly station, and are left to a separate mod for stations (Station Retrofits, in development).
+
 On a depot built from modules, such as the Roundhouse mod's, the levels also cover what the modules add: their vehicles and their upkeep.
 
 A newly placed building starts at level 0 in every retrofit. The build menu has no level options.
