@@ -23,7 +23,7 @@
 2. **Upload.** Start the game, open **Mod Hub**, then **My Mods**, and click the mod's card. In the dialog:
    - **Validation** should read "No Issues Found" (**Re-Validate** runs it again).
    - **Preview**: the cover. On the first upload click the slot (camera icon) and pick `0.jpg`; without a cover the card shows a "?".
-   - **Gallery**: `1-cover.jpg` (the cover again), `2-retrofit-tabs.jpg`, `3-not-rebuilt.jpg`, `4-ship-depot-2.jpg`, `5-boathouse-2.jpg`, `6-rail-maintenance-2.jpg` in that order. See [Gallery](#gallery) before moving any.
+   - **Gallery**: `1-cover.jpg` (the cover again), `2-retrofit-tabs-2.jpg`, `3-not-rebuilt-2.jpg`, `4-ship-depot-2.jpg`, `5-boathouse-2.jpg`, `6-rail-maintenance-2.jpg` in that order. See [Gallery](#gallery) before moving any.
    - Tick both **PC** and **Console** for the two files (Windows, Mac and Linux; Xbox Series X/S and PlayStation 5).
    - **Set Public** ticked. Unticked, the page is hidden from visitors.
    - **Update Metadata** ticked, so the page takes the name, summary, description and tags from `modinfo.json`.
@@ -37,13 +37,13 @@
 
 ## Gallery
 
-- **The cover is in the gallery only as the first gallery image.** `0.jpg` fills the dialog's Preview slot and the mod's card, but the gallery under the large image holds only the files after it and the large image opens on the first of them (seen in the mod's dialog in the save's Mods tab and in My Mods, staging copy, 31 Oct 2026). So `1-cover.jpg` is a copy of the cover, as in Best Before, and the window cards come next as `2-retrofit-tabs.jpg`. `tools/make_preview.py` run without OUT_FILE writes both `0.jpg` and `1-cover.jpg`.
+- **The cover is in the gallery only as the first gallery image.** `0.jpg` fills the dialog's Preview slot and the mod's card, but the gallery under the large image holds only the files after it and the large image opens on the first of them (seen in the mod's dialog in the save's Mods tab and in My Mods, staging copy, 31 Oct 2026). So `1-cover.jpg` is a copy of the cover, as in Best Before, and the window cards come next as `2-retrofit-tabs-2.jpg`. `tools/make_preview.py` run without OUT_FILE writes both `0.jpg` and `1-cover.jpg`.
 - **The order is the file names.** In Best Before's dialog the gallery showed its images sorted by name, and the page followed the dialog.
 - **Moving a thumbnail swaps the files.** Each thumbnail in the dialog has a small < (Move Left), > (Move Right) and bin over its top right corner. Moving one swaps the two files' contents on disk and writes nothing else, so a named file would end up holding another picture. Reorder by renaming the files in the repo instead; if the dialog was used, fix the names to match the pictures before committing.
 - **mod.io keeps old names.** A file uploaded under a name mod.io already holds is stored under a new name (`0.4.jpg`, `workshop_preview.1.jpg`) and the old one stays on its image server.
 - **An update does not send a gallery image whose name mod.io already has.** The cover went up at every upload (`0.jpg` to `0.4.jpg` on the image server after five uploads). The gallery went up at 1.0 and again at 1.1, which added `6.jpg`; 1.1.1, 1.2 and a later update with the gallery reordered sent none, so the page kept 1.1's `2.jpg` and `6.jpg` after 1.2 replaced them on disk. So a changed picture gets a new name after the number (`3-not-rebuilt-2.jpg`). Renaming all six to `<n>-<name>.jpg` worked: the next update sent all six, stored under their own names and byte for byte the files on disk (1 Nov 2026). Whether one new name sends only that file or the whole gallery again is not known yet.
 - **An update for the images alone sends the mod file too.** The reordered update added a new pair of files (Windows, Mac and Linux; Xbox Series X/S and PlayStation 5) with the same code: after five uploads the page listed two files and "8 other versions", and the renamed gallery's update added another pair, showing about two minutes later ("10 other versions", each pair with its own changelog line). So a gallery fix is best sent with a release.
-- **Thumbnails are cropped to 16:9**, so every image is 1920x1080. `2-retrofit-tabs.jpg` is drawn by `tools/make_gallery.py` (its docstring has the command); the others after it are game screenshots cropped to 16:9, so the shot must leave room above and below the window (a shot narrower than 16:9 loses the window's title or footer).
+- **Thumbnails are cropped to 16:9**, so every image is 1920x1080. `2-retrofit-tabs-2.jpg` is drawn by `tools/make_gallery.py` (its docstring has the command); the others after it are game screenshots cropped to 16:9, so the shot must leave room above and below the window (a shot narrower than 16:9 loses the window's title or footer).
 
 ## Hub search and tiles
 
