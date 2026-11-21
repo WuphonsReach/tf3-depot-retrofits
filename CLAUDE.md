@@ -34,9 +34,9 @@ python3 tools/check_repo.py
 # Redraw the mod's cover (depot_retrofits_1/_metadata/0.jpg, the uploader's Preview slot, and its copy 1-cover.jpg, the first gallery image; 1920x1080; needs rsvg-convert and the Lato font)
 python3 tools/make_preview.py [--version 1.0] [--keep-svg local/preview/cover.svg]   # the version goes in the upper right corner, kept clear for it
 
-# Redraw the gallery's 2-retrofit-tabs.jpg: hand-cropped screenshots of the building window, laid as a pile of cards on the cover's background
-python3 tools/make_gallery.py depot_retrofits_1/_metadata/2-retrofit-tabs.jpg CARD.png[:angle[:dy[:slot]]] ...   # the docstring has the command for the current image
-# 3-not-rebuilt.jpg to 6-rail-maintenance.jpg are game screenshots cropped to 16:9 and scaled to 1920x1080 (the listing's thumbnails are cropped to 16:9). The layout: 0.jpg is the cover, <n>-<name>.jpg the gallery in file-name order with 1-cover.jpg a copy of the cover, no workshop_preview.jpg (docs/publishing.md)
+# Redraw the gallery's 2-retrofit-tabs-2.jpg: hand-cropped screenshots of the building window, laid as a pile of cards on the cover's background
+python3 tools/make_gallery.py depot_retrofits_1/_metadata/2-retrofit-tabs-2.jpg CARD.png[:angle[:dy[:slot]]] ...   # the docstring has the command for the current image
+# 3-not-rebuilt-2.jpg to 6-rail-maintenance-2.jpg are game screenshots cropped to 16:9 and scaled to 1920x1080 (the listing's thumbnails are cropped to 16:9). The layout: 0.jpg is the cover, <n>-<name>.jpg the gallery in file-name order with 1-cover.jpg a copy of the cover, no workshop_preview.jpg (docs/publishing.md)
 ```
 
 Run `tl check` on each script you touch.
