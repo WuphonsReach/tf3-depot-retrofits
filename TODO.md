@@ -2,8 +2,8 @@
 
 ## In short
 
-- **Where it stands.** 1.3 is on mod.io (mod id 6495416) and tagged `v1.3`. `main` reads `1.4-dev`. Test results are in [docs/design/findings.md](docs/design/findings.md) and [docs/compatibility.md](docs/compatibility.md); the finished items are in git history.
-- **Next.** Release 1.4 (release PR open, `modVersion` 1.4, changelog dated): the "<", ">" and ">|" buttons (PR #55) and the gallery retaken with them (PR #57). Merge, then upload and test the published copy ([docs/publishing.md](docs/publishing.md)). Buying and removing work in game (102 buys and 19 removals over four sessions, each charged or refunded once; refused rebuilds charged nothing; [docs/design/findings.md](docs/design/findings.md)). The four checks and the tram depot shot left for 1.4 are optional and do not hold up the release; the checks below them, "Later" and the ideas are not planned.
+- **Where it stands.** 1.4 is on mod.io (mod id 6495416) and tagged `v1.4`. `main` reads `1.5-dev`. Test results are in [docs/design/findings.md](docs/design/findings.md) and [docs/compatibility.md](docs/compatibility.md); the finished items are in git history.
+- **Next.** Nothing is planned for 1.5. The checks left from 1.4 are optional; the checks below them, "Later" and the ideas are not planned.
 
 ## Release 1.3
 
@@ -13,6 +13,7 @@
 
 ## Release 1.4: the "<", ">" and ">|" buttons
 
+- [x] Release ([docs/publishing.md](docs/publishing.md)): published copy tested, `v1.4` on `1075ad2`.
 - [x] In-game test of the buttons, at `logLevel` `"full"`. Done: sessions of 2026-11-08, 2026-11-12 to 13, 2026-11-14 and 2026-11-15 (logs `local/logs/2026-11-09-0721-step-buttons-stdout.txt`, `2026-11-14-0139-`, `2026-11-14-1356-` and `2026-11-15-1055-step-buttons-stdout.txt`), results in [docs/design/findings.md](docs/design/findings.md). Checked:
   - [x] The three buttons line up from card to card; "<" greyed at level 0.
   - [x] The buttons with the longest effect text on a rail depot: "-40% -> -45% of total" beside "Rank 9" fits, buttons lined up (2026-11-14, shots 07:05:28 and 07:40:39 EST).
@@ -21,9 +22,9 @@
   - [x] A refused rebuild for a buy with the new buttons, ">|" included: "Not rebuilt" and the blocker in red, nothing charged (9 refused, 7 replaced by a retry, 2 expired after 30 s); after clearing, ">|" to 13 landed and was charged once ("333": Berkeley Maintenance Building, Berkeley Road Depot).
 - [x] Retake the gallery with the new buttons, under new file names (mod.io keeps a picture under a name it already has): `2-retrofit-tabs-2.jpg` from Artesia Maintenance Building and Quemado Oil Refinery Train Depot (rank 8, 2026-11-14 07:40:10 and 07:40:39), Peterlee Refinery West Ship Depot (rank 15, 2026-11-21 06:00:19) and Berkeley Maintenance Building's "Not rebuilt" (rank 13, 2026-11-15 04:57:11), cropped into `tools/gallery/`; `3-not-rebuilt-2.jpg` from that Berkeley shot; `4-ship-depot-2.jpg`, `5-boathouse-2.jpg` and `6-rail-maintenance-2.jpg` from the 2026-11-21 shots at 06:00:19, 05:59:33 and 06:01:40. To go up with the 1.4 release.
 
-### Optional for 1.4
+### Optional, left from 1.4
 
-Worth doing if a session allows; the release does not wait for them.
+Worth doing if a session allows.
 
 - [ ] ">|" short of money stops where the money ends (needs a save with little money). With one level left it sends the same buy as ">" (the log cannot tell the two buttons apart).
 - [ ] How the Finances tab shows a refund (no screenshot yet).
