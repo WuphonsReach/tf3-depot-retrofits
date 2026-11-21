@@ -2,6 +2,10 @@
 
 Newest first. The number in the title is `modVersion` at the top of [mod.script.tl](depot_retrofits_1/content/mod.script.tl), which the game log prints at every load as `DEPOT_RETROFITS version <number>` (between releases it reads the next number with "-dev", for example `1.1-dev`). Each entry's last line is the one-liner for the Changelog field of the in-game uploader ([how to release](docs/publishing.md#releasing-a-version)). mod.io labels every uploaded file "1.0", whatever the number here is, so the number in this file and in the log is the one that tells builds apart.
 
+## 1.5 (not released)
+
+Nothing yet.
+
 ## 1.4 (2026-11-21)
 
 - **Buy all levels at once, and remove a level.** Each retrofit's buy button is now three small buttons, as in Station Retrofits: **>** buys the next level, **>|** buys every level your rank and your money allow in one rebuild (for the same total as buying them one by one), and **<** removes the top level and gives back 80% of what that level costs today. A mistaken buy can now be undone for a fifth of its price. The next level's price, or "Rank N", stays beside the buttons; hover over a button for what it buys or gives back. Removing a level rebuilds the building, as a buy does.
