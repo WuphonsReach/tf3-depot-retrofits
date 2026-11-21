@@ -3,7 +3,7 @@
 ## In short
 
 - **Where it stands.** 1.3 is on mod.io (mod id 6495416) and tagged `v1.3`. `main` reads `1.4-dev`. Test results are in [docs/design/findings.md](docs/design/findings.md) and [docs/compatibility.md](docs/compatibility.md); the finished items are in git history.
-- **Next.** The 1.4 release: the "<", ">" and ">|" buttons are on `main` (PR #55) and the gallery is retaken with them (PR #57). Buying and removing work in game (102 buys and 19 removals over four sessions, each charged or refunded once; refused rebuilds charged nothing; [docs/design/findings.md](docs/design/findings.md)). The four checks and the tram depot shot left for 1.4 are optional and do not hold up the release; the checks below them, "Later" and the ideas are not planned.
+- **Next.** Release 1.4 (release PR open, `modVersion` 1.4, changelog dated): the "<", ">" and ">|" buttons (PR #55) and the gallery retaken with them (PR #57). Merge, then upload and test the published copy ([docs/publishing.md](docs/publishing.md)). Buying and removing work in game (102 buys and 19 removals over four sessions, each charged or refunded once; refused rebuilds charged nothing; [docs/design/findings.md](docs/design/findings.md)). The four checks and the tram depot shot left for 1.4 are optional and do not hold up the release; the checks below them, "Later" and the ideas are not planned.
 
 ## Release 1.3
 
